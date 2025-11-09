@@ -33,7 +33,7 @@ local function getSurvivorItem(player)
     for _, obj in pairs(player.Character:GetDescendants()) do
         if obj:IsA("Tool") or obj:IsA("Accessory") or obj:IsA("Model") then
             if displayNames[obj.Name] then
-                return "("..displayNames[obj.Name]..")" -- Nome customizado entre parênteses
+                return "("..displayNames[obj.Name]..")"
             end
         end
     end
@@ -49,12 +49,18 @@ local function trackObject(obj)
     elseif n:find("gate") then trackedObjects[obj] = "ExitGates"
     elseif n:find("window") then trackedObjects[obj] = "Windows" end
 end
-for _,v in ipairs(Workspace:GetDescendants()) do
-    if v:IsA("Model") then trackObject(v) end
+
+local function initializeTrackedObjects()
+    for _,v in ipairs(Workspace:GetDescendants()) do
+        if v:IsA("Model") then trackObject(v) end
+    end
 end
-Workspace.DescendantAdded:Connect(function(obj)
-    if obj:IsA("Model") then trackObject(obj) end
-end)
+
+local function setupDescendantTracking()
+    Workspace.DescendantAdded:Connect(function(obj)
+        if obj:IsA("Model") then trackObject(obj) end
+    end)
+end
 
 -- ===================== ROLE =====================
 local function getRole(p)
@@ -85,6 +91,7 @@ local function ensureHighlight(model, color)
         hl.OutlineColor = Color3.fromRGB(255,255,255)
     end
 end
+
 local function clearHighlight(model)
     if model and model:FindFirstChild("VD_HL") then
         model.VD_HL:Destroy()
@@ -121,6 +128,7 @@ local function ensureLabel(model, text)
         end
     end
 end
+
 local function clearLabel(model)
     if model and model:FindFirstChild("VD_Label") then
         model.VD_Label:Destroy()
@@ -148,11 +156,13 @@ local function getGeneratorProgress(gen)
     progress = (progress > 1) and progress / 100 or progress
     return math.clamp(progress, 0, 1)
 end
+
 local function getProgressColor(percent)
     local r = 255*(1-percent)
     local g = 255*percent
     return Color3.fromRGB(r,g,0)
 end
+
 local function generatorFinished(gen)
     return getGeneratorProgress(gen) >= 0.99 or gen:FindFirstChild("Finished") or gen:FindFirstChild("Repaired")
 end
@@ -164,14 +174,12 @@ local function applyFOV()
     end
 end
 
-workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-    task.wait(0.1)
-    Camera = workspace.CurrentCamera
-end)
-
-RunService.RenderStepped:Connect(function()
-    applyFOV()
-end)
+local function setupFOVTracking()
+    workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+        task.wait(0.1)
+        Camera = workspace.CurrentCamera
+    end)
+end
 
 -- ===================== HITBOX =====================
 local playerHitboxes = {}
@@ -180,14 +188,16 @@ local hitboxEnabledAll = false
 local headSize = 12
 local hitboxTransparency = 1
 
-Players.PlayerRemoving:Connect(function(player)
-    if playerHitboxes[player] then
-        playerHitboxes[player]:Destroy()
-        playerHitboxes[player] = nil
-    end
-end)
+local function setupPlayerHitboxCleanup()
+    Players.PlayerRemoving:Connect(function(player)
+        if playerHitboxes[player] then
+            playerHitboxes[player]:Destroy()
+            playerHitboxes[player] = nil
+        end
+    end)
+end
 
-RunService.RenderStepped:Connect(function()
+local function updateHitboxes()
     local roleLP = getRole(LP)
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LP and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
@@ -215,7 +225,7 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-end)
+end
 
 -- ===================== UPDATE ESP =====================
 local function updatePlayersESP()
@@ -242,7 +252,6 @@ local function updatePlayersESP()
                             clearLabel(p.Character)
                         end
                     else
-                        -- Survivors: adicionar item
                         local item = getSurvivorItem(p)
                         if item then
                             labelText = labelText.." <font color='rgb(0,255,255)'>"..item.."</font>"
@@ -259,7 +268,7 @@ local function updatePlayersESP()
     end
 end
 
-RunService.Heartbeat:Connect(function()
+local function updateObjectsESP()
     local LPPos = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character.HumanoidRootPart.Position
     if not LPPos then return end
 
@@ -301,71 +310,73 @@ RunService.Heartbeat:Connect(function()
             end
         end
     end
-
-    updatePlayersESP()
-end)
-
--- ===================== GUI =====================
-local Window = Rayfield:CreateWindow({
-    Name="VD (Moon)",
-    LoadingTitle="VD (ESP)",
-    LoadingSubtitle="By Yang",
-    ConfigurationSaving={Enabled=true,FolderName="VD_Suite",FileName="vd_config"},
-    KeySystem=false
-})
-
--- ===================== ABA TOGGLES =====================
-local TabToggles = Window:CreateTab("ESP Toggles")
-TabToggles:CreateToggle({Name="Windows ESP", CurrentValue=espSettings.Windows.Enabled, Flag="WindowsESP", Callback=function(v) espSettings.Windows.Enabled=v end})
-TabToggles:CreateToggle({Name="Generators ESP", CurrentValue=espSettings.Generators.Enabled, Flag="GeneratorsESP", Callback=function(v) espSettings.Generators.Enabled=v end})
-TabToggles:CreateToggle({Name="Pallets ESP", CurrentValue=espSettings.Pallets.Enabled, Flag="PalletsESP", Callback=function(v) espSettings.Pallets.Enabled=v end})
-TabToggles:CreateToggle({Name="Exit Gates ESP", CurrentValue=espSettings.ExitGates.Enabled, Flag="ExitGatesESP", Callback=function(v) espSettings.ExitGates.Enabled=v end})
-TabToggles:CreateToggle({Name="Killers ESP", CurrentValue=espSettings.Killers.Enabled, Flag="KillersESP", Callback=function(v) espSettings.Killers.Enabled=v end})
-TabToggles:CreateToggle({Name="Survivors ESP", CurrentValue=espSettings.Survivors.Enabled, Flag="SurvivorsESP", Callback=function(v) espSettings.Survivors.Enabled=v end})
-
-TabToggles:CreateSlider({
-    Name="Distância Máxima",
-    Range={50,1000},
-    Increment=10,
-    Suffix=" studs",
-    CurrentValue=DistanceCheck,
-    Flag="DistanceCheck",
-    Callback=function(v) DistanceCheck=v end
-})
-
-TabToggles:CreateSlider({
-    Name="FOV",
-    Range={70,120},
-    Increment=1,
-    Suffix="°",
-    CurrentValue=DESIRED_FOV,
-    Flag="FOVSlider",
-    Callback=function(v) DESIRED_FOV=v end
-})
-
--- ===================== ABA COLORS =====================
-local TabColors = Window:CreateTab("ESP Colors")
-local function createColorPicker(name, setName)
-    TabColors:CreateColorPicker({
-        Name=name,
-        Color=espSettings[setName].Color,
-        Flag=name:gsub(" ",""),
-        Default=espSettings[setName].Color,
-        Callback=function(c)
-            espSettings[setName].Color=c
-        end
-    })
-end
-for _, setName in pairs({"Windows","Generators","Pallets","ExitGates","Killers","Survivors"}) do
-    createColorPicker(setName.." ESP Color", setName)
 end
 
--- ===================== ABA HITBOX =====================
-local TabHitbox = Window:CreateTab("Hitbox")
-TabHitbox:CreateToggle({Name="Hitbox (Killer Only)", CurrentValue=false, Flag="HitboxToggleKiller", Callback=function(v) hitboxEnabledKiller=v end})
-TabHitbox:CreateToggle({Name="Hitbox (All Players)", CurrentValue=false, Flag="HitboxToggleAll", Callback=function(v) hitboxEnabledAll=v end})
-TabHitbox:CreateSlider({Name="Hitbox Size", Range={4,30}, Increment=1, Suffix=" studs", CurrentValue=headSize, Flag="HitboxSize", Callback=function(v) headSize=v end})
-TabHitbox:CreateSlider({Name="Hitbox Transparency", Range={0,1}, Increment=0.05, Suffix="", CurrentValue=hitboxTransparency, Flag="HitboxTransparency", Callback=function(v) hitboxTransparency=v end})
+-- ===================== CONFIGURAÇÃO FUNÇÕES =====================
+local function setFOV(value)
+    DESIRED_FOV = value
+end
 
--- ===================== DESATIVAR NOTIFICAÇÕES =====================
-if Rayfield.Notify then Rayfield.Notify = function() end end
+local function setDistanceCheck(value)
+    DistanceCheck = value
+end
+
+local function setESPEnabled(type, value)
+    if espSettings[type] then
+        espSettings[type].Enabled = value
+    end
+end
+
+local function setESPColor(type, color)
+    if espSettings[type] then
+        espSettings[type].Color = color
+    end
+end
+
+local function setHitboxKillerEnabled(value)
+    hitboxEnabledKiller = value
+end
+
+local function setHitboxAllEnabled(value)
+    hitboxEnabledAll = value
+end
+
+local function setHitboxSize(value)
+    headSize = value
+end
+
+local function setHitboxTransparency(value)
+    hitboxTransparency = value
+end
+
+-- ===================== INICIALIZAÇÃO =====================
+local function initialize()
+    initializeTrackedObjects()
+    setupDescendantTracking()
+    setupFOVTracking()
+    setupPlayerHitboxCleanup()
+    
+    RunService.RenderStepped:Connect(function()
+        applyFOV()
+        updateHitboxes()
+    end)
+    
+    RunService.Heartbeat:Connect(function()
+        updateObjectsESP()
+        updatePlayersESP()
+    end)
+end
+
+-- Retornar funções públicas
+return {
+    initialize = initialize,
+    setFOV = setFOV,
+    setDistanceCheck = setDistanceCheck,
+    setESPEnabled = setESPEnabled,
+    setESPColor = setESPColor,
+    setHitboxKillerEnabled = setHitboxKillerEnabled,
+    setHitboxAllEnabled = setHitboxAllEnabled,
+    setHitboxSize = setHitboxSize,
+    setHitboxTransparency = setHitboxTransparency,
+    getSettings = function() return espSettings end
+}
