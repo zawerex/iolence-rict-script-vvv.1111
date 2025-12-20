@@ -148,13 +148,13 @@ local function LoadModule(tabName)
     
     -- URL для GitHub модулей (обновите на свои реальные ссылки)
     local githubUrls = {
-        Survivor = "https://raw.githubusercontent.com/yourusername/nexus-modules/main/Survivor.lua",
-        Killer = "https://raw.githubusercontent.com/yourusername/nexus-modules/main/Killer.lua",
-        Movement = "https://raw.githubusercontent.com/yourusername/nexus-modules/main/Movement.lua",
-        Visual = "https://raw.githubusercontent.com/yourusername/nexus-modules/main/Visual.lua",
-        Fun = "https://raw.githubusercontent.com/yourusername/nexus-modules/main/Fun.lua",
-        Binds = "https://raw.githubusercontent.com/yourusername/nexus-modules/main/Binds.lua",
-        Settings = "https://raw.githubusercontent.com/yourusername/nexus-modules/main/Settings.lua"
+        Survivor = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Survivor%20Module.lua",
+        Killer = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Killer.lua",
+        Movement = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Movement.lua",
+        Visual = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Visual.lua",
+        Fun = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Fun.lua",
+        Binds = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Binds.lua",
+        Settings = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Settings.lua"
     }
     
     local moduleUrl = githubUrls[tabName]
