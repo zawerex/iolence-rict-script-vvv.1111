@@ -1,17 +1,13 @@
--- main.lua - Основной загрузчик Nexus (обновленный)
-local UIS = game:GetService("UserInputService")
-local IS_MOBILE = (UIS.TouchEnabled and not UIS.KeyboardEnabled)
-local IS_DESKTOP = (UIS.KeyboardEnabled and not UIS.TouchEnabled)
+-- ==============================================
+-- NEXUS - Violence District (Modular Structure)
+-- ==============================================
 
--- Получение метатаблицы для хуков
-local getrawmetatable = getrawmetatable
-if not getrawmetatable then
-    getrawmetatable = function() 
-        return nil 
-    end
-end
+-- Загрузка основных библиотек
+local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/zawerex/Nex1/refs/heads/main/Library/Nexus"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
--- Глобальные сервисы
+-- Инициализация сервисов
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -21,24 +17,61 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local TweenService = game:GetService("TweenService")
 
+-- Определение платформы
+local UIS = UserInputService
+local IS_MOBILE = (UIS.TouchEnabled and not UIS.KeyboardEnabled)
+local IS_DESKTOP = (UIS.KeyboardEnabled and not UIS.TouchEnabled)
+
 -- Глобальные переменные
 local player = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 
--- Таблица для хранения модулей и их состояния
-local Nexus = {
+-- Глобальный объект для хранения всех данных
+_G.Nexus = {
+    Player = player,
+    Camera = camera,
+    Services = {
+        Players = Players,
+        RunService = RunService,
+        UserInputService = UserInputService,
+        Lighting = Lighting,
+        Workspace = Workspace,
+        ReplicatedStorage = ReplicatedStorage,
+        VirtualInputManager = VirtualInputManager,
+        TweenService = TweenService
+    },
+    IS_MOBILE = IS_MOBILE,
+    IS_DESKTOP = IS_DESKTOP,
+    Fluent = Fluent,
+    Options = Fluent.Options,
     Modules = {},
-    Functions = {},
-    Tabs = {},
-    Options = {},
-    Settings = {},
-    Connections = {},
-    LoadedTabs = {},
-    SaveManager = nil,
-    InterfaceManager = nil
+    States = {
+        InstantHealRunning = false,
+        SilentHealRunning = false,
+        autoHealEnabled = false,
+        autoSkillEnabled = false,
+        NoSlowdownEnabled = false,
+        antiFailEnabled = false,
+        noclipEnabled = false,
+        fullbrightEnabled = false,
+        AutoParryEnabled = false,
+        AutoParryV2Enabled = false,
+        KillerAntiBlindEnabled = false,
+        GateToolEnabled = false,
+        InfiniteLungeEnabled = false,
+        FlyEnabled = false,
+        FreeCameraEnabled = false,
+        WalkSpeedEnabled = false,
+        OneHitKillEnabled = false,
+        DestroyPalletsEnabled = false,
+        BreakGeneratorEnabled = false,
+        NoFallEnabled = false,
+        NoTurnLimitEnabled = false
+    },
+    Connections = {}
 }
 
--- Функция безопасного выполнения
+-- Функция для безопасного выполнения callback
 local function SafeCallback(callback, ...)
     if type(callback) == "function" then
         local success, result = pcall(callback, ...)
@@ -50,7 +83,9 @@ local function SafeCallback(callback, ...)
     return false
 end
 
--- Функция безопасного отключения соединений
+_G.Nexus.SafeCallback = SafeCallback
+
+-- Функция для безопасного отключения соединений
 local function safeDisconnect(conn)
     if conn and typeof(conn) == "RBXScriptConnection" then
         pcall(function() 
@@ -60,7 +95,9 @@ local function safeDisconnect(conn)
     return nil
 end
 
--- Функции для работы с персонажем
+_G.Nexus.safeDisconnect = safeDisconnect
+
+-- Вспомогательные функции
 local function getCharacter()
     return player.Character
 end
@@ -75,212 +112,114 @@ local function getRootPart()
     return char and char:FindFirstChild("HumanoidRootPart")
 end
 
--- Загрузка библиотек
-local Fluent
+_G.Nexus.getCharacter = getCharacter
+_G.Nexus.getHumanoid = getHumanoid
+_G.Nexus.getRootPart = getRootPart
 
-local function LoadLibraries()
-    local success, fluentResult = pcall(function()
-        return loadstring(game:HttpGet("https://raw.githubusercontent.com/zawerex/Nex1/refs/heads/main/Library/Nexus"))()
+-- Функция загрузки модулей с GitHub
+local function loadModule(url)
+    local success, module = pcall(function()
+        return loadstring(game:HttpGet(url))()
     end)
-    
-    if not success then
-        warn("Failed to load Fluent library:", fluentResult)
-        return false
-    end
-    
-    Fluent = fluentResult
-    
-    -- Загружаем SaveManager и InterfaceManager
-    local success2, saveResult = pcall(function()
-        return loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
-    end)
-    
-    if success2 then
-        Nexus.SaveManager = saveResult
-    else
-        warn("Failed to load SaveManager:", saveResult)
-    end
-    
-    local success3, interfaceResult = pcall(function()
-        return loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
-    end)
-    
-    if success3 then
-        Nexus.InterfaceManager = interfaceResult
-    else
-        warn("Failed to load InterfaceManager:", interfaceResult)
-    end
-    
-    return true
-end
-
--- Загрузка модуля с GitHub
-local function LoadModuleFromGitHub(url)
-    local success, result = pcall(function()
-        local content = game:HttpGet(url)
-        local moduleFunction, errorMessage = loadstring(content)
-        if moduleFunction then
-            return moduleFunction()
-        else
-            error("Failed to load module: " .. (errorMessage or "Unknown error"))
-        end
-    end)
-    
     if success then
-        return result
+        return module
     else
-        warn("Failed to load module from", url, ":", result)
+        warn("Failed to load module from: " .. url)
         return nil
     end
 end
 
--- Загрузка модуля локально (резервный вариант)
-local function LoadModuleLocally(moduleName)
-    -- Резервные встроенные модули (можно добавить при необходимости)
-    return nil
-end
+-- Загрузка модулей
+local modulesToLoad = {
+    ["Helpers"] = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/helpers.lua",
+    ["UI"] = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/UI.lua",
+    ["Survivor"] = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Survivor%20Module.lua",
+    ["Killer"] = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Killer.lua",
+    ["Movement"] = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Movement.lua",
+    ["Fun"] = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Others.lua",
+    ["Visual"] = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Visual.lua",
+    ["Binds"] = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Binds.lua"
+}
 
--- Основная функция загрузки модуля
-local function LoadModule(tabName)
-    if Nexus.LoadedTabs[tabName] then
-        return Nexus.LoadedTabs[tabName]
-    end
-    
-    -- URL для GitHub модулей (обновите на свои реальные ссылки)
-    local githubUrls = {
-        Survivor = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Survivor%20Module.lua",
-        Killer = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Killer.lua",
-        Movement = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Movement.lua",
-        Visual = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Visual.lua",
-        Fun = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Fun.lua",
-        Binds = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Binds.lua",
-        Settings = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Settings.lua"
-    }
-    
-    local moduleUrl = githubUrls[tabName]
-    local module
-    
-    if moduleUrl then
-        module = LoadModuleFromGitHub(moduleUrl)
-    end
-    
-    -- Если загрузка с GitHub не удалась, пробуем локальную загрузку
-    if not module then
-        module = LoadModuleLocally(tabName)
-    end
-    
+-- Загрузка каждого модуля
+for moduleName, url in pairs(modulesToLoad) do
+    local module = loadModule(url)
     if module then
-        Nexus.LoadedTabs[tabName] = module
-        return module
+        _G.Nexus.Modules[moduleName] = module
+        print("✓ Loaded module:", moduleName)
     end
-    
-    return nil
 end
 
--- Инициализация главного окна
-local function InitializeWindow()
-    local windowSize = IS_MOBILE and UDim2.fromOffset(350, 200) or UDim2.fromOffset(570, 550)
-    
-    local Window = Fluent:CreateWindow({
-        Title = "NEXUS",
-        SubTitle = "Violence District",
-        Search = false,
-        Icon = "",
-        TabWidth = 120,
-        Size = windowSize,  
-        Acrylic = false,
-        Theme = "Darker",
-        MinimizeKey = Enum.KeyCode.LeftControl,
-        UserInfo = true,
-        UserInfoTop = false,
-        UserInfoTitle = player.DisplayName,
-        UserInfoSubtitle = "user",
-        UserInfoSubtitleColor = Color3.fromRGB(255, 250, 250)
-    })
-    
-    Nexus.Window = Window
-    Nexus.Options = Fluent.Options
-    
-    -- Создание вкладок
-    Nexus.Tabs = {
-        Main = Window:AddTab({ Title = "Survivor", Icon = "snowflake" }),
-        Killer = Window:AddTab({ Title = "Killer", Icon = "snowflake" }),
-        Movement = Window:AddTab({ Title = "Movement", Icon = "snowflake" }), 
-        Fun = Window:AddTab({ Title = "Other", Icon = "snowflake" }),
-        Visual = Window:AddTab({ Title = "Visual & ESP", Icon = "snowflake" }),
-    }
-    
-    if IS_DESKTOP then
-        Nexus.Tabs.Binds = Window:AddTab({ Title = "Binds", Icon = "snowflake" })
-    end
-    
-    -- Settings всегда последняя
-    Nexus.Tabs.Settings = Window:AddTab({ Title = "Settings", Icon = "snowflake" })
-    
-    -- Минимайзер для мобильных устройств
-    if IS_MOBILE then
-        Nexus.Minimizer = Fluent:CreateMinimizer({
-            Icon = "snowflake",
-            Size = UDim2.fromOffset(21, 21),
-            Position = UDim2.new(0, 320, 0, 24),
-            Acrylic = true,
-            Corner = 8,
-            Transparency = 0.9,
-            Draggable = true,
-            Visible = true
-        })
-    end
-    
-    return Window
+-- Проверяем, загрузились ли все модули
+if not _G.Nexus.Modules.UI then
+    -- Создаем простой UI модуль если не загрузился
+    warn("UI module failed to load, creating basic UI...")
+    _G.Nexus.Modules.UI = require(script.UI)
 end
 
--- Основная функция инициализации
-local function InitializeNexus()
-    -- Загружаем библиотеки
-    if not LoadLibraries() then
-        warn("Failed to load required libraries")
-        return false
+-- Инициализация
+local function initializeNexus()
+    print("Initializing Nexus...")
+    
+    -- Инициализация UI
+    if _G.Nexus.Modules.UI and _G.Nexus.Modules.UI.Init then
+        _G.Nexus.Modules.UI.Init(_G.Nexus)
     end
     
-    -- Инициализируем окно
-    InitializeWindow()
+    -- Инициализация вкладки Survivor
+    if _G.Nexus.Modules.Survivor and _G.Nexus.Modules.Survivor.Init then
+        _G.Nexus.Modules.Survivor.Init(_G.Nexus)
+    end
     
-    -- Начинаем загрузку модулей
-    task.spawn(function()
-        -- Загружаем основные модули
-        local coreModules = {"Survivor", "Killer", "Movement", "Visual", "Fun"}
-        
-        for _, moduleName in ipairs(coreModules) do
-            task.spawn(function()
-                local module = LoadModule(moduleName)
-                if module and module.Initialize then
-                    module.Initialize(Nexus)
-                end
-            end)
-            task.wait(0.5) -- Задержка между загрузкой модулей
-        end
-        
-        -- Загружаем Binds только для десктопа
-        if IS_DESKTOP then
-            task.wait(1)
-            local bindsModule = LoadModule("Binds")
-            if bindsModule and bindsModule.Initialize then
-                bindsModule.Initialize(Nexus)
-            end
-        end
-        
-        -- Загружаем Settings (последним)
-        task.wait(1)
-        local settingsModule = LoadModule("Settings")
-        if settingsModule and settingsModule.Initialize then
-            settingsModule.Initialize(Nexus)
-        end
-    end)
+    -- Инициализация вкладки Killer
+    if _G.Nexus.Modules.Killer and _G.Nexus.Modules.Killer.Init then
+        _G.Nexus.Modules.Killer.Init(_G.Nexus)
+    end
     
-    -- Выбираем первую вкладку
-    Nexus.Window:SelectTab(1)
+    -- Инициализация вкладки Movement
+    if _G.Nexus.Modules.Movement and _G.Nexus.Modules.Movement.Init then
+        _G.Nexus.Modules.Movement.Init(_G.Nexus)
+    end
     
-    -- Уведомление об успешной загрузке
+    -- Инициализация вкладки Fun
+    if _G.Nexus.Modules.Fun and _G.Nexus.Modules.Fun.Init then
+        _G.Nexus.Modules.Fun.Init(_G.Nexus)
+    end
+    
+    -- Инициализация вкладки Visual
+    if _G.Nexus.Modules.Visual and _G.Nexus.Modules.Visual.Init then
+        _G.Nexus.Modules.Visual.Init(_G.Nexus)
+    end
+    
+    -- Инициализация вкладки Binds
+    if _G.Nexus.Modules.Binds and _G.Nexus.Modules.Binds.Init then
+        _G.Nexus.Modules.Binds.Init(_G.Nexus)
+    end
+    
+    -- Настройка сохранения
+    SaveManager:SetLibrary(Fluent)
+    InterfaceManager:SetLibrary(Fluent)
+    SaveManager:IgnoreThemeSettings()
+    SaveManager:SetIgnoreIndexes({})
+    
+    InterfaceManager:SetFolder("FluentScriptHub")
+    SaveManager:SetFolder("FluentScriptHub/violence-district")
+    
+    -- Добавляем вкладку Settings
+    if _G.Nexus.Window then
+        local Tabs = _G.Nexus.Tabs
+        Tabs.Settings = _G.Nexus.Window:AddTab({ Title = "Settings", Icon = "snowflake" })
+        
+        InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+        SaveManager:BuildConfigSection(Tabs.Settings)
+        
+        _G.Nexus.Window:SelectTab(1)
+    end
+    
+    -- Загружаем сохраненную конфигурацию
+    SaveManager:LoadAutoloadConfig()
+    
+    -- Уведомление о загрузке
     if IS_MOBILE then
         Fluent:Notify({
             Title = "Nexus",
@@ -295,64 +234,28 @@ local function InitializeNexus()
         })
     end
     
-    return true
+    print("✅ Nexus initialized successfully!")
 end
-
--- Экспорт глобальных функций и сервисов
-Nexus.SafeCallback = SafeCallback
-Nexus.safeDisconnect = safeDisconnect
-Nexus.getCharacter = getCharacter
-Nexus.getHumanoid = getHumanoid
-Nexus.getRootPart = getRootPart
-Nexus.Services = {
-    Players = Players,
-    RunService = RunService,
-    UserInputService = UserInputService,
-    Lighting = Lighting,
-    Workspace = Workspace,
-    ReplicatedStorage = ReplicatedStorage,
-    VirtualInputManager = VirtualInputManager,
-    TweenService = TweenService
-}
-Nexus.Player = player
-Nexus.Camera = camera
-Nexus.IS_MOBILE = IS_MOBILE
-Nexus.IS_DESKTOP = IS_DESKTOP
-
--- Глобальное состояние функций
-Nexus.FunctionStates = {
-    InstantHealRunning = false,
-    SilentHealRunning = false,
-    autoHealEnabled = false,
-    autoSkillEnabled = false,
-    NoSlowdownEnabled = false,
-    antiFailEnabled = false,
-    noclipEnabled = false,
-    fullbrightEnabled = false,
-    AutoParryEnabled = false,
-    AutoParryV2Enabled = false,
-    KillerAntiBlindEnabled = false,
-    GateToolEnabled = false,
-    InfiniteLungeEnabled = false,
-    FlyEnabled = false,
-    FreeCameraEnabled = false,
-    WalkSpeedEnabled = false,
-    OneHitKillEnabled = false,
-    DestroyPalletsEnabled = false,
-    BreakGeneratorEnabled = false,
-    NoFallEnabled = false,
-    NoTurnLimitEnabled = false 
-}
-
--- Таблица соединений
-Nexus.Connections = {}
 
 -- Запуск инициализации
-local success = InitializeNexus()
+pcall(initializeNexus)
 
-if not success then
-    warn("Nexus initialization failed")
-end
+-- Обработка выхода игрока
+Players.PlayerRemoving:Connect(function(leavingPlayer)
+    if leavingPlayer == player then
+        -- Очистка всех соединений
+        for _, connection in pairs(_G.Nexus.Connections) do
+            safeDisconnect(connection)
+        end
+        _G.Nexus.Connections = {}
+        
+        -- Вызов функции очистки из всех модулей
+        for moduleName, module in pairs(_G.Nexus.Modules) do
+            if module.Cleanup then
+                SafeCallback(module.Cleanup)
+            end
+        end
+    end
+end)
 
--- Возвращаем Nexus для использования другими модулями
-return Nexus
+return _G.Nexus
