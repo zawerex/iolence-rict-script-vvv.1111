@@ -1,4 +1,4 @@
--- main.lua - Основной загрузчик Nexus
+-- main.lua - Основной загрузчик Nexus (обновленный)
 local UIS = game:GetService("UserInputService")
 local IS_MOBILE = (UIS.TouchEnabled and not UIS.KeyboardEnabled)
 local IS_DESKTOP = (UIS.KeyboardEnabled and not UIS.TouchEnabled)
@@ -20,7 +20,6 @@ local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local TweenService = game:GetService("TweenService")
-local HttpService = game:GetService("HttpService")
 
 -- Глобальные переменные
 local player = Players.LocalPlayer
@@ -34,7 +33,9 @@ local Nexus = {
     Options = {},
     Settings = {},
     Connections = {},
-    LoadedTabs = {}
+    LoadedTabs = {},
+    SaveManager = nil,
+    InterfaceManager = nil
 }
 
 -- Функция безопасного выполнения
@@ -75,7 +76,7 @@ local function getRootPart()
 end
 
 -- Загрузка библиотек
-local Fluent, SaveManager, InterfaceManager
+local Fluent
 
 local function LoadLibraries()
     local success, fluentResult = pcall(function()
@@ -89,12 +90,13 @@ local function LoadLibraries()
     
     Fluent = fluentResult
     
+    -- Загружаем SaveManager и InterfaceManager
     local success2, saveResult = pcall(function()
         return loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
     end)
     
     if success2 then
-        SaveManager = saveResult
+        Nexus.SaveManager = saveResult
     else
         warn("Failed to load SaveManager:", saveResult)
     end
@@ -104,7 +106,7 @@ local function LoadLibraries()
     end)
     
     if success3 then
-        InterfaceManager = interfaceResult
+        Nexus.InterfaceManager = interfaceResult
     else
         warn("Failed to load InterfaceManager:", interfaceResult)
     end
@@ -134,12 +136,8 @@ end
 
 -- Загрузка модуля локально (резервный вариант)
 local function LoadModuleLocally(moduleName)
-    -- Здесь могут быть встроенные модули как резерв
-    local builtInModules = {
-        -- Встроенные модули будут здесь
-    }
-    
-    return builtInModules[moduleName]
+    -- Резервные встроенные модули (можно добавить при необходимости)
+    return nil
 end
 
 -- Основная функция загрузки модуля
@@ -148,7 +146,7 @@ local function LoadModule(tabName)
         return Nexus.LoadedTabs[tabName]
     end
     
-    -- URL для GitHub модулей
+    -- URL для GitHub модулей (обновите на свои реальные ссылки)
     local githubUrls = {
         Survivor = "https://raw.githubusercontent.com/yourusername/nexus-modules/main/Survivor.lua",
         Killer = "https://raw.githubusercontent.com/yourusername/nexus-modules/main/Killer.lua",
@@ -271,7 +269,7 @@ local function InitializeNexus()
             end
         end
         
-        -- Загружаем Settings
+        -- Загружаем Settings (последним)
         task.wait(1)
         local settingsModule = LoadModule("Settings")
         if settingsModule and settingsModule.Initialize then
