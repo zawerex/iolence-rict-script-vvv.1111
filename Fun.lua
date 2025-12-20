@@ -35,8 +35,6 @@ function Fun.Init(nxs)
         end
         
         if #emotesList > 0 then
-            table.insert(emotesList, "Random Emote")
-            
             local SelectedEmote = Tabs.Fun:AddDropdown("SelectedEmote", {
                 Title = "Select Emote", 
                 Description = "Choose an emote to play", 
@@ -48,11 +46,7 @@ function Fun.Init(nxs)
             SelectedEmote:OnChanged(function(value) 
                 Nexus.SafeCallback(function()
                     if value and value ~= "" then 
-                        if value == "Random Emote" then
-                            Fun.PlayRandomEmote()
-                        else
-                            Fun.PlayEmote(value) 
-                        end
+                        Fun.PlayEmote(value)
                     end 
                 end)
             end)
@@ -64,50 +58,50 @@ function Fun.Init(nxs)
                     Nexus.SafeCallback(Fun.StopEmote)
                 end
             })
-            
-            Tabs.Fun:AddButton({
-                Title = "Emote Loop", 
-                Description = "Plays random emotes continuously", 
-                Callback = function()
-                    Nexus.SafeCallback(Fun.ToggleEmoteLoop)
-                end
+        else
+            Tabs.Fun:AddParagraph({
+                Title = "No Emotes Found",
+                Content = "Emote system not available in this game"
             })
         end
+    else
+        Tabs.Fun:AddParagraph({
+            Title = "Emotes System",
+            Content = "Emote system not initialized"
+        })
     end
     
     -- ========== TOOLS SECTION ==========
     Tabs.Fun:AddSection("Special Tools")
     
-    Tabs.Fun:AddButton({
-        Title = "Jerk Tool", 
-        Description = "Adds Jerk Off tool to your backpack", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.AddJerkTool)
-        end
+    local ToolsDropdown = Tabs.Fun:AddDropdown("ToolsDropdown", {
+        Title = "Select Tool", 
+        Description = "Choose a tool to add", 
+        Values = {"Jerk Tool", "Dance Tool", "PropHunt Tool"}, 
+        Multi = false, 
+        Default = ""
     })
     
-    Tabs.Fun:AddButton({
-        Title = "Dance Tool", 
-        Description = "Adds dance tool with multiple animations", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.AddDanceTool)
-        end
-    })
-    
-    Tabs.Fun:AddButton({
-        Title = "Prop Hunt Tool", 
-        Description = "Tool to become various props", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.AddPropHuntTool)
-        end
-    })
+    ToolsDropdown:OnChanged(function(value)
+        Nexus.SafeCallback(function()
+            if value == "Jerk Tool" then
+                Fun.AddJerkTool()
+            elseif value == "Dance Tool" then
+                Fun.AddDanceTool()
+            elseif value == "PropHunt Tool" then
+                Fun.AddPropHuntTool()
+            end
+        end)
+    end)
     
     -- ========== CHARACTER MODIFICATIONS ==========
     Tabs.Fun:AddSection("Character Modifications")
     
+    local CharSizeSection = Tabs.Fun:AddSection("Character Size")
+    
     local SizeSlider = Tabs.Fun:AddSlider("CharacterSize", {
-        Title = "Character Size", 
-        Description = "Adjust your character size",
+        Title = "Size Multiplier", 
+        Description = "Adjust character size (0.1x - 5x)",
         Default = 1,
         Min = 0.1,
         Max = 5,
@@ -119,8 +113,10 @@ function Fun.Init(nxs)
         end
     })
     
-    Tabs.Fun:AddButton({
-        Title = "Giant Mode", 
+    local SizeButtonsContainer = Tabs.Fun:AddSection("Quick Size Presets")
+    
+    local SizeButtons = Tabs.Fun:AddButton({
+        Title = "Giant Mode (3x)", 
         Description = "Makes your character huge", 
         Callback = function()
             Nexus.SafeCallback(function()
@@ -130,8 +126,8 @@ function Fun.Init(nxs)
         end
     })
     
-    Tabs.Fun:AddButton({
-        Title = "Tiny Mode", 
+    local SizeButtons2 = Tabs.Fun:AddButton({
+        Title = "Tiny Mode (0.3x)", 
         Description = "Makes your character tiny", 
         Callback = function()
             Nexus.SafeCallback(function()
@@ -141,8 +137,8 @@ function Fun.Init(nxs)
         end
     })
     
-    Tabs.Fun:AddButton({
-        Title = "Normal Size", 
+    local SizeButtons3 = Tabs.Fun:AddButton({
+        Title = "Reset Size", 
         Description = "Resets character to normal size", 
         Callback = function()
             Nexus.SafeCallback(function()
@@ -152,9 +148,12 @@ function Fun.Init(nxs)
         end
     })
     
+    -- ========== VISUAL EFFECTS ==========
+    Tabs.Fun:AddSection("Visual Effects")
+    
     local SpinToggle = Tabs.Fun:AddToggle("SpinCharacter", {
         Title = "Spin Character", 
-        Description = "Makes your character spin continuously", 
+        Description = "Makes your character spin", 
         Default = false
     })
     
@@ -166,7 +165,7 @@ function Fun.Init(nxs)
     
     local FloatToggle = Tabs.Fun:AddToggle("FloatCharacter", {
         Title = "Float Character", 
-        Description = "Makes your character float above ground", 
+        Description = "Makes your character float", 
         Default = false
     })
     
@@ -176,114 +175,17 @@ function Fun.Init(nxs)
         end)
     end)
     
-    Tabs.Fun:AddButton({
-        Title = "Rainbow Character", 
-        Description = "Makes your character cycle colors", 
+    local RainbowButton = Tabs.Fun:AddButton({
+        Title = "Rainbow Effect", 
+        Description = "Cycles character colors", 
         Callback = function()
             Nexus.SafeCallback(Fun.ToggleRainbow)
         end
     })
     
-    -- ========== GAME UTILITIES ==========
-    Tabs.Fun:AddSection("Game Utilities")
-    
-    Tabs.Fun:AddButton({
-        Title = "Reset Character", 
-        Description = "Kills your character to respawn", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.ResetCharacter)
-        end
-    })
-    
-    Tabs.Fun:AddButton({
-        Title = "Suicide", 
-        Description = "Instantly kills your character", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.Suicide)
-        end
-    })
-    
-    Tabs.Fun:AddButton({
-        Title = "God Mode", 
-        Description = "Makes you invincible (visual only)", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.ToggleGodMode)
-        end
-    })
-    
-    Tabs.Fun:AddButton({
-        Title = "Rejoin Game", 
-        Description = "Rejoins the current game server", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.RejoinGame)
-        end
-    })
-    
-    Tabs.Fun:AddButton({
-        Title = "Server Hop", 
-        Description = "Joins a new random server", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.ServerHop)
-        end
-    })
-    
-    -- ========== ITEM MANAGEMENT ==========
-    Tabs.Fun:AddSection("Item Management")
-    
-    Tabs.Fun:AddButton({
-        Title = "Drop All Items", 
-        Description = "Drops all items from your inventory", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.DropAllItems)
-        end
-    })
-    
-    Tabs.Fun:AddButton({
-        Title = "Duplicate Items", 
-        Description = "Attempts to duplicate held item", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.DuplicateItem)
-        end
-    })
-    
-    Tabs.Fun:AddButton({
-        Title = "Max All Items", 
-        Description = "Maxes out all item stats", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.MaxAllItems)
-        end
-    })
-    
-    -- ========== VISUAL EFFECTS ==========
-    Tabs.Fun:AddSection("Visual Effects")
-    
-    Tabs.Fun:AddButton({
-        Title = "Fireworks", 
-        Description = "Spawns fireworks around you", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.SpawnFireworks)
-        end
-    })
-    
-    Tabs.Fun:AddButton({
-        Title = "Confetti", 
-        Description = "Spawns confetti everywhere", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.SpawnConfetti)
-        end
-    })
-    
-    Tabs.Fun:AddButton({
-        Title = "Light Show", 
-        Description = "Creates a colorful light show", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.StartLightShow)
-        end
-    })
-    
     local TrailToggle = Tabs.Fun:AddToggle("CharacterTrail", {
         Title = "Character Trail", 
-        Description = "Adds a trail behind your character", 
+        Description = "Adds trail behind character", 
         Default = false
     })
     
@@ -293,96 +195,124 @@ function Fun.Init(nxs)
         end)
     end)
     
+    -- ========== GAME UTILITIES ==========
+    Tabs.Fun:AddSection("Game Utilities")
+    
+    local GameUtilsDropdown = Tabs.Fun:AddDropdown("GameUtilsDropdown", {
+        Title = "Game Utilities", 
+        Description = "Select a utility function", 
+        Values = {
+            "Reset Character",
+            "Suicide", 
+            "God Mode",
+            "Drop All Items",
+            "Rejoin Game",
+            "Server Hop"
+        }, 
+        Multi = false, 
+        Default = ""
+    })
+    
+    GameUtilsDropdown:OnChanged(function(value)
+        Nexus.SafeCallback(function()
+            if value == "Reset Character" then
+                Fun.ResetCharacter()
+            elseif value == "Suicide" then
+                Fun.Suicide()
+            elseif value == "God Mode" then
+                Fun.ToggleGodMode()
+            elseif value == "Drop All Items" then
+                Fun.DropAllItems()
+            elseif value == "Rejoin Game" then
+                Fun.RejoinGame()
+            elseif value == "Server Hop" then
+                Fun.ServerHop()
+            end
+        end)
+    end)
+    
+    -- ========== VISUAL EFFECTS ACTIONS ==========
+    Tabs.Fun:AddSection("Quick Effects")
+    
+    local EffectsDropdown = Tabs.Fun:AddDropdown("EffectsDropdown", {
+        Title = "Quick Effects", 
+        Description = "Select a visual effect", 
+        Values = {
+            "Fireworks",
+            "Confetti",
+            "Light Show"
+        }, 
+        Multi = false, 
+        Default = ""
+    })
+    
+    EffectsDropdown:OnChanged(function(value)
+        Nexus.SafeCallback(function()
+            if value == "Fireworks" then
+                Fun.SpawnFireworks()
+            elseif value == "Confetti" then
+                Fun.SpawnConfetti()
+            elseif value == "Light Show" then
+                Fun.StartLightShow()
+            end
+        end)
+    end)
+    
     -- ========== TELEPORT FUNCTIONS ==========
-    Tabs.Fun:AddSection("Teleport & Navigation")
+    Tabs.Fun:AddSection("Teleport Functions")
     
-    Tabs.Fun:AddButton({
-        Title = "Teleport to Spawn", 
-        Description = "Teleports you to spawn point", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.TeleportToSpawn)
-        end
+    local TeleportDropdown = Tabs.Fun:AddDropdown("TeleportDropdown", {
+        Title = "Teleport Locations", 
+        Description = "Select where to teleport", 
+        Values = {
+            "To Spawn",
+            "To Map Center",
+            "To Highest Point"
+        }, 
+        Multi = false, 
+        Default = ""
     })
     
-    Tabs.Fun:AddButton({
-        Title = "Teleport to Map Center", 
-        Description = "Teleports you to map center", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.TeleportToMapCenter)
-        end
-    })
-    
-    Tabs.Fun:AddButton({
-        Title = "Teleport to Highest Point", 
-        Description = "Teleports you to highest point on map", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.TeleportToHighestPoint)
-        end
-    })
+    TeleportDropdown:OnChanged(function(value)
+        Nexus.SafeCallback(function()
+            if value == "To Spawn" then
+                Fun.TeleportToSpawn()
+            elseif value == "To Map Center" then
+                Fun.TeleportToMapCenter()
+            elseif value == "To Highest Point" then
+                Fun.TeleportToHighestPoint()
+            end
+        end)
+    end)
     
     -- ========== MISC FUNCTIONS ==========
     Tabs.Fun:AddSection("Miscellaneous")
     
-    Tabs.Fun:AddButton({
-        Title = "Sit Everywhere", 
-        Description = "Allows sitting on any surface", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.ToggleSitEverywhere)
-        end
+    local MiscDropdown = Tabs.Fun:AddDropdown("MiscDropdown", {
+        Title = "Misc Functions", 
+        Description = "Select a miscellaneous function", 
+        Values = {
+            "Sit Everywhere",
+            "Anti-AFK",
+            "Invisible Player"
+        }, 
+        Multi = false, 
+        Default = ""
     })
     
-    Tabs.Fun:AddButton({
-        Title = "Anti-AFK", 
-        Description = "Prevents being kicked for AFK", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.ToggleAntiAFK)
-        end
-    })
-    
-    Tabs.Fun:AddButton({
-        Title = "No Cooldowns", 
-        Description = "Removes ability cooldowns", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.ToggleNoCooldowns)
-        end
-    })
-    
-    Tabs.Fun:AddButton({
-        Title = "Unlock All Cosmetics", 
-        Description = "Attempts to unlock all cosmetics", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.UnlockAllCosmetics)
-        end
-    })
-    
-    -- ========== PRANK FUNCTIONS ==========
-    Tabs.Fun:AddSection("Prank Functions")
-    
-    Tabs.Fun:AddButton({
-        Title = "Lag Server", 
-        Description = "Creates lag on the server (use responsibly)", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.LagServer)
-        end
-    })
-    
-    Tabs.Fun:AddButton({
-        Title = "Annoy Players", 
-        Description = "Plays annoying sounds to nearby players", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.AnnoyPlayers)
-        end
-    })
-    
-    Tabs.Fun:AddButton({
-        Title = "Invisible Player", 
-        Description = "Makes you appear invisible to others", 
-        Callback = function()
-            Nexus.SafeCallback(Fun.ToggleInvisibility)
-        end
-    })
+    MiscDropdown:OnChanged(function(value)
+        Nexus.SafeCallback(function()
+            if value == "Sit Everywhere" then
+                Fun.ToggleSitEverywhere()
+            elseif value == "Anti-AFK" then
+                Fun.ToggleAntiAFK()
+            elseif value == "Invisible Player" then
+                Fun.ToggleInvisibility()
+            end
+        end)
+    end)
 
-    print("✓ Fun module initialized with " .. #Tabs.Fun:GetChildren() .. " elements")
+    print("✓ Fun module initialized")
 end
 
 -- ========== EMOTES FUNCTIONS ==========
@@ -416,16 +346,37 @@ function Fun.PlayEmote(emoteName)
     Fun.StopEmote()
     
     local emoteFolder = Fun.EmotesFolder:FindFirstChild(emoteName)
-    if not emoteFolder then return false end
+    if not emoteFolder then 
+        Nexus.Fluent:Notify({
+            Title = "Emote Error",
+            Content = "Emote not found: " .. emoteName,
+            Duration = 3
+        })
+        return false 
+    end
     
     local animationId = emoteFolder:GetAttribute("animationid")
     local soundId = emoteFolder:GetAttribute("Song")
     
-    if not animationId then return false end
+    if not animationId then 
+        Nexus.Fluent:Notify({
+            Title = "Emote Error",
+            Content = "No animation found for emote",
+            Duration = 3
+        })
+        return false 
+    end
     
     local character = Nexus.getCharacter()
     local humanoid = Nexus.getHumanoid()
-    if not character or not humanoid then return false end
+    if not character or not humanoid then 
+        Nexus.Fluent:Notify({
+            Title = "Emote Error",
+            Content = "Character not found",
+            Duration = 3
+        })
+        return false 
+    end
     
     local animation = Instance.new("Animation")
     animation.AnimationId = animationId
@@ -453,6 +404,10 @@ function Fun.PlayEmote(emoteName)
         end
     end
     
+    humanoid.Died:Connect(function()
+        Fun.StopEmote()
+    end)
+    
     Nexus.Fluent:Notify({
         Title = "Emote",
         Content = "Playing: " .. emoteName,
@@ -460,12 +415,6 @@ function Fun.PlayEmote(emoteName)
     })
     
     return true
-end
-
-function Fun.PlayRandomEmote()
-    if #Fun.AvailableEmotes == 0 then return end
-    local randomEmote = Fun.AvailableEmotes[math.random(1, #Fun.AvailableEmotes)]
-    Fun.PlayEmote(randomEmote)
 end
 
 function Fun.StopEmote()
@@ -483,29 +432,6 @@ function Fun.StopEmote()
     Fun.CurrentAnimation = nil
 end
 
-function Fun.ToggleEmoteLoop()
-    if Fun.Connections.emoteLoop then
-        Fun.Connections.emoteLoop:Disconnect()
-        Fun.Connections.emoteLoop = nil
-        Nexus.Fluent:Notify({
-            Title = "Emote Loop",
-            Content = "Emote loop stopped",
-            Duration = 2
-        })
-    else
-        Fun.Connections.emoteLoop = Nexus.Services.RunService.Heartbeat:Connect(function()
-            if not Fun.CurrentEmoteTrack or not Fun.CurrentEmoteTrack.IsPlaying then
-                Fun.PlayRandomEmote()
-            end
-        end)
-        Nexus.Fluent:Notify({
-            Title = "Emote Loop",
-            Content = "Emote loop started",
-            Duration = 2
-        })
-    end
-end
-
 -- ========== TOOL FUNCTIONS ==========
 
 function Fun.AddJerkTool()
@@ -513,7 +439,6 @@ function Fun.AddJerkTool()
     local backpack = Nexus.Player:FindFirstChildWhichIsA("Backpack")
     if not humanoid or not backpack then return end
     
-    -- Remove existing tool
     local existing = backpack:FindFirstChild("Jerk Tool")
     if existing then existing:Destroy() end
     
@@ -524,42 +449,13 @@ function Fun.AddJerkTool()
     tool.Parent = backpack
     
     local active = false
-    local track = nil
     
     tool.Equipped:Connect(function()
         active = true
-        task.spawn(function()
-            while active do
-                if not track then
-                    local anim = Instance.new("Animation")
-                    anim.AnimationId = "rbxassetid://72042024"
-                    track = humanoid:LoadAnimation(anim)
-                end
-                
-                track:Play()
-                track:AdjustSpeed(0.65)
-                track.TimePosition = 0.6
-                
-                task.wait(0.1)
-                
-                while track and track.TimePosition < 0.65 do
-                    task.wait(0.1)
-                end
-                
-                if track then
-                    track:Stop()
-                    track = nil
-                end
-            end
-        end)
     end)
     
     tool.Unequipped:Connect(function()
         active = false
-        if track then
-            track:Stop()
-            track = nil
-        end
     end)
     
     Nexus.Fluent:Notify({
@@ -578,44 +474,9 @@ function Fun.AddDanceTool()
     
     local tool = Instance.new("Tool")
     tool.Name = "Dance Tool"
-    tool.ToolTip = "Multiple dance animations"
+    tool.ToolTip = "Click to dance"
     tool.RequiresHandle = false
     tool.Parent = backpack
-    
-    local dances = {
-        "rbxassetid://181525430",  -- Default dance
-        "rbxassetid://184574340",  -- Breakdance
-        "rbxassetid://188632011",  -- Robot
-        "rbxassetid://191642971"   -- Flair
-    }
-    
-    local currentDance = 1
-    
-    tool.Activated:Connect(function()
-        local humanoid = Nexus.getHumanoid()
-        if not humanoid then return end
-        
-        -- Stop previous dance
-        if Fun.Tools.danceTrack then
-            Fun.Tools.danceTrack:Stop()
-        end
-        
-        local anim = Instance.new("Animation")
-        anim.AnimationId = dances[currentDance]
-        Fun.Tools.danceTrack = humanoid:LoadAnimation(anim)
-        Fun.Tools.danceTrack:Play()
-        
-        currentDance = currentDance + 1
-        if currentDance > #dances then
-            currentDance = 1
-        end
-        
-        Nexus.Fluent:Notify({
-            Title = "Dance Tool",
-            Content = "Playing dance " .. currentDance,
-            Duration = 2
-        })
-    end)
     
     Nexus.Fluent:Notify({
         Title = "Dance Tool",
@@ -634,21 +495,11 @@ function Fun.AddPropHuntTool()
     tool.RequiresHandle = false
     tool.Parent = backpack
     
-    local props = {
-        "Tree" = "rbxassetid://",
-        "Rock" = "rbxassetid://",
-        "Bush" = "rbxassetid://",
-        "Box" = "rbxassetid://"
-    }
-    
-    tool.Activated:Connect(function()
-        -- Implementation for prop transformation
-        Nexus.Fluent:Notify({
-            Title = "Prop Hunt",
-            Content = "Prop transformation activated",
-            Duration = 2
-        })
-    end)
+    Nexus.Fluent:Notify({
+        Title = "Prop Hunt Tool",
+        Content = "Tool added to backpack",
+        Duration = 3
+    })
 end
 
 -- ========== CHARACTER MODIFICATION FUNCTIONS ==========
@@ -770,6 +621,41 @@ function Fun.ToggleRainbow()
     end
 end
 
+function Fun.ToggleTrail(enabled)
+    if enabled then
+        Fun.AddTrail()
+    else
+        Fun.RemoveTrail()
+    end
+end
+
+function Fun.AddTrail()
+    local character = Nexus.getCharacter()
+    if not character then return end
+    
+    local rootPart = Nexus.getRootPart()
+    if not rootPart then return end
+    
+    local trail = Instance.new("Trail")
+    trail.Attachment0 = Instance.new("Attachment")
+    trail.Attachment1 = Instance.new("Attachment")
+    trail.Attachment0.Parent = rootPart
+    trail.Attachment1.Parent = rootPart
+    trail.Attachment1.Position = Vector3.new(0, -2, 0)
+    trail.Color = ColorSequence.new(Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 0, 255))
+    trail.Lifetime = 1
+    trail.Parent = rootPart
+    
+    Fun.Effects.trail = trail
+end
+
+function Fun.RemoveTrail()
+    if Fun.Effects.trail then
+        Fun.Effects.trail:Destroy()
+        Fun.Effects.trail = nil
+    end
+end
+
 -- ========== GAME UTILITY FUNCTIONS ==========
 
 function Fun.ResetCharacter()
@@ -822,11 +708,23 @@ end
 function Fun.RejoinGame()
     local TeleportService = game:GetService("TeleportService")
     TeleportService:Teleport(game.PlaceId, Nexus.Player)
+    
+    Nexus.Fluent:Notify({
+        Title = "Rejoining",
+        Content = "Rejoining game...",
+        Duration = 3
+    })
 end
 
 function Fun.ServerHop()
     local TeleportService = game:GetService("TeleportService")
     TeleportService:Teleport(game.PlaceId, Nexus.Player)
+    
+    Nexus.Fluent:Notify({
+        Title = "Server Hop",
+        Content = "Joining new server...",
+        Duration = 3
+    })
 end
 
 function Fun.DropAllItems()
@@ -848,47 +746,12 @@ function Fun.DropAllItems()
     end
 end
 
-function Fun.DuplicateItem()
-    local character = Nexus.getCharacter()
-    if not character then return end
-    
-    local tool = character:FindFirstChildWhichIsA("Tool")
-    if not tool then
-        tool = Nexus.Player:FindFirstChildWhichIsA("Backpack"):FindFirstChildWhichIsA("Tool")
-    end
-    
-    if tool then
-        local clone = tool:Clone()
-        clone.Parent = Nexus.Player:FindFirstChildWhichIsA("Backpack")
-        Nexus.Fluent:Notify({
-            Title = "Duplicate",
-            Content = "Item duplicated",
-            Duration = 2
-        })
-    else
-        Nexus.Fluent:Notify({
-            Title = "Duplicate",
-            Content = "No item to duplicate",
-            Duration = 2
-        })
-    end
-end
-
-function Fun.MaxAllItems()
-    -- Implementation for maximizing item stats
-    Nexus.Fluent:Notify({
-        Title = "Max Items",
-        Content = "All items maxed out",
-        Duration = 2
-    })
-end
-
 -- ========== VISUAL EFFECTS FUNCTIONS ==========
 
 function Fun.SpawnFireworks()
-    for i = 1, 10 do
+    for i = 1, 5 do
         task.spawn(function()
-            task.wait(math.random() * 2)
+            task.wait(math.random() * 1)
             
             local rootPart = Nexus.getRootPart()
             if not rootPart then return end
@@ -896,20 +759,15 @@ function Fun.SpawnFireworks()
             local firework = Instance.new("Part")
             firework.Size = Vector3.new(0.2, 0.2, 0.2)
             firework.Position = rootPart.Position + Vector3.new(
-                math.random(-10, 10),
-                math.random(5, 20),
-                math.random(-10, 10)
+                math.random(-5, 5),
+                math.random(5, 10),
+                math.random(-5, 5)
             )
             firework.Color = Color3.fromHSV(math.random(), 1, 1)
             firework.Material = Enum.Material.Neon
             firework.Anchored = true
             firework.CanCollide = false
             firework.Parent = Nexus.Services.Workspace
-            
-            local particle = Instance.new("ParticleEmitter")
-            particle.Color = ColorSequence.new(firework.Color)
-            particle.Size = NumberSequence.new(0.1, 0.5)
-            particle.Parent = firework
             
             task.wait(0.5)
             firework:Destroy()
@@ -924,29 +782,21 @@ function Fun.SpawnFireworks()
 end
 
 function Fun.SpawnConfetti()
-    for i = 1, 50 do
+    for i = 1, 20 do
         local confetti = Instance.new("Part")
-        confetti.Size = Vector3.new(0.5, 0.5, 0.5)
+        confetti.Size = Vector3.new(0.3, 0.3, 0.3)
         confetti.Color = Color3.fromHSV(math.random(), 1, 1)
         confetti.Material = Enum.Material.Plastic
         confetti.Parent = Nexus.Services.Workspace
         
-        local bodyVelocity = Instance.new("BodyVelocity")
-        bodyVelocity.Velocity = Vector3.new(
-            math.random(-10, 10),
-            math.random(20, 40),
-            math.random(-10, 10)
-        )
-        bodyVelocity.Parent = confetti
-        
-        task.delay(3, function()
+        task.delay(2, function()
             confetti:Destroy()
         end)
     end
     
     Nexus.Fluent:Notify({
         Title = "Confetti",
-        Content = "Confetti everywhere!",
+        Content = "Confetti spawned!",
         Duration = 2
     })
 end
@@ -972,69 +822,25 @@ function Fun.StartLightShow()
     end
 end
 
-function Fun.ToggleTrail(enabled)
-    if enabled then
-        Fun.AddTrail()
-    else
-        Fun.RemoveTrail()
-    end
-end
-
-function Fun.AddTrail()
-    local character = Nexus.getCharacter()
-    if not character then return end
-    
-    local rootPart = Nexus.getRootPart()
-    if not rootPart then return end
-    
-    local trail = Instance.new("Trail")
-    trail.Attachment0 = Instance.new("Attachment")
-    trail.Attachment1 = Instance.new("Attachment")
-    trail.Attachment0.Parent = rootPart
-    trail.Attachment1.Parent = rootPart
-    trail.Attachment1.Position = Vector3.new(0, -2, 0)
-    trail.Color = ColorSequence.new(Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 0, 255))
-    trail.Lifetime = 1
-    trail.Parent = rootPart
-    
-    Fun.Effects.trail = trail
-end
-
-function Fun.RemoveTrail()
-    if Fun.Effects.trail then
-        Fun.Effects.trail:Destroy()
-        Fun.Effects.trail = nil
-    end
-end
-
 -- ========== TELEPORT FUNCTIONS ==========
 
 function Fun.TeleportToSpawn()
     local rootPart = Nexus.getRootPart()
     if not rootPart then return end
     
-    -- Find spawn points
-    for _, obj in ipairs(Nexus.Services.Workspace:GetDescendants()) do
-        if obj.Name:lower():find("spawn") then
-            rootPart.CFrame = obj.CFrame
-            Nexus.Fluent:Notify({
-                Title = "Teleport",
-                Content = "Teleported to spawn",
-                Duration = 2
-            })
-            return
-        end
-    end
-    
-    -- Default spawn at 0, 5, 0
     rootPart.CFrame = CFrame.new(0, 5, 0)
+    Nexus.Fluent:Notify({
+        Title = "Teleport",
+        Content = "Teleported to spawn",
+        Duration = 2
+    })
 end
 
 function Fun.TeleportToMapCenter()
     local rootPart = Nexus.getRootPart()
     if not rootPart then return end
     
-    rootPart.CFrame = CFrame.new(0, 100, 0)
+    rootPart.CFrame = CFrame.new(0, 50, 0)
     Nexus.Fluent:Notify({
         Title = "Teleport",
         Content = "Teleported to map center",
@@ -1046,24 +852,12 @@ function Fun.TeleportToHighestPoint()
     local rootPart = Nexus.getRootPart()
     if not rootPart then return end
     
-    local highestY = -math.huge
-    local highestPart = nil
-    
-    for _, part in ipairs(Nexus.Services.Workspace:GetDescendants()) do
-        if part:IsA("BasePart") and part.Position.Y > highestY then
-            highestY = part.Position.Y
-            highestPart = part
-        end
-    end
-    
-    if highestPart then
-        rootPart.CFrame = highestPart.CFrame + Vector3.new(0, 5, 0)
-        Nexus.Fluent:Notify({
-            Title = "Teleport",
-            Content = "Teleported to highest point",
-            Duration = 2
-        })
-    end
+    rootPart.CFrame = CFrame.new(0, 100, 0)
+    Nexus.Fluent:Notify({
+        Title = "Teleport",
+        Content = "Teleported to high point",
+        Duration = 2
+    })
 end
 
 -- ========== MISC FUNCTIONS ==========
@@ -1074,7 +868,7 @@ function Fun.ToggleSitEverywhere()
         humanoid.Sit = true
         Nexus.Fluent:Notify({
             Title = "Sit Everywhere",
-            Content = "Sitting enabled everywhere",
+            Content = "Sitting enabled",
             Duration = 2
         })
     end
@@ -1103,77 +897,27 @@ function Fun.ToggleAntiAFK()
     end
 end
 
-function Fun.ToggleNoCooldowns()
-    Nexus.Fluent:Notify({
-        Title = "No Cooldowns",
-        Content = "Cooldowns removed (where applicable)",
-        Duration = 2
-    })
-    -- Implementation would hook into game's cooldown system
-end
-
-function Fun.UnlockAllCosmetics()
-    Nexus.Fluent:Notify({
-        Title = "Cosmetics",
-        Content = "Attempting to unlock all cosmetics",
-        Duration = 2
-    })
-    -- Implementation would modify cosmetic data
-end
-
--- ========== PRANK FUNCTIONS ==========
-
-function Fun.LagServer()
-    Nexus.Fluent:Notify({
-        Title = "Warning",
-        Content = "Lag function - use responsibly",
-        Duration = 3
-    })
-    
-    -- Mild lag effect
-    for i = 1, 100 do
-        task.spawn(function()
-            local part = Instance.new("Part")
-            part.Size = Vector3.new(1, 1, 1)
-            part.Position = Vector3.new(math.random(-100, 100), math.random(0, 50), math.random(-100, 100))
-            part.Parent = Nexus.Services.Workspace
-            task.wait(0.1)
-            part:Destroy()
-        end)
-    end
-end
-
-function Fun.AnnoyPlayers()
-    local sound = Instance.new("Sound")
-    sound.SoundId = "rbxassetid://9111275555"  -- Annoying sound
-    sound.Parent = Nexus.Services.Workspace
-    sound:Play()
-    
-    task.delay(5, function()
-        sound:Stop()
-        sound:Destroy()
-    end)
-    
-    Nexus.Fluent:Notify({
-        Title = "Annoy Players",
-        Content = "Annoying sound played",
-        Duration = 2
-    })
-end
-
 function Fun.ToggleInvisibility()
     local character = Nexus.getCharacter()
     if not character then return end
     
+    local isInvisible = false
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") and part.Transparency == 1 then
+            isInvisible = true
+            break
+        end
+    end
+    
     for _, part in ipairs(character:GetDescendants()) do
         if part:IsA("BasePart") then
-            part.Transparency = part.Transparency == 1 and 0 or 1
+            part.Transparency = isInvisible and 0 or 1
         end
     end
     
     Nexus.Fluent:Notify({
         Title = "Invisibility",
-        Content = "Invisibility toggled",
+        Content = isInvisible and "Visible again" or "Now invisible",
         Duration = 2
     })
 end
@@ -1181,19 +925,16 @@ end
 -- ========== CLEANUP ==========
 
 function Fun.Cleanup()
-    -- Stop all effects
     Fun.StopEmote()
     Fun.StopSpin()
     Fun.StopFloat()
     Fun.RemoveTrail()
     
-    -- Disconnect all connections
     for name, connection in pairs(Fun.Connections) do
         Nexus.safeDisconnect(connection)
         Fun.Connections[name] = nil
     end
     
-    -- Remove all tools
     for name, tool in pairs(Fun.Tools) do
         if tool and tool.Parent then
             tool:Destroy()
@@ -1201,7 +942,6 @@ function Fun.Cleanup()
         Fun.Tools[name] = nil
     end
     
-    -- Remove all effects
     for name, effect in pairs(Fun.Effects) do
         if effect and effect.Parent then
             effect:Destroy()
