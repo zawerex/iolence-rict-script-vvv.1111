@@ -6,7 +6,7 @@ local UI = {}
 function UI.Init(nxs)
     Nexus = nxs
     
-    local windowSize = Nexus.IS_MOBILE and UDim2.fromOffset(350, 200) or UDim2.fromOffset(580,550)
+    local windowSize = Nexus.IS_MOBILE and UDim2.fromOffset(350, 200) or UDim2.fromOffset(590,550)
     
     -- Создаем главное окно
     Nexus.Window = Nexus.Fluent:CreateWindow({
@@ -25,40 +25,6 @@ function UI.Init(nxs)
         UserInfoSubtitle = "user",
         UserInfoSubtitleColor = Color3.fromRGB(255, 250, 250)
     })
-
-    -- Сохраняем конфиг снегопада в глобальном объекте
-_G.Nexus.Window.SnowfallEnabled = true
-_G.Nexus.Window.SnowfallConfig = {
-    Count = 40,
-    Speed = 9.5
-}
-
-task.spawn(function()
-    task.wait(0.6)
-    
-    -- Загружаем настройки
-    InterfaceManager:LoadSettings()
-    
-    -- Если снегопад включен в настройках
-    if InterfaceManager.Settings.Snowfall == nil or InterfaceManager.Settings.Snowfall then
-        -- Создаем снегопад
-        if Fluent.AddSnowfallToWindow then
-            Fluent:AddSnowfallToWindow(_G.Nexus.Window.SnowfallConfig)
-        end
-        
-        -- Обновляем toggle в UI, если он уже создан
-        task.wait(1)
-        if Fluent.Options.SnowfallToggle then
-            Fluent.Options.SnowfallToggle:SetValue(true)
-        end
-    else
-        -- Если снегопад выключен в настройках, обновляем toggle
-        task.wait(1)
-        if Fluent.Options.SnowfallToggle then
-            Fluent.Options.SnowfallToggle:SetValue(false)
-        end
-    end
-end)
     
     -- Создаем вкладки
     Nexus.Tabs = {}
@@ -83,7 +49,7 @@ end
 
 function UI.Cleanup()
     if Nexus.Window then
-        -- Очистка если нужно
+        
     end
 end
 
