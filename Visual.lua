@@ -242,6 +242,7 @@ function Visual.GetRole(targetPlayer)
     return "Survivor"
 end
 
+-- ========== BASIC ESP SYSTEM ==========
 function Visual.AddObjectToTrack(obj)
     local nameLower = obj.Name:lower()
     
