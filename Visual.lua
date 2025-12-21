@@ -1265,82 +1265,77 @@ function Visual.Init(nxs)
     Visual.ESP.settings.ExitGates.Colorpicker = GateColorpicker
     Visual.ESP.settings.Windows.Colorpicker = WindowColorpicker
 
-    -- ========== ADVANCED ESP ==========
-    Tabs.Visual:AddSection("Advanced ESP Settings")
+Tabs.Visual:AddSection("ESP Components")
 
-    local AdvancedESPToggle = Tabs.Visual:AddToggle("AdvancedESP", {
-        Title = "Advanced ESP", 
-        Description = "Enable advanced player ESP system", 
-        Default = false
-    })
-    AdvancedESPToggle:OnChanged(function(v)
-        Visual.ToggleAdvancedESP(v)
-    end)
+local ESPBoxToggle = Tabs.Visual:AddToggle("ESPBox", {
+    Title = "Player Boxes", 
+    Description = "Show/hide player boxes", 
+    Default = false
+})
+ESPBoxToggle:OnChanged(function(v)
+    Visual.AdvancedESP.settings.box = v
+    Visual.HandleAdvancedESPComponentChange()
+end)
 
-    Tabs.Visual:AddSection("ESP Components")
+local ESPNamesToggle = Tabs.Visual:AddToggle("ESPNames", {
+    Title = "Player Names", 
+    Description = "Show/hide player names", 
+    Default = false
+})
+ESPNamesToggle:OnChanged(function(v)
+    Visual.AdvancedESP.settings.name = v
+    Visual.HandleAdvancedESPComponentChange()
+end)
 
-    local ESPBoxToggle = Tabs.Visual:AddToggle("ESPBox", {
-        Title = "Player Boxes", 
-        Description = "Show/hide player boxes", 
-        Default = true
-    })
-    ESPBoxToggle:OnChanged(function(v)
-        Visual.AdvancedESP.settings.box = v
-    end)
+local ESPHealthBarToggle = Tabs.Visual:AddToggle("ESPHealthBar", {
+    Title = "Health Bar", 
+    Description = "Show/hide health bar", 
+    Default = false
+})
+ESPHealthBarToggle:OnChanged(function(v)
+    Visual.AdvancedESP.settings.healthbar = v
+    Visual.HandleAdvancedESPComponentChange()
+end)
 
-    local ESPNamesToggle = Tabs.Visual:AddToggle("ESPNames", {
-        Title = "Player Names", 
-        Description = "Show/hide player names", 
-        Default = true
-    })
-    ESPNamesToggle:OnChanged(function(v)
-        Visual.AdvancedESP.settings.name = v
-    end)
+local ESPDistanceToggle = Tabs.Visual:AddToggle("ESPDistance", {
+    Title = "Distance", 
+    Description = "Show/hide distance to players", 
+    Default = false
+})
+ESPDistanceToggle:OnChanged(function(v)
+    Visual.AdvancedESP.settings.distance = v
+    Visual.HandleAdvancedESPComponentChange()
+end)
 
-    local ESPHealthBarToggle = Tabs.Visual:AddToggle("ESPHealthBar", {
-        Title = "Health Bar", 
-        Description = "Show/hide health bar", 
-        Default = true
-    })
-    ESPHealthBarToggle:OnChanged(function(v)
-        Visual.AdvancedESP.settings.healthbar = v
-    end)
+local ESPBoxFillToggle = Tabs.Visual:AddToggle("ESPBoxFill", {
+    Title = "Filled Box", 
+    Description = "Show/hide filled boxes", 
+    Default = false
+})
+ESPBoxFillToggle:OnChanged(function(v)
+    Visual.AdvancedESP.settings.boxFill = v
+    Visual.HandleAdvancedESPComponentChange()
+end)
 
-    local ESPDistanceToggle = Tabs.Visual:AddToggle("ESPDistance", {
-        Title = "Distance", 
-        Description = "Show/hide distance to players", 
-        Default = true
-    })
-    ESPDistanceToggle:OnChanged(function(v)
-        Visual.AdvancedESP.settings.distance = v
-    end)
+local ESPTracersToggle = Tabs.Visual:AddToggle("ESPTracers", {
+    Title = "Tracers", 
+    Description = "Show/hide tracers to players", 
+    Default = false
+})
+ESPTracersToggle:OnChanged(function(v)
+    Visual.AdvancedESP.settings.tracers = v
+    Visual.HandleAdvancedESPComponentChange()
+end)
 
-    local ESPBoxFillToggle = Tabs.Visual:AddToggle("ESPBoxFill", {
-        Title = "Filled Box", 
-        Description = "Show/hide filled boxes", 
-        Default = true
-    })
-    ESPBoxFillToggle:OnChanged(function(v)
-        Visual.AdvancedESP.settings.boxFill = v
-    end)
-
-    local ESPTracersToggle = Tabs.Visual:AddToggle("ESPTracers", {
-        Title = "Tracers", 
-        Description = "Show/hide tracers to players", 
-        Default = true
-    })
-    ESPTracersToggle:OnChanged(function(v)
-        Visual.AdvancedESP.settings.tracers = v
-    end)
-
-    local ESPBonesToggle = Tabs.Visual:AddToggle("ESPBones", {
-        Title = "Player Bones", 
-        Description = "Show/hide player bones", 
-        Default = true
-    })
-    ESPBonesToggle:OnChanged(function(v)
-        Visual.AdvancedESP.settings.bones = v
-    end)
+local ESPBonesToggle = Tabs.Visual:AddToggle("ESPBones", {
+    Title = "Player Bones", 
+    Description = "Show/hide player bones", 
+    Default = false
+})
+ESPBonesToggle:OnChanged(function(v)
+    Visual.AdvancedESP.settings.bones = v
+    Visual.HandleAdvancedESPComponentChange()
+end)
 
     -- Start tracking objects
     task.spawn(function()
