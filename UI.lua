@@ -26,8 +26,7 @@ function UI.Init(nxs)
         UserInfoSubtitleColor = Color3.fromRGB(255, 250, 250)
     })
 
-  Library:CreateSnowflakes()
-    
+Nexus.Fluent:CreateSnowflakes()
     -- Создаем вкладки
     Nexus.Tabs = {}
     Nexus.Tabs.Main = Nexus.Window:AddTab({ Title = "Survivor", Icon = "snowflake" })
