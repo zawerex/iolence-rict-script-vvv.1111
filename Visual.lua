@@ -430,6 +430,12 @@ end
 -- ========== ADVANCED ESP SYSTEM ==========
 
 function Visual.ToggleAdvancedESP(enabled)
+    -- Если выключаем, сначала полностью очищаем
+    if not enabled and Visual.AdvancedESP.settings.enabled then
+        Visual.StopAdvancedESP()
+        return
+    end
+    
     Visual.AdvancedESP.settings.enabled = enabled
     
     if enabled then
@@ -440,39 +446,56 @@ function Visual.ToggleAdvancedESP(enabled)
 end
 
 function Visual.ClearAdvancedESP(plr)
+    if not plr then return end
+    
     local d = Visual.AdvancedESP.espObjects[plr]
     if d then
+        -- Список всех Drawing объектов
         local drawingObjects = {
-            d.BoxFill, d.Name, d.Distance, d.Tracer, d.HealthBg, 
-            d.HealthBar, d.HealthMask, d.HealthText, d.Box, d.BoxOutline
+            "BoxFill", "Name", "Distance", "Tracer", "HealthBg", 
+            "HealthBar", "HealthMask", "HealthText", "Box", "BoxOutline"
         }
         
-        for _, obj in ipairs(drawingObjects) do
-            if obj and typeof(obj) == "userdata" and obj.Remove then
-                pcall(function() obj:Remove() end)
+        -- Удаляем все основные объекты
+        for _, objName in ipairs(drawingObjects) do
+            if d[objName] and typeof(d[objName]) == "userdata" and d[objName].Remove then
+                pcall(function() 
+                    d[objName]:Remove() 
+                end)
             end
         end
         
-        for i=1,24 do
-            if d["HealthStripe"..i] then
-                pcall(function() d["HealthStripe"..i]:Remove() end)
+        -- Удаляем все HealthStripe объекты
+        for i = 1, 24 do
+            local stripeName = "HealthStripe" .. i
+            if d[stripeName] and typeof(d[stripeName]) == "userdata" and d[stripeName].Remove then
+                pcall(function() 
+                    d[stripeName]:Remove() 
+                end)
             end
         end
         
+        -- Удаляем все Bone линии
         if d.Bones then
             for _, bone in ipairs(d.Bones) do
                 if bone and typeof(bone) == "userdata" and bone.Remove then
-                    pcall(function() bone:Remove() end)
+                    pcall(function() 
+                        bone:Remove() 
+                    end)
                 end
             end
         end
         
+        -- Очищаем таблицу
         Visual.AdvancedESP.espObjects[plr] = nil
     end
     
+    -- Отключаем соединения игрока
     if Visual.AdvancedESP.playerConnections[plr] then
         for _, connection in pairs(Visual.AdvancedESP.playerConnections[plr]) do
-            pcall(function() connection:Disconnect() end)
+            pcall(function() 
+                connection:Disconnect() 
+            end)
         end
         Visual.AdvancedESP.playerConnections[plr] = nil
     end
@@ -935,13 +958,71 @@ function Visual.StopAdvancedESP()
     end
     Visual.AdvancedESP.connections = {}
     
-    -- Clear all ESP objects
-    for plr, _ in pairs(Visual.AdvancedESP.espObjects) do
-        Visual.ClearAdvancedESP(plr)
+    -- Clear all ESP objects and Drawing objects
+    for plr, data in pairs(Visual.AdvancedESP.espObjects) do
+        if data then
+            -- Удаляем все Drawing объекты
+            local drawingObjects = {
+                "BoxFill", "Name", "Distance", "Tracer", "HealthBg", 
+                "HealthBar", "HealthMask", "HealthText", "Box", "BoxOutline"
+            }
+            
+            for _, objName in ipairs(drawingObjects) do
+                if data[objName] and typeof(data[objName]) == "userdata" and data[objName].Remove then
+                    pcall(function() 
+                        data[objName]:Remove() 
+                    end)
+                end
+            end
+            
+            -- Удаляем все HealthStripe объекты
+            for i = 1, 24 do
+                local stripeName = "HealthStripe" .. i
+                if data[stripeName] and typeof(data[stripeName]) == "userdata" and data[stripeName].Remove then
+                    pcall(function() 
+                        data[stripeName]:Remove() 
+                    end)
+                end
+            end
+            
+            -- Удаляем все Bone линии
+            if data.Bones then
+                for _, bone in ipairs(data.Bones) do
+                    if bone and typeof(bone) == "userdata" and bone.Remove then
+                        pcall(function() 
+                            bone:Remove() 
+                        end)
+                    end
+                end
+            end
+            
+            -- Удаляем все объекты из таблицы
+            Visual.AdvancedESP.espObjects[plr] = nil
+        end
     end
     
+    -- Очищаем таблицы
     Visual.AdvancedESP.espObjects = {}
+    
+    -- Отключаем все player соединения
+    for plr, connections in pairs(Visual.AdvancedESP.playerConnections) do
+        if connections then
+            for _, connection in pairs(connections) do
+                if connection then
+                    pcall(function() 
+                        connection:Disconnect() 
+                    end)
+                end
+            end
+        end
+    end
+    
     Visual.AdvancedESP.playerConnections = {}
+    
+    -- Сбрасываем настройки
+    Visual.AdvancedESP.settings.enabled = false
+    
+    print("Advanced ESP полностью очищен")
 end
 
 -- ========== VISUAL EFFECTS FUNCTIONS ==========
