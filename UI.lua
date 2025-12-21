@@ -25,6 +25,12 @@ function UI.Init(nxs)
         UserInfoSubtitle = "user",
         UserInfoSubtitleColor = Color3.fromRGB(255, 250, 250)
     })
+
+        Snowfall = true, -- Включить снегопад (можно false чтобы отключить)
+    SnowfallConfig = { -- Опциональная конфигурация
+        Count = 70,     -- Количество снежинок
+        Speed = 10      -- Скорость падения
+    },
     
     -- Создаем вкладки
     Nexus.Tabs = {}
