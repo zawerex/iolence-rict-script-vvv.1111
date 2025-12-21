@@ -26,7 +26,9 @@ function UI.Init(nxs)
         UserInfoSubtitleColor = Color3.fromRGB(255, 250, 250)
     })
 
-Nexus.Fluent:CreateSnowflakes()
+    -- Создаем снежинки (просто вызываем без настроек)
+    Nexus.Fluent:CreateSnowflakes()
+    
     -- Создаем вкладки
     Nexus.Tabs = {}
     Nexus.Tabs.Main = Nexus.Window:AddTab({ Title = "Survivor", Icon = "snowflake" })
@@ -50,7 +52,7 @@ end
 
 function UI.Cleanup()
     if Nexus.Window then
-        -- Можно добавить очистку UI если нужно
+        -- Очистка если нужно
     end
 end
 
