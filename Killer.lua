@@ -10,52 +10,76 @@ local Killer = {
 
 -- ========== ONE HIT KILL ==========
 
-local LastDoubleTapTime = 0
-
-local function DoubleTap()
-    if not Nexus.States.OneHitKillEnabled then return end
-    if not Nexus.Player.Team or not Nexus.Player.Team.Name:lower():find("killer") then return end
-    if tick() - LastDoubleTapTime < 0.5 then return end
-    
-    pcall(function()
-        local remotes = Nexus.Services.ReplicatedStorage:FindFirstChild("Remotes")
-        if not remotes then return end
-        local attacks = remotes:FindFirstChild("Attacks")
-        if not attacks then return end
-        local basicAttack = attacks:FindFirstChild("BasicAttack")
-        if basicAttack then
-            basicAttack:FireServer(false)
-            task.wait(0.01)
-            basicAttack:FireServer(false)
-            LastDoubleTapTime = tick()
-        end
-    end)
-end
-
 local OneHitKill = (function()
+    local enabled = false
+    local basicAttackRemote = nil
+    local lastAttackTime = 0
+    local attackCooldown = 0.5
+
+    local function GetBasicAttackRemote()
+        if not basicAttackRemote then
+            pcall(function()
+                basicAttackRemote = Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Attacks"):WaitForChild("BasicAttack")
+            end)
+        end
+        return basicAttackRemote
+    end
+
+    local function SetupAttackHook()
+        local remote = GetBasicAttackRemote()
+        if not remote then return end
+        
+        -- Сохраняем оригинальный метод
+        local originalFireServer = remote.FireServer
+        
+        -- Заменяем метод
+        remote.FireServer = function(self, ...)
+            local result = originalFireServer(self, ...)
+            
+            -- Если OneHitKill включен и не в кулдауне
+            if enabled and tick() - lastAttackTime > attackCooldown then
+                lastAttackTime = tick()
+                
+                -- Вызываем дополнительную атаку
+                task.wait(0.01)
+                originalFireServer(self, ...)
+            end
+            
+            return result
+        end
+    end
+
+    local function GetRole()
+        if not Nexus.Player.Team then return "Survivor" end
+        local teamName = Nexus.Player.Team.Name:lower()
+        return teamName:find("killer") and "Killer" or "Survivor"
+    end
+
     local function Enable()
+        if enabled then return end
+        enabled = true
         Nexus.States.OneHitKillEnabled = true
         
-        Killer.Connections.OneHitKill = Nexus.Services.RunService.Heartbeat:Connect(function()
-            if Nexus.States.OneHitKillEnabled then
-                DoubleTap()
-            end
-        end)
+        SetupAttackHook()
     end
 
     local function Disable()
+        if not enabled then return end
+        enabled = false
         Nexus.States.OneHitKillEnabled = false
         
-        if Killer.Connections.OneHitKill then
-            Killer.Connections.OneHitKill:Disconnect()
-            Killer.Connections.OneHitKill = nil
+        -- Восстанавливаем оригинальный метод
+        local remote = GetBasicAttackRemote()
+        if remote then
+            -- Переподключаем Remote чтобы восстановить оригинальный метод
+            -- (Игра обычно сама восстанавливает Remote)
         end
     end
 
     return {
         Enable = Enable,
         Disable = Disable,
-        IsEnabled = function() return Nexus.States.OneHitKillEnabled end
+        IsEnabled = function() return enabled end
     }
 end)()
 
@@ -96,40 +120,62 @@ end
 
 local NoSlowdown = (function()
     local enabled = false
+    local slowdownConnection = nil
     local originalSpeed = 16
 
     local function GetRole()
         if not Nexus.Player.Team then return "Survivor" end
         local teamName = Nexus.Player.Team.Name:lower()
-        return teamName:find("killer") and "Killer" or "Survivor"
+        if teamName:find("killer") then 
+            return "Killer" 
+        end
+        return "Survivor"
     end
     
-    local function UpdateNoSlowdown()
-        if not enabled then return end
-        if GetRole() ~= "Killer" then return end
-        
-        local char = Nexus.Player.Character
-        if not char then return end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if not hum then return end
-        
-        if hum.WalkSpeed < 16 then
-            hum.WalkSpeed = originalSpeed or 16
-        end
-    end
-
     local function Enable()
         if enabled then return end
         enabled = true
         Nexus.States.NoSlowdownEnabled = true
-        
+
         local character = Nexus.getCharacter()
         local humanoid = Nexus.getHumanoid()
         if humanoid then
             originalSpeed = humanoid.WalkSpeed
         end
         
-        Survivor.Connections.NoSlowdown = Nexus.Services.RunService.Heartbeat:Connect(UpdateNoSlowdown)
+        slowdownConnection = Nexus.Services.RunService.Heartbeat:Connect(function()
+            if not enabled then 
+                if slowdownConnection then
+                    slowdownConnection:Disconnect()
+                    slowdownConnection = nil
+                end
+                return 
+            end
+            
+            if GetRole() ~= "Killer" then 
+                return 
+            end
+            
+            local char = Nexus.getCharacter()
+            if not char then return end
+            
+            local hum = Nexus.getHumanoid()
+            if not hum then return end
+            
+            if hum.WalkSpeed < 16 then
+                hum.WalkSpeed = originalSpeed or 16
+            end
+        end)
+        
+        Nexus.Player.CharacterAdded:Connect(function(newChar)
+            if enabled then
+                task.wait(1)
+                local newHumanoid = newChar:FindFirstChildOfClass("Humanoid")
+                if newHumanoid then
+                    originalSpeed = newHumanoid.WalkSpeed
+                end
+            end
+        end)
     end
     
     local function Disable()
@@ -137,10 +183,17 @@ local NoSlowdown = (function()
         enabled = false
         Nexus.States.NoSlowdownEnabled = false
         
-        if Survivor.Connections.NoSlowdown then
-            Survivor.Connections.NoSlowdown:Disconnect()
-            Survivor.Connections.NoSlowdown = nil
+        if slowdownConnection then
+            Nexus.safeDisconnect(slowdownConnection)
+            slowdownConnection = nil
         end
+        
+        local humanoid = Nexus.getHumanoid()
+        if humanoid and originalSpeed then
+            humanoid.WalkSpeed = originalSpeed
+        end
+        
+        print("NoSlowdown Disabled")
     end
     
     return {
@@ -267,6 +320,283 @@ local Hitbox = (function()
         Disable = Disable,
         SetSize = SetSize,
         GetSize = GetSize,
+        IsEnabled = function() return enabled end
+    }
+end)()
+
+-- ========== AUTO HOOK ==========
+
+local AutoHookSystem = (function()
+    local enabled = false
+    local lastHookTime = 0
+    local state = {
+        phase = 0,
+        target = nil,
+        startTime = 0,
+        hookTarget = nil,
+        hookIndex = 1,
+        allHooks = {}
+    }
+
+    local function GetHealthPercent(hum)
+        if not hum or hum.MaxHealth <= 0 then return 0 end
+        return hum.Health / hum.MaxHealth
+    end
+
+    local function IsPlayerDowned(hum)
+        local pct = GetHealthPercent(hum)
+        return pct <= 0.25 and pct > 0
+    end
+
+    local function IsPlayerAlive(hum)
+        local pct = GetHealthPercent(hum)
+        return pct > 0.25
+    end
+
+    local function SpamSpace(duration)
+        task.spawn(function()
+            local endTime = tick() + duration
+            while tick() < endTime do
+                Nexus.Services.VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+                task.wait(0.05)
+                Nexus.Services.VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+                task.wait(0.08)
+            end
+        end)
+    end
+
+    local function FindAllHooks()
+        state.allHooks = {}
+        
+        -- Ищем все крюки в Workspace
+        for _, obj in ipairs(Nexus.Services.Workspace:GetDescendants()) do
+            if obj.Name:lower():find("hook") and obj:IsA("BasePart") then
+                table.insert(state.allHooks, obj)
+            end
+        end
+        
+        -- Сортируем по расстоянию от текущей позиции
+        local root = Nexus.getRootPart()
+        if root then
+            table.sort(state.allHooks, function(a, b)
+                return (a.Position - root.Position).Magnitude < (b.Position - root.Position).Magnitude
+            end)
+        end
+        
+        return #state.allHooks > 0
+    end
+
+    local function GetNextHook()
+        if #state.allHooks == 0 then
+            FindAllHooks()
+        end
+        
+        if state.hookIndex > #state.allHooks then
+            state.hookIndex = 1
+        end
+        
+        local hook = state.allHooks[state.hookIndex]
+        state.hookIndex = state.hookIndex + 1
+        
+        return hook
+    end
+
+    local function IsHookOccupied(hook)
+        if not hook then return true end
+        
+        for _, player in ipairs(Nexus.Services.Players:GetPlayers()) do
+            if player ~= Nexus.Player then
+                local pRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                if pRoot then
+                    local dist = (pRoot.Position - hook.Position).Magnitude
+                    if dist < 8 then
+                        return true
+                    end
+                end
+            end
+        end
+        return false
+    end
+
+    local function HookSurvivorToAllHooks()
+        local char = Nexus.getCharacter()
+        if not char then return end
+        
+        local root = Nexus.getRootPart()
+        if not root then return end
+        
+        -- Отключаем коллизию
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+        
+        -- Проходим по всем крюкам
+        for i, hook in ipairs(state.allHooks) do
+            if not IsHookOccupied(hook) then
+                -- Телепортируемся к крюку
+                root.CFrame = CFrame.new(hook.Position + Vector3.new(0, 2, 0), hook.Position)
+                
+                -- Спамим пробел для подвешивания
+                SpamSpace(3)
+                
+                -- Ждем 3 секунды
+                task.wait(3)
+            end
+        end
+        
+        -- Восстанавливаем коллизию
+        task.delay(0.3, function()
+            if Nexus.getCharacter() then
+                for _, part in ipairs(Nexus.getCharacter():GetDescendants()) do
+                    if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                        part.CanCollide = true
+                    end
+                end
+            end
+        end)
+    end
+
+    local function UpdateAutoHook()
+        if not enabled then 
+            state.phase = 0
+            state.target = nil
+            return 
+        end
+        
+        if not Nexus.Player.Team or not Nexus.Player.Team.Name:lower():find("killer") then 
+            state.phase = 0
+            state.target = nil
+            return 
+        end
+        
+        local root = Nexus.getRootPart()
+        if not root then return end
+        
+        local char = Nexus.getCharacter()
+        if not char then return end
+        
+        -- Фаза 3: подвешивание на все крюки
+        if state.phase == 3 then
+            HookSurvivorToAllHooks()
+            state.phase = 0
+            state.target = nil
+            state.hookTarget = nil
+            lastHookTime = tick()
+            return
+        end
+        
+        -- Фаза 2: телепорт к крюку
+        if state.phase == 2 then
+            local hook = state.hookTarget or GetNextHook()
+            if hook and not IsHookOccupied(hook) then
+                -- Отключаем коллизию
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then part.CanCollide = false end
+                end
+                
+                -- Телепортируемся к крюку
+                root.CFrame = CFrame.new(hook.Position + Vector3.new(0, 2, 0), hook.Position)
+                SpamSpace(1.5)
+                
+                state.phase = 3
+                state.startTime = tick()
+            else
+                state.phase = 0
+                state.target = nil
+                state.hookTarget = nil
+            end
+            return
+        end
+        
+        -- Фаза 1: атака игрока
+        if state.phase == 1 then
+            if tick() - state.startTime > 1.5 then
+                FindAllHooks() -- Обновляем список крюков
+                state.phase = 2
+            end
+            return
+        end
+        
+        -- Кулдаун
+        if tick() - lastHookTime < 0.5 then return end
+        
+        -- Поиск лучшего игрока для подвешивания
+        local closestDowned = nil
+        local closestDist = math.huge
+        
+        for _, player in ipairs(Nexus.Services.Players:GetPlayers()) do
+            if player ~= Nexus.Player then
+                local targetRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                local targetHum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+                if targetRoot and targetHum and IsPlayerDowned(targetHum) then
+                    local dist = (targetRoot.Position - root.Position).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closestDowned = {player = player, root = targetRoot}
+                    end
+                end
+            end
+        end
+        
+        if closestDowned then
+            -- Отключаем коллизию
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
+            end
+            
+            -- Телепортируемся к игроку
+            local targetPos = closestDowned.root.Position
+            root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0), targetPos + Vector3.new(0, -5, 0))
+            
+            -- Спамим пробел для атаки
+            SpamSpace(1.5)
+            
+            state.phase = 1
+            state.target = closestDowned.player
+            state.hookTarget = GetNextHook()
+            state.startTime = tick()
+            
+            -- Восстанавливаем коллизию
+            task.delay(0.5, function()
+                if Nexus.getCharacter() then
+                    for _, part in ipairs(Nexus.getCharacter():GetDescendants()) do
+                        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                            part.CanCollide = true
+                        end
+                    end
+                end
+            end)
+        end
+    end
+
+    local function Enable()
+        if enabled then return end
+        enabled = true
+        Nexus.States.AutoHookEnabled = true
+        
+        Killer.Connections.AutoHook = Nexus.Services.RunService.Heartbeat:Connect(UpdateAutoHook)
+    end
+
+    local function Disable()
+        if not enabled then return end
+        enabled = false
+        Nexus.States.AutoHookEnabled = false
+        
+        if Killer.Connections.AutoHook then
+            Killer.Connections.AutoHook:Disconnect()
+            Killer.Connections.AutoHook = nil
+        end
+        
+        state.phase = 0
+        state.target = nil
+        state.hookTarget = nil
+        state.hookIndex = 1
+        state.allHooks = {}
+    end
+
+    return {
+        Enable = Enable,
+        Disable = Disable,
         IsEnabled = function() return enabled end
     }
 end)()
@@ -509,237 +839,6 @@ local ThirdPerson = (function()
             offset = Vector3.new(x or 2, y or 1, z or 8)
             UpdateThirdPerson()
         end
-    }
-end)()
-
--- ========== AUTO HOOK ==========
-
-local AutoHookSystem = (function()
-    local enabled = false
-    local lastHookTime = 0
-    local state = {
-        phase = 0,
-        target = nil,
-        startTime = 0,
-        hookTarget = nil
-    }
-
-    local function GetHealthPercent(hum)
-        if not hum or hum.MaxHealth <= 0 then return 0 end
-        return hum.Health / hum.MaxHealth
-    end
-
-    local function IsPlayerDowned(hum)
-        local pct = GetHealthPercent(hum)
-        return pct <= 0.25 and pct > 0
-    end
-
-    local function IsPlayerAlive(hum)
-        local pct = GetHealthPercent(hum)
-        return pct > 0.25
-    end
-
-    local function SpamSpace(duration)
-        task.spawn(function()
-            local endTime = tick() + duration
-            while tick() < endTime do
-                Nexus.Services.VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
-                task.wait(0.05)
-                Nexus.Services.VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
-                task.wait(0.08)
-            end
-        end)
-    end
-
-    local function FindBestHook()
-        local root = Nexus.getRootPart()
-        if not root then return nil end
-        
-        local bestHook = nil
-        local bestDist = math.huge
-        
-        -- Ищем крюки в Workspace
-        for _, obj in ipairs(Nexus.Services.Workspace:GetDescendants()) do
-            if obj.Name:lower():find("hook") and obj:IsA("BasePart") then
-                local dist = (obj.Position - root.Position).Magnitude
-                if dist < bestDist then
-                    bestDist = dist
-                    bestHook = obj
-                end
-            end
-        end
-        
-        return bestHook
-    end
-
-    local function IsHookOccupied(hook)
-        if not hook then return true end
-        
-        for _, player in ipairs(Nexus.Services.Players:GetPlayers()) do
-            if player ~= Nexus.Player then
-                local pRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                if pRoot then
-                    local dist = (pRoot.Position - hook.Position).Magnitude
-                    if dist < 8 then
-                        return true
-                    end
-                end
-            end
-        end
-        return false
-    end
-
-    local function UpdateAutoHook()
-        if not enabled then 
-            state.phase = 0
-            state.target = nil
-            return 
-        end
-        
-        if not Nexus.Player.Team or not Nexus.Player.Team.Name:lower():find("killer") then 
-            state.phase = 0
-            state.target = nil
-            return 
-        end
-        
-        local root = Nexus.getRootPart()
-        if not root then return end
-        
-        local char = Nexus.getCharacter()
-        if not char then return end
-        
-        -- Фаза 3: завершение
-        if state.phase == 3 then
-            if tick() - state.startTime > 2 then
-                state.phase = 0
-                state.target = nil
-                state.hookTarget = nil
-                lastHookTime = tick()
-            end
-            return
-        end
-        
-        -- Фаза 2: телепорт к крюку
-        if state.phase == 2 then
-            local hook = state.hookTarget or FindBestHook()
-            if hook and not IsHookOccupied(hook) then
-                -- Отключаем коллизию
-                for _, part in ipairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then part.CanCollide = false end
-                end
-                
-                -- Телепортируемся к крюку
-                root.CFrame = CFrame.new(hook.Position + Vector3.new(0, 2, 0), hook.Position)
-                SpamSpace(1.5)
-                
-                -- Восстанавливаем коллизию
-                task.delay(0.3, function()
-                    if Nexus.getCharacter() then
-                        for _, part in ipairs(Nexus.getCharacter():GetDescendants()) do
-                            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                                part.CanCollide = true
-                            end
-                        end
-                    end
-                end)
-                
-                state.phase = 3
-                state.startTime = tick()
-            else
-                state.phase = 0
-                state.target = nil
-                state.hookTarget = nil
-            end
-            return
-        end
-        
-        -- Фаза 1: атака игрока
-        if state.phase == 1 then
-            if tick() - state.startTime > 1.5 then
-                state.phase = 2
-            end
-            return
-        end
-        
-        -- Кулдаун
-        if tick() - lastHookTime < 0.5 then return end
-        
-        -- Поиск лучшего игрока для подвешивания
-        local closestDowned = nil
-        local closestDist = math.huge
-        
-        for _, player in ipairs(Nexus.Services.Players:GetPlayers()) do
-            if player ~= Nexus.Player then
-                local targetRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                local targetHum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-                if targetRoot and targetHum and IsPlayerDowned(targetHum) then
-                    local dist = (targetRoot.Position - root.Position).Magnitude
-                    if dist < closestDist then
-                        closestDist = dist
-                        closestDowned = {player = player, root = targetRoot}
-                    end
-                end
-            end
-        end
-        
-        if closestDowned then
-            -- Отключаем коллизию
-            for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then part.CanCollide = false end
-            end
-            
-            -- Телепортируемся к игроку
-            local targetPos = closestDowned.root.Position
-            root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0), targetPos + Vector3.new(0, -5, 0))
-            
-            -- Спамим пробел для атаки
-            SpamSpace(1.5)
-            
-            state.phase = 1
-            state.target = closestDowned.player
-            state.hookTarget = FindBestHook()
-            state.startTime = tick()
-            
-            -- Восстанавливаем коллизию
-            task.delay(0.5, function()
-                if Nexus.getCharacter() then
-                    for _, part in ipairs(Nexus.getCharacter():GetDescendants()) do
-                        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                            part.CanCollide = true
-                        end
-                    end
-                end
-            end)
-        end
-    end
-
-    local function Enable()
-        if enabled then return end
-        enabled = true
-        Nexus.States.AutoHookEnabled = true
-        
-        Killer.Connections.AutoHook = Nexus.Services.RunService.Heartbeat:Connect(UpdateAutoHook)
-    end
-
-    local function Disable()
-        if not enabled then return end
-        enabled = false
-        Nexus.States.AutoHookEnabled = false
-        
-        if Killer.Connections.AutoHook then
-            Killer.Connections.AutoHook:Disconnect()
-            Killer.Connections.AutoHook = nil
-        end
-        
-        state.phase = 0
-        state.target = nil
-        state.hookTarget = nil
-    end
-
-    return {
-        Enable = Enable,
-        Disable = Disable,
-        IsEnabled = function() return enabled end
     }
 end)()
 
