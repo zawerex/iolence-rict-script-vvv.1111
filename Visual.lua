@@ -452,12 +452,14 @@ function Visual.ClearAdvancedESP(plr)
             end
         end
         
-        for i=1,24 do
+        -- Удаляем HealthStripes
+        for i = 1, 24 do
             if d["HealthStripe"..i] then
                 pcall(function() d["HealthStripe"..i]:Remove() end)
             end
         end
         
+        -- Удаляем кости
         if d.Bones then
             for _, bone in ipairs(d.Bones) do
                 if bone and typeof(bone) == "userdata" and bone.Remove then
@@ -466,9 +468,11 @@ function Visual.ClearAdvancedESP(plr)
             end
         end
         
+        -- ВАЖНО: Удаляем запись из espObjects
         Visual.AdvancedESP.espObjects[plr] = nil
     end
     
+    -- Также очищаем соединения
     if Visual.AdvancedESP.playerConnections[plr] then
         for _, connection in pairs(Visual.AdvancedESP.playerConnections[plr]) do
             pcall(function() connection:Disconnect() end)
@@ -677,14 +681,23 @@ end
 
 function Visual.UpdateAdvancedESP()
     local settings = Visual.AdvancedESP.settings
-    if not settings.enabled then return end
+    if not settings.enabled then return end  -- Если ESP выключен, не обновляем
+    
+    -- Останавливаем обновление если ESP отключен
+    if not settings.enabled then
+        for plr, _ in pairs(Visual.AdvancedESP.espObjects) do
+            Visual.ClearAdvancedESP(plr)
+        end
+        return
+    end
     
     local Camera = Nexus.Camera
     local camPos = Camera.CFrame.Position
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
     
     for plr, d in pairs(Visual.AdvancedESP.espObjects) do
-        if not plr or not plr.Parent then
+        -- Проверяем, что запись еще действительна
+        if not plr or not plr.Parent or not d then
             Visual.ClearAdvancedESP(plr)
             continue
         end
@@ -928,19 +941,23 @@ function Visual.StartAdvancedESP()
 end
 
 function Visual.StopAdvancedESP()
-    -- Disconnect connections
+    -- Очищаем ВСЕ ESP объекты у ВСЕХ игроков
+    for plr, _ in pairs(Visual.AdvancedESP.espObjects) do
+        Visual.ClearAdvancedESP(plr)
+    end
+    
+    -- Очищаем все таблицы
+    Visual.AdvancedESP.espObjects = {}
+    Visual.AdvancedESP.playerConnections = {}
+    
+    -- Отключаем все соединения
     for _, connection in pairs(Visual.AdvancedESP.connections) do
         Nexus.safeDisconnect(connection)
     end
     Visual.AdvancedESP.connections = {}
     
-    -- Clear all ESP objects
-    for plr, _ in pairs(Visual.AdvancedESP.espObjects) do
-        Visual.ClearAdvancedESP(plr)
-    end
-    
-    Visual.AdvancedESP.espObjects = {}
-    Visual.AdvancedESP.playerConnections = {}
+    -- Сбрасываем настройку
+    Visual.AdvancedESP.settings.enabled = false
 end
 
 -- ========== VISUAL EFFECTS FUNCTIONS ==========
