@@ -1,4 +1,3 @@
--- Visual Module - Visual effects and ESP system for Violence District
 local Nexus = _G.Nexus
 
 local Visual = {
@@ -242,15 +241,16 @@ function Visual.GetRole(targetPlayer)
     return "Survivor"
 end
 
--- ========== BASIC ESP SYSTEM ==========
-
 function Visual.AddObjectToTrack(obj)
     local nameLower = obj.Name:lower()
     
     if nameLower:find("generator") then 
         Visual.ESP.trackedObjects[obj] = "Generators"
-    elseif nameLower:find("pallet") then 
-        Visual.ESP.trackedObjects[obj] = "Pallets"
+    elseif nameLower:find("pallet") then
+        -- Если в названии есть "pallet", проверяем содержимое
+        if Visual.IsValidPallet(obj) then
+            Visual.ESP.trackedObjects[obj] = "Pallets"
+        end
     elseif nameLower:find("gate") then 
         Visual.ESP.trackedObjects[obj] = "ExitGates"
     elseif nameLower:find("window") then 
@@ -258,6 +258,30 @@ function Visual.AddObjectToTrack(obj)
     elseif nameLower:find("hook") then 
         Visual.ESP.trackedObjects[obj] = "Hooks"
     end
+end
+
+function Visual.IsValidPallet(obj)
+    -- Проверка 1: сам объект называется "PalletPoint"
+    if obj.Name:lower():find("palletpoint") then
+        return true
+    end
+    
+    -- Проверка 2: объект содержит дочерний "PalletPoint"
+    for _, child in ipairs(obj:GetChildren()) do
+        if child.Name:lower():find("palletpoint") then
+            return true
+        end
+    end
+    
+    -- Проверка 3: объект является Model и имеет PrimaryPart
+    if obj:IsA("Model") and obj.PrimaryPart then
+        local primaryName = obj.PrimaryPart.Name:lower()
+        if primaryName:find("palletpoint") or primaryName:find("pallet") then
+            return true
+        end
+    end
+    
+    return false
 end
 
 function Visual.TrackObjects()
