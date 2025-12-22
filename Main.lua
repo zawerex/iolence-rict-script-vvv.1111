@@ -145,10 +145,47 @@ _G.Nexus.Clamp = function(value, min, max)
     return math.max(min, math.min(max, value))
 end
 
+-- ========== СОЗДАНИЕ UI ==========
+
+local function createUI()
+    local windowSize = _G.Nexus.IS_MOBILE and UDim2.fromOffset(350, 200) or UDim2.fromOffset(580,550)
+    
+    -- Создаем главное окно
+    _G.Nexus.Window = Fluent:CreateWindow({
+        Title = "NEXUS",
+        SubTitle = "Violence District",
+        Search = false,
+        Icon = "",
+        TabWidth = 120,
+        Size = windowSize,  
+        Acrylic = false,
+        Theme = "Darker",
+        MinimizeKey = Enum.KeyCode.LeftControl,
+        UserInfo = true,
+        UserInfoTop = false,
+        UserInfoTitle = _G.Nexus.Player.DisplayName,
+        UserInfoSubtitle = "user",
+        UserInfoSubtitleColor = Color3.fromRGB(255, 250, 250)
+    })
+    
+    -- Создаем вкладки
+    _G.Nexus.Tabs = {}
+    _G.Nexus.Tabs.Main = _G.Nexus.Window:AddTab({ Title = "Survivor", Icon = "snowflake" })
+    _G.Nexus.Tabs.Killer = _G.Nexus.Window:AddTab({ Title = "Killer", Icon = "snowflake" })
+    _G.Nexus.Tabs.Movement = _G.Nexus.Window:AddTab({ Title = "Movement", Icon = "snowflake" })
+    _G.Nexus.Tabs.Fun = _G.Nexus.Window:AddTab({ Title = "Other", Icon = "snowflake" })
+    _G.Nexus.Tabs.Visual = _G.Nexus.Window:AddTab({ Title = "Visual & ESP", Icon = "snowflake" })
+    
+    if _G.Nexus.IS_DESKTOP then
+        _G.Nexus.Tabs.Binds = _G.Nexus.Window:AddTab({ Title = "Binds", Icon = "snowflake" })
+    end
+    
+    return true
+end
+
 -- ========== ЗАГРУЗКА МОДУЛЕЙ ==========
 
 local ModuleUrls = {
-    UI = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/UI.lua",
     Survivor = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Survivor%20Module.lua",
     Killer = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Killer.lua",
     Movement = "https://raw.githubusercontent.com/zawerex/iolence-rict-script-vvv.1111/refs/heads/main/Movement.lua",
@@ -191,6 +228,9 @@ end
 
 -- ========== ИНИЦИАЛИЗАЦИЯ ==========
 
+-- Сначала создаем UI
+createUI()
+
 local function initModule(name)
     local module = _G.Nexus.Modules[name]
     if module and module.Init then
@@ -199,14 +239,16 @@ local function initModule(name)
     return false
 end
 
--- Порядок инициализации
-local initOrder = {"UI", "Survivor", "Killer", "Movement", "Fun", "Visual", "Binds"}
+-- Порядок инициализации (UI уже создан, остальные модули)
+local initOrder = {"Survivor", "Killer", "Movement", "Fun", "Visual", "Binds"}
 
 for _, name in ipairs(initOrder) do
     if _G.Nexus.Modules[name] then
         initModule(name)
     end
 end
+
+-- ========== НАСТРОЙКА СОХРАНЕНИЯ ==========
 
 -- Настройка сохранения
 SaveManager:SetLibrary(Fluent)
@@ -218,15 +260,16 @@ SaveManager:SetFolder("FluentScriptHub/violence-district")
 
 -- Вкладка Settings
 if _G.Nexus.Window then
-    local Tabs = _G.Nexus.Tabs
-    Tabs.Settings = _G.Nexus.Window:AddTab({ Title = "Settings", Icon = "settings" })
+    _G.Nexus.Tabs.Settings = _G.Nexus.Window:AddTab({ Title = "Settings", Icon = "settings" })
     
-    InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-    SaveManager:BuildConfigSection(Tabs.Settings)
+    InterfaceManager:BuildInterfaceSection(_G.Nexus.Tabs.Settings)
+    SaveManager:BuildConfigSection(_G.Nexus.Tabs.Settings)
     
     _G.Nexus.Window:SelectTab(1)
     SaveManager:LoadAutoloadConfig()
 end
+
+-- ========== ЗАВЕРШЕНИЕ ==========
 
 -- Уведомление
 local notificationContent = IS_MOBILE and "Nexus loaded (Mobile)" or "Nexus loaded"
@@ -236,15 +279,23 @@ Fluent:Notify({
     Duration = 3
 })
 
+-- Функция очистки
+local function cleanup()
+    for _, module in pairs(_G.Nexus.Modules) do
+        if module and type(module.Cleanup) == "function" then
+            pcall(module.Cleanup)
+        end
+    end
+end
+
 -- Очистка при выходе
 Services.Players.PlayerRemoving:Connect(function(leavingPlayer)
     if leavingPlayer == Player then
-        for _, module in pairs(_G.Nexus.Modules) do
-            if module.Cleanup then
-                pcall(module.Cleanup)
-            end
-        end
+        cleanup()
     end
 end)
+
+-- Для отладки можно добавить в глобальный объект
+_G.Nexus.Cleanup = cleanup
 
 return _G.Nexus
