@@ -38,18 +38,9 @@ function UI.Init(nxs)
         Nexus.Tabs.Binds = Nexus.Window:AddTab({ Title = "Binds", Icon = "snowflake" })
     end
     
-    -- Добавляем заголовок
-    Nexus.Tabs.Main:AddParagraph({
-        Title = "Hello, " .. Nexus.Player.Name .. "!",
-        Content = "Enjoy using it ♡"
-    })
-    
-    print("✓ UI initialized")
-end
-
 function UI.Cleanup()
     if Nexus.Window then
-        -- Можно добавить очистку UI если нужно
+
     end
 end
 
