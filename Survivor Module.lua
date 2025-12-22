@@ -5,53 +5,57 @@ local Survivor = {
     States = {}
 }
 
--- ========== NO TURN LIMIT ==========
+-- ========== NO SLOWDOWN ==========
 
-local NoTurnLimit = (function()
+local NoSlowdown = (function()
     local enabled = false
-    local turnLimitConnection = nil
-    
-    local function IsSurvivor()
-        if not Nexus.Player.Team then return false end
+    local originalSpeed = 16
+
+    local function GetRole()
+        if not Nexus.Player.Team then return "Survivor" end
         local teamName = Nexus.Player.Team.Name:lower()
-        return teamName:find("survivor") or teamName == "survivors" or teamName == "survivor"
+        return teamName:find("survivor") and "Survivor" or "Killer"
+    end
+    
+    local function UpdateNoSlowdown()
+        if not enabled then return end
+        if GetRole() ~= "Survivor" then return end
+        
+        local char = Nexus.Player.Character
+        if not char then return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
+        
+        if hum.WalkSpeed < 16 then
+            hum.WalkSpeed = originalSpeed or 16
+        end
     end
 
     local function Enable()
         if enabled then return end
         enabled = true
-        Nexus.States.NoTurnLimitEnabled = true
-        print("NoTurnLimit Enabled")
+        Nexus.States.NoSlowdownEnabled = true
         
-        turnLimitConnection = Nexus.Services.RunService.RenderStepped:Connect(function()
-            if not enabled or not IsSurvivor() then return end
-            
-            local character = Nexus.getCharacter()
-            if not character then return end
-            
-            local humanoid = Nexus.getHumanoid()
-            if humanoid then
-                if humanoid.WalkSpeed < 16 then 
-                    humanoid.WalkSpeed = 16
-                end
-                humanoid.AutoRotate = true
-            end
-        end)
+        local character = Nexus.getCharacter()
+        local humanoid = Nexus.getHumanoid()
+        if humanoid then
+            originalSpeed = humanoid.WalkSpeed
+        end
+        
+        Survivor.Connections.NoSlowdown = Nexus.Services.RunService.Heartbeat:Connect(UpdateNoSlowdown)
     end
-
+    
     local function Disable()
         if not enabled then return end
         enabled = false
-        Nexus.States.NoTurnLimitEnabled = false
+        Nexus.States.NoSlowdownEnabled = false
         
-        if turnLimitConnection then
-            Nexus.safeDisconnect(turnLimitConnection)
-            turnLimitConnection = nil
+        if Survivor.Connections.NoSlowdown then
+            Survivor.Connections.NoSlowdown:Disconnect()
+            Survivor.Connections.NoSlowdown = nil
         end
-        
-        print("NoTurnLimit Disabled")
     end
-
+    
     return {
         Enable = Enable,
         Disable = Disable,
@@ -65,7 +69,7 @@ local AutoParry = (function()
     local spamActive = false
     local RANGE = 10
     local lastCheck = 0
-    local CHECK_INTERVAL = 0.01
+    local CHECK_INTERVAL = 0.1
     local useRemoteEvent = false -- Флаг для переключения между методами
 
     local AttackAnimations = {
@@ -491,7 +495,6 @@ local GateTool = (function()
 end)()
 
 -- ========== NO FALL ==========
-
 local SimpleNoFall = (function()
     local enabled = false
     local remote = nil
@@ -507,6 +510,7 @@ local SimpleNoFall = (function()
             remote = Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Mechanics"):WaitForChild("Fall")
             originalFireServer = remote.FireServer
 
+            -- Блокировка через метатаблицу
             local mt = getrawmetatable(remote)
             if mt then
                 setreadonly(mt, false)
@@ -522,10 +526,12 @@ local SimpleNoFall = (function()
                 setreadonly(mt, true)
             end
 
+            -- Блокировка прямого вызова
             remote.FireServer = function(...)
                 return nil
             end
 
+            -- Мониторинг для защиты от восстановления
             loopConnection = task.spawn(function()
                 while task.wait(0.3) do
                     if remote.FireServer == originalFireServer then
