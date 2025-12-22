@@ -6,7 +6,7 @@ local UI = {}
 function UI.Init(nxs)
     Nexus = nxs
     
-    local windowSize = Nexus.IS_MOBILE and UDim2.fromOffset(350, 200) or UDim2.fromOffset(590,550)
+    local windowSize = Nexus.IS_MOBILE and UDim2.fromOffset(350, 200) or UDim2.fromOffset(580,550)
     
     -- Создаем главное окно
     Nexus.Window = Nexus.Fluent:CreateWindow({
@@ -37,11 +37,19 @@ function UI.Init(nxs)
     if Nexus.IS_DESKTOP then
         Nexus.Tabs.Binds = Nexus.Window:AddTab({ Title = "Binds", Icon = "snowflake" })
     end
+    
+    -- Добавляем заголовок
+    Nexus.Tabs.Main:AddParagraph({
+        Title = "Hello, " .. Nexus.Player.Name .. "!",
+        Content = "Enjoy using it ♡"
+    })
+    
+    print("✓ UI initialized")
 end
 
 function UI.Cleanup()
     if Nexus.Window then
-        
+        -- Можно добавить очистку UI если нужно
     end
 end
 
