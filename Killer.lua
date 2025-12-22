@@ -9,134 +9,52 @@ local Killer = {
 
 -- ========== ONE HIT KILL ==========
 
+local LastDoubleTapTime = 0
+
+local function DoubleTap()
+    if not Nexus.States.OneHitKillEnabled then return end
+    if not Nexus.Player.Team or not Nexus.Player.Team.Name:lower():find("killer") then return end
+    if tick() - LastDoubleTapTime < 0.5 then return end
+    
+    pcall(function()
+        local remotes = Nexus.Services.ReplicatedStorage:FindFirstChild("Remotes")
+        if not remotes then return end
+        local attacks = remotes:FindFirstChild("Attacks")
+        if not attacks then return end
+        local basicAttack = attacks:FindFirstChild("BasicAttack")
+        if basicAttack then
+            basicAttack:FireServer(false)
+            task.wait(0.01)
+            basicAttack:FireServer(false)
+            LastDoubleTapTime = tick()
+        end
+    end)
+end
+
 local OneHitKill = (function()
-    local enabled = false
-    local mouseClickConnection = nil
-    local basicAttackRemote = nil
-
-    local function GetBasicAttackRemote()
-        if not basicAttackRemote then
-            pcall(function()
-                basicAttackRemote = Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Attacks"):WaitForChild("BasicAttack")
-            end)
-            
-            if not basicAttackRemote then
-                for _, remote in ipairs(Nexus.Services.ReplicatedStorage:GetDescendants()) do
-                    if remote:IsA("RemoteEvent") and (remote.Name:lower():find("attack") or remote.Name:lower():find("basic")) then
-                        basicAttackRemote = remote
-                        break
-                    end
-                end
-            end
-        end
-        return basicAttackRemote
-    end
-
-    local function IsKiller()
-        if Nexus.Player.Team then
-            local teamName = Nexus.Player.Team.Name:lower()
-            return teamName:find("killer") == 1 or teamName == "killer"
-        end
-        return false
-    end
-
-    local function IsValidTarget(targetPlayer)
-        if not targetPlayer or targetPlayer == Nexus.Player then return false end
-        if not targetPlayer.Character then return false end
-        
-        if targetPlayer.Team then
-            local teamName = targetPlayer.Team.Name:lower()
-            if teamName:find("killer") then return false end
-        end
-        
-        local humanoid = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if not humanoid or humanoid.Health <= 0 then return false end
-        
-        return true
-    end
-
-    local function GetNearestTarget()
-        if not IsKiller() then return nil end
-        
-        local character = Nexus.getCharacter()
-        if not character then return nil end
-        
-        local rootPart = character:FindFirstChild("HumanoidRootPart")
-        if not rootPart then return nil end
-        
-        local nearestTarget = nil
-        local nearestDistance = 20
-        
-        for _, targetPlayer in ipairs(Nexus.Services.Players:GetPlayers()) do
-            if targetPlayer ~= Nexus.Player and IsValidTarget(targetPlayer) then
-                local targetCharacter = targetPlayer.Character
-                if targetCharacter then
-                    local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
-                    
-                    if targetRoot then
-                        local currentDistance = (rootPart.Position - targetRoot.Position).Magnitude
-                        
-                        if currentDistance < nearestDistance then
-                            nearestDistance = currentDistance
-                            nearestTarget = targetRoot
-                        end
-                    end
-                end
-            end
-        end
-        
-        return nearestTarget
-    end
-
-    local function OnMouseClick(input, gameProcessed)
-        if gameProcessed or not enabled then return end
-        
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            if not IsKiller() then
-                print("OneHitKill: Player is not in Killer team")
-                return
-            end
-            
-            local target = GetNearestTarget()
-            if target then
-                local attackRemote = GetBasicAttackRemote()
-                if attackRemote then
-                    pcall(function()
-                        attackRemote:FireServer(target.Position)
-                        print("OneHitKill activated on target at distance: " .. (target.Position - Nexus.Player.Character.HumanoidRootPart.Position).Magnitude)
-                    end)
-                end
-            end
-        end
-    end
-
     local function Enable()
-        if enabled then return end
-        enabled = true
         Nexus.States.OneHitKillEnabled = true
         
-        mouseClickConnection = Nexus.Services.UserInputService.InputBegan:Connect(OnMouseClick)
-        
-        print("OneHitKill enabled")
+        Killer.Connections.OneHitKill = Nexus.Services.RunService.Heartbeat:Connect(function()
+            if Nexus.States.OneHitKillEnabled then
+                DoubleTap()
+            end
+        end)
     end
 
     local function Disable()
-        if not enabled then return end
-        enabled = false
         Nexus.States.OneHitKillEnabled = false
         
-        if mouseClickConnection then
-            mouseClickConnection:Disconnect()
-            mouseClickConnection = nil
+        if Killer.Connections.OneHitKill then
+            Killer.Connections.OneHitKill:Disconnect()
+            Killer.Connections.OneHitKill = nil
         end
-        
-        print("OneHitKill disabled")
     end
 
     return {
         Enable = Enable,
         Disable = Disable,
-        IsEnabled = function() return enabled end
+        IsEnabled = function() return Nexus.States.OneHitKillEnabled end
     }
 end)()
 
@@ -193,8 +111,7 @@ local NoSlowdown = (function()
         if enabled then return end
         enabled = true
         Nexus.States.NoSlowdownEnabled = true
-        print("NoSlowdown Enabled (Killer Only)")
-        
+
         local character = Nexus.getCharacter()
         local humanoid = Nexus.getHumanoid()
         if humanoid then
