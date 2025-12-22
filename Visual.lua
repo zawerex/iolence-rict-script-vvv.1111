@@ -71,7 +71,8 @@ local Visual = {
         originalFogEnd = nil,
         originalFogStart = nil,
         originalFogColor = nil,
-        originalClockTime = nil
+        fogCache = nil,
+        originalClockTime = nil        
     }
 }
 
@@ -966,49 +967,122 @@ end
 function Visual.ToggleNoFog(enabled)
     Visual.Effects.noFogEnabled = enabled
     
+    -- Кэш для хранения оригинальных объектов тумана
+    if not Visual.Effects.fogCache then
+        Visual.Effects.fogCache = {}
+    end
+    
     if enabled then
+        -- Сохраняем оригинальные настройки освещения
         if not Visual.Effects.originalFogEnd then
             Visual.Effects.originalFogEnd = Nexus.Services.Lighting.FogEnd
             Visual.Effects.originalFogStart = Nexus.Services.Lighting.FogStart
             Visual.Effects.originalFogColor = Nexus.Services.Lighting.FogColor
+            Visual.Effects.originalFogDensity = Nexus.Services.Lighting.FogDensity
         end
         
-        Nexus.Services.Lighting.FogEnd = 1000000
-        Nexus.Services.Lighting.FogStart = 1000000
-        Nexus.Services.Lighting.FogDensity = 0
-        
-        if Nexus.Services.Lighting:FindFirstChild("Atmosphere") then
-            Nexus.Services.Lighting.Atmosphere.Density = 0
-        end
-        
-        Visual.ESP.espConnections.noFog = Nexus.Services.RunService.Heartbeat:Connect(function()
-            if Visual.Effects.noFogEnabled then
-                Nexus.Services.Lighting.FogEnd = 1000000
-                Nexus.Services.Lighting.FogStart = 1000000
-                Nexus.Services.Lighting.FogDensity = 0
-                
-                if Nexus.Services.Lighting:FindFirstChild("Atmosphere") then
-                    Nexus.Services.Lighting.Atmosphere.Density = 0
-                end
-            else
-                if Visual.ESP.espConnections.noFog then
-                    Visual.ESP.espConnections.noFog:Disconnect()
-                    Visual.ESP.espConnections.noFog = nil
+        -- Убираем туман с карты
+        pcall(function()
+            local map = Nexus.Services.Workspace:FindFirstChild("Map")
+            if map then
+                for _, obj in ipairs(map:GetDescendants()) do
+                    if obj.Name:lower():find("fog") or obj:IsA("Atmosphere") or 
+                       obj:IsA("BloomEffect") or obj:IsA("BlurEffect") or 
+                       obj:IsA("ColorCorrectionEffect") then
+                        if not Visual.Effects.fogCache[obj] then
+                            Visual.Effects.fogCache[obj] = {
+                                enabled = obj:IsA("PostEffect") and obj.Enabled or true,
+                                parent = obj.Parent
+                            }
+                        end
+                        if obj:IsA("PostEffect") then
+                            obj.Enabled = false
+                        else
+                            obj.Parent = nil
+                        end
+                    end
                 end
             end
         end)
+        
+        -- Убираем туман из освещения
+        pcall(function()
+            local lighting = Nexus.Services.Lighting
+            for _, obj in ipairs(lighting:GetChildren()) do
+                if obj:IsA("Atmosphere") or obj.Name:lower():find("fog") then
+                    if not Visual.Effects.fogCache[obj] then
+                        Visual.Effects.fogCache[obj] = {
+                            enabled = obj:IsA("Atmosphere") or true,
+                            parent = obj.Parent
+                        }
+                    end
+                    if obj:IsA("Atmosphere") then
+                        obj.Density = 0
+                    else
+                        obj.Parent = nil
+                    end
+                end
+            end
+            
+            -- Настраиваем параметры тумана для полного его удаления
+            lighting.FogEnd = 100000
+            lighting.FogStart = 0
+            lighting.FogDensity = 0
+            
+            -- Добавляем постоянное обновление для надежности
+            if not Visual.ESP.espConnections.noFog then
+                Visual.ESP.espConnections.noFog = Nexus.Services.RunService.Heartbeat:Connect(function()
+                    if Visual.Effects.noFogEnabled then
+                        Nexus.Services.Lighting.FogEnd = 100000
+                        Nexus.Services.Lighting.FogStart = 0
+                        Nexus.Services.Lighting.FogDensity = 0
+                        
+                        -- Также обновляем Atmosphere если он был
+                        local atmosphere = Nexus.Services.Lighting:FindFirstChild("Atmosphere")
+                        if atmosphere then
+                            atmosphere.Density = 0
+                        end
+                    else
+                        -- Отключаем соединение если функция выключена
+                        if Visual.ESP.espConnections.noFog then
+                            Visual.ESP.espConnections.noFog:Disconnect()
+                            Visual.ESP.espConnections.noFog = nil
+                        end
+                    end
+                end)
+            end
+        end)
     else
-        if Visual.Effects.originalFogEnd then
-            Nexus.Services.Lighting.FogEnd = Visual.Effects.originalFogEnd
-            Nexus.Services.Lighting.FogStart = Visual.Effects.originalFogStart
-            Nexus.Services.Lighting.FogColor = Visual.Effects.originalFogColor
-            Nexus.Services.Lighting.FogDensity = 0.01
-        end
+        -- Восстанавливаем туман
+        pcall(function()
+            -- Восстанавливаем объекты из кэша
+            for obj, data in pairs(Visual.Effects.fogCache) do
+                if obj and data.parent then
+                    if obj:IsA("PostEffect") then
+                        obj.Enabled = data.enabled
+                    else
+                        obj.Parent = data.parent
+                    end
+                end
+            end
+            Visual.Effects.fogCache = {}
+            
+            -- Восстанавливаем настройки освещения
+            if Visual.Effects.originalFogEnd then
+                Nexus.Services.Lighting.FogEnd = Visual.Effects.originalFogEnd
+                Nexus.Services.Lighting.FogStart = Visual.Effects.originalFogStart
+                Nexus.Services.Lighting.FogColor = Visual.Effects.originalFogColor
+                Nexus.Services.Lighting.FogDensity = Visual.Effects.originalFogDensity
+            end
+            
+            -- Восстанавливаем Atmosphere если он был
+            local atmosphere = Nexus.Services.Lighting:FindFirstChild("Atmosphere")
+            if atmosphere then
+                atmosphere.Density = 0.3
+            end
+        end)
         
-        if Nexus.Services.Lighting:FindFirstChild("Atmosphere") then
-            Nexus.Services.Lighting.Atmosphere.Density = 0.3
-        end
-        
+        -- Отключаем соединение обновления
         if Visual.ESP.espConnections.noFog then
             Visual.ESP.espConnections.noFog:Disconnect()
             Visual.ESP.espConnections.noFog = nil
