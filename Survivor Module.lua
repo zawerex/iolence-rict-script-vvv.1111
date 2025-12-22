@@ -1,4 +1,3 @@
--- Survivor Module - Survivor functions for Violence District
 local Nexus = _G.Nexus
 
 local Survivor = {
