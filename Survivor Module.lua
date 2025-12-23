@@ -257,20 +257,14 @@ local FakeParry = (function()
         local animation = Instance.new("Animation")
         animation.AnimationId = animationId
         
-        -- Загружаем и воспроизводим анимацию
+        -- Загружаем и воспроизводим анимацию один раз
         animationTrack = humanoid:LoadAnimation(animation)
         if animationTrack then
             animationTrack:Play()
             
-            -- Останавливаем при завершении
+            -- Останавливаем при завершении и очищаем
             animationTrack.Stopped:Connect(function()
                 animationTrack = nil
-                
-                -- Автоматически перезапускаем анимацию если функция все еще включена
-                if enabled then
-                    task.wait(0.1)
-                    startAnimation()
-                end
             end)
             
             return true
@@ -304,7 +298,7 @@ local FakeParry = (function()
                     -- Останавливаем при смерти
                     humanoid.Died:Connect(stopAnimation)
                     
-                    -- Запускаем анимацию
+                    -- Запускаем анимацию один раз
                     task.wait(0.5)
                     startAnimation()
                 end
@@ -321,7 +315,7 @@ local FakeParry = (function()
         -- Настраиваем слушатели для персонажа
         setupCharacterListeners()
         
-        -- Пытаемся запустить анимацию
+        -- Запускаем анимацию один раз
         if not startAnimation() then
             print("Fake Parry: Waiting for character to start animation...")
         end
@@ -346,7 +340,14 @@ local FakeParry = (function()
     return {
         Enable = Enable,
         Disable = Disable,
-        IsEnabled = function() return enabled end
+        IsEnabled = function() return enabled end,
+        RestartAnimation = function()
+            if enabled then
+                stopAnimation()
+                task.wait(0.1)
+                startAnimation()
+            end
+        end
     }
 end)()
 
