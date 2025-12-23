@@ -587,6 +587,60 @@ local BeatGameKiller = (function()
         return teamName:find("survivor") or teamName == "survivors" or teamName == "survivor"
     end
 
+    local function IsPlayerOnHook(player)
+        if not player or not player.Character then return false end
+        
+        local character = player.Character
+        
+        -- Проверка по анимации/состоянию
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            -- Проверка анимаций, связанных с хуком
+            for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
+                if track.Animation then
+                    local animId = track.Animation.AnimationId:lower()
+                    if animId:find("hook") or animId:find("trap") or animId:find("hanging") then
+                        return true
+                    end
+                end
+            end
+        end
+        
+        -- Проверка по частям персонажа
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                -- Проверка имени или описания
+                local nameLower = part.Name:lower()
+                if nameLower:find("hook") or nameLower:find("trap") then
+                    return true
+                end
+            end
+        end
+        
+        -- Проверка по атрибутам или значениям
+        if character:GetAttribute("IsOnHook") or character:GetAttribute("IsTrapped") then
+            return true
+        end
+        
+        -- Проверка специальных объектов в персонаже
+        if character:FindFirstChild("HookState") or character:FindFirstChild("TrapState") then
+            return true
+        end
+        
+        -- Проверка по позиции (если игрок долгое время стоит на месте)
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        if rootPart then
+            -- Если у игрока есть скрипт или объект Hook или Trap
+            for _, obj in ipairs(rootPart:GetChildren()) do
+                if obj.Name:lower():find("hook") or obj.Name:lower():find("trap") then
+                    return true
+                end
+            end
+        end
+        
+        return false
+    end
+
     local function UpdateBeatGame()
         if not enabled then 
             targetPlayer = nil
@@ -606,8 +660,14 @@ local BeatGameKiller = (function()
         if targetPlayer and targetPlayer.Character then
             local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
             local targetHum = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+            
             if targetRoot and targetHum and IsPlayerAlive(targetHum) and IsSurvivor(targetPlayer) then
-                needNewTarget = false
+                -- Дополнительная проверка: не находится ли игрок на хуке
+                if not IsPlayerOnHook(targetPlayer) then
+                    needNewTarget = false
+                else
+                    targetPlayer = nil  -- Сбрасываем цель, если она на хуке
+                end
             else
                 targetPlayer = nil
             end
@@ -620,8 +680,12 @@ local BeatGameKiller = (function()
                 if player ~= Nexus.Player and IsSurvivor(player) and player.Character then
                     local pRoot = player.Character:FindFirstChild("HumanoidRootPart")
                     local pHum = player.Character:FindFirstChildOfClass("Humanoid")
+                    
                     if pRoot and pHum and IsPlayerAlive(pHum) then
-                        table.insert(survivors, player)
+                        -- Проверяем, не находится ли игрок на хуке
+                        if not IsPlayerOnHook(player) then
+                            table.insert(survivors, player)
+                        end
                     end
                 end
             end
@@ -655,7 +719,7 @@ local BeatGameKiller = (function()
             return 
         end
         
-        if not IsPlayerAlive(targetHum) then
+        if not IsPlayerAlive(targetHum) or IsPlayerOnHook(targetPlayer) then
             targetPlayer = nil
             return
         end
@@ -717,7 +781,8 @@ local BeatGameKiller = (function()
     return {
         Enable = Enable,
         Disable = Disable,
-        IsEnabled = function() return enabled end
+        IsEnabled = function() return enabled end,
+        GetCurrentTarget = function() return targetPlayer end
     }
 end)()
 
