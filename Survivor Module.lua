@@ -739,17 +739,26 @@ local GateTool = (function()
     local function CreateTool()
         if not Nexus.Player:FindFirstChild("Backpack") then return nil end
         
+        -- Проверяем существующий инструмент
         local existing = Nexus.Player.Backpack:FindFirstChild("Gate")
         if existing then 
             pcall(function() 
-                if toolConnection then
-                    toolConnection:Disconnect()
-                    toolConnection = nil
-                end
                 existing:Destroy() 
             end) 
         end
         
+        -- Проверяем в инвентаре персонажа
+        local char = Nexus.Player.Character
+        if char then
+            local charTool = char:FindFirstChild("Gate")
+            if charTool then
+                pcall(function() 
+                    charTool:Destroy() 
+                end)
+            end
+        end
+        
+        -- Создаем новый инструмент
         local tool = Instance.new("Tool")
         tool.Name = "Gate"
         tool.RequiresHandle = false
@@ -757,20 +766,26 @@ local GateTool = (function()
         tool.ToolTip = "Gate Tool - Use to interact with gates"
         tool.Parent = Nexus.Player.Backpack
         
-        tool.ManualActivationOnly = true
+        -- Настройки для автоматического использования
+        tool.ManualActivationOnly = false
+        tool.Activated:Connect(function()
+            local remotes = Nexus.Services.ReplicatedStorage:FindFirstChild("Remotes")
+            if remotes then
+                local itemsRemote = remotes:FindFirstChild("Items")
+                if itemsRemote then
+                    local gateRemote = itemsRemote:FindFirstChild("Gate")
+                    if gateRemote then
+                        local gateFunction = gateRemote:FindFirstChild("gate")
+                        if gateFunction then
+                            gateFunction:FireServer()
+                            print("Gate Tool: RemoteEvent fired")
+                        end
+                    end
+                end
+            end
+        end)
         
         return tool
-    end
-
-    local function UseGate()
-        local gateRemote = Nexus.Services.ReplicatedStorage.Remotes and Nexus.Services.ReplicatedStorage.Remotes.Items and Nexus.Services.ReplicatedStorage.Remotes.Items.Gate and Nexus.Services.ReplicatedStorage.Remotes.Items.Gate.gate
-        if gateRemote then 
-            pcall(function() 
-                gateRemote:FireServer() 
-            end)
-            return true 
-        end
-        return false
     end
 
     local function Enable()
@@ -779,18 +794,16 @@ local GateTool = (function()
         
         toolInstance = CreateTool()
         if toolInstance then 
-            toolConnection = toolInstance.Activated:Connect(function()
-                Nexus.SafeCallback(UseGate)
-            end)
+            print("Gate Tool: Enabled - Tool created in backpack")
+        else
+            print("Gate Tool: Failed to create tool")
         end
     end
 
     local function Disable()
         Nexus.States.GateToolEnabled = false
-        if toolConnection then
-            Nexus.safeDisconnect(toolConnection)
-            toolConnection = nil
-        end
+        
+        -- Удаляем инструмент
         if toolInstance then 
             pcall(function() 
                 toolInstance:Destroy() 
@@ -798,6 +811,7 @@ local GateTool = (function()
             toolInstance = nil
         end
         
+        -- Удаляем инструмент из рюкзака и инвентаря
         local backpack = Nexus.Player:FindFirstChild("Backpack")
         if backpack then
             local tool = backpack:FindFirstChild("Gate")
@@ -805,57 +819,47 @@ local GateTool = (function()
                 pcall(function() tool:Destroy() end) 
             end
         end
+        
+        local char = Nexus.Player.Character
+        if char then
+            local charTool = char:FindFirstChild("Gate")
+            if charTool then
+                pcall(function() charTool:Destroy() end)
+            end
+        end
+        
+        -- Отключаем соединение
+        if toolConnection then
+            Nexus.safeDisconnect(toolConnection)
+            toolConnection = nil
+        end
+        
+        print("Gate Tool: Disabled")
     end
 
+    -- Автоматически восстанавливаем инструмент при появлении нового персонажа
     Nexus.Player.CharacterAdded:Connect(function() 
+        task.wait(0.5)
         if Nexus.States.GateToolEnabled then 
-            task.wait(2)
-            Nexus.SafeCallback(Enable)
+            Enable()
         end 
     end)
 
-    return {Enable=Enable, Disable=Disable}
-end)()
-
--- ========== AUTO SKILL CHECK ==========
-
-local function FindSkillCheckGUI()
-    local PlayerGui = Nexus.Player:WaitForChild("PlayerGui")
-    local skillCheckGui = PlayerGui:FindFirstChild("SkillCheckPromptGui")
-    if skillCheckGui then
-        local checkPart = skillCheckGui:FindFirstChild("Check")
-        if checkPart then
-            local goalPart = checkPart:WaitForChild("Goal")
-            local linePart = checkPart:WaitForChild("Line")
-            return skillCheckGui, checkPart, goalPart, linePart
+    -- Восстанавливаем инструмент при смерти/возрождении
+    Nexus.Player.CharacterRemoving:Connect(function()
+        if Nexus.States.GateToolEnabled and toolInstance then
+            toolInstance = nil
         end
-    end
-    return nil
-end
+    end)
 
-local function DisableGeneratorFail()
-    local char = Nexus.getCharacter()
-    if char then
-        local skillCheckGen = char:FindFirstChild("Skillcheck-gen")
-        if skillCheckGen then skillCheckGen.Enabled = false end
-    end
-end
-
-local function PerformPerfectSkillCheck()
-    if not Nexus.States.autoSkillEnabled then return end
-    local skillCheckGui, checkPart, goalPart, linePart = FindSkillCheckGUI()
-    if not skillCheckGui or not checkPart or not checkPart.Visible then return end
-    
-    local lineRot, goalRot = linePart.Rotation, goalPart.Rotation
-    local minRot, maxRot = (104 + goalRot) % 360, (114 + goalRot) % 360
-    if (minRot > maxRot and (lineRot >= minRot or lineRot <= maxRot)) or (lineRot >= minRot and lineRot <= maxRot) then
-        Nexus.Services.VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
-        task.wait(0.01)
-        Nexus.Services.VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
-        return true
-    end
-    return false
-end
+    return {
+        Enable = Enable,
+        Disable = Disable,
+        IsEnabled = function() 
+            return Nexus.States.GateToolEnabled 
+        end
+    }
+end)()
 
 -- ========== MODULE INITIALIZATION ==========
 
