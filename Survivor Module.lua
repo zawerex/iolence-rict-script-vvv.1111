@@ -495,82 +495,157 @@ local GateTool = (function()
 end)()
 
 -- ========== NO FALL ==========
+-- ========== NO FALL ==========
 local NoFall = (function()
     local enabled = false
-    local originalFallRemote = nil
+    local originalFireServer = nil
     local fallRemote = nil
     local hookEnabled = false
+    local connection = nil
 
-    local function GetFallRemote()
-        if not fallRemote then
-            pcall(function()
-                -- Пытаемся найти RemoteEvent для падения
-                local remotes = Nexus.Services.ReplicatedStorage:WaitForChild("Remotes")
-                
-                -- Ищем в разных возможных местах
-                if remotes:FindFirstChild("Fall") then
-                    fallRemote = remotes:WaitForChild("Fall")
-                elseif remotes:FindFirstChild("Character") then
-                    local character = remotes:WaitForChild("Character")
-                    if character:FindFirstChild("Fall") then
-                        fallRemote = character:WaitForChild("Fall")
-                    end
-                elseif remotes:FindFirstChild("States") then
-                    local states = remotes:WaitForChild("States")
-                    if states:FindFirstChild("Fall") then
-                        fallRemote = states:WaitForChild("Fall")
-                    end
+    local function findFallRemote()
+        if fallRemote then return fallRemote end
+        
+        -- Ищем RemoteEvent для падения по разным возможным путям
+        local searchPaths = {
+            "Remotes.Fall",
+            "Remotes.Character.Fall", 
+            "Remotes.States.Fall",
+            "Remotes.Physics.Fall",
+            "Remotes.Damage.Fall",
+            "Remotes.Player.Fall"
+        }
+        
+        for _, path in ipairs(searchPaths) do
+            local parts = path:split(".")
+            local current = Nexus.Services.ReplicatedStorage
+            
+            for i, part in ipairs(parts) do
+                if current:FindFirstChild(part) then
+                    current = current[part]
+                else
+                    current = nil
+                    break
                 end
-                
-                -- Если не нашли стандартным путем, ищем по всем RemoteEvent
-                if not fallRemote then
-                    for _, remote in ipairs(remotes:GetDescendants()) do
-                        if remote:IsA("RemoteEvent") and remote.Name:lower():find("fall") then
-                            fallRemote = remote
-                            break
-                        end
-                    end
-                end
-            end)
+            end
+            
+            if current and current:IsA("RemoteEvent") then
+                fallRemote = current
+                print("NoFall: Found remote at path: " .. path)
+                return fallRemote
+            end
         end
+        
+        -- Если не нашли по путям, ищем рекурсивно
+        local function recursiveSearch(parent, depth)
+            if depth > 3 then return nil end -- Ограничиваем глубину поиска
+            
+            for _, child in ipairs(parent:GetChildren()) do
+                if child:IsA("RemoteEvent") then
+                    local nameLower = child.Name:lower()
+                    if nameLower:find("fall") or nameLower:find("falldamage") or nameLower:find("falldmg") then
+                        return child
+                    end
+                end
+                
+                if #child:GetChildren() > 0 then
+                    local result = recursiveSearch(child, depth + 1)
+                    if result then return result end
+                end
+            end
+            return nil
+        end
+        
+        fallRemote = recursiveSearch(Nexus.Services.ReplicatedStorage, 0)
+        if fallRemote then
+            print("NoFall: Found remote via recursive search: " .. fallRemote:GetFullName())
+        end
+        
         return fallRemote
     end
 
-    local function SetupNoFallHook()
+    local function setupHook()
         if hookEnabled then return end
         
-        local remote = GetFallRemote()
-        if not remote then 
-            warn("NoFall: Could not find fall remote")
-            return 
+        fallRemote = findFallRemote()
+        if not fallRemote then
+            warn("NoFall: Could not find fall damage remote")
+            return false
         end
         
         -- Сохраняем оригинальный метод
-        originalFallRemote = remote.FireServer
+        originalFireServer = fallRemote.FireServer
         
-        -- Заменяем метод на пустую функцию когда NoFall включен
-        remote.FireServer = function(self, ...)
+        -- Создаем новую функцию, которая блокирует вызовы при включенном NoFall
+        local hookedFireServer = function(self, ...)
             if enabled then
                 -- Полностью блокируем вызов
+                print("NoFall: Blocked fall damage call")
                 return nil
             end
-            return originalFallRemote(self, ...)
+            
+            -- Разрешаем оригинальный вызов
+            return originalFireServer(self, ...)
         end
         
-        hookEnabled = true
-        print("NoFall hook installed successfully")
+        -- Безопасно заменяем метод
+        local success, errorMsg = pcall(function()
+            fallRemote.FireServer = hookedFireServer
+        end)
+        
+        if success then
+            hookEnabled = true
+            print("NoFall: Hook installed successfully")
+            return true
+        else
+            warn("NoFall: Failed to install hook: " .. tostring(errorMsg))
+            return false
+        end
     end
 
-    local function RemoveNoFallHook()
-        if not hookEnabled then return end
+    local function removeHook()
+        if not hookEnabled or not originalFireServer then return end
         
-        local remote = GetFallRemote()
-        if remote and originalFallRemote then
-            remote.FireServer = originalFallRemote
-        end
+        local success, errorMsg = pcall(function()
+            if fallRemote and fallRemote.Parent then
+                fallRemote.FireServer = originalFireServer
+            end
+        end)
         
         hookEnabled = false
-        originalFallRemote = nil
+        originalFireServer = nil
+        
+        if success then
+            print("NoFall: Hook removed successfully")
+        else
+            warn("NoFall: Failed to remove hook: " .. tostring(errorMsg))
+        end
+    end
+
+    local function monitorForFallRemote()
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+        
+        -- Периодически проверяем наличие RemoteEvent
+        connection = Nexus.Services.RunService.Heartbeat:Connect(function()
+            if not enabled then return end
+            
+            if not hookEnabled or not fallRemote then
+                setupHook()
+            end
+            
+            -- Проверяем, не был ли RemoteEvent заменен
+            if hookEnabled and fallRemote then
+                -- Проверяем, что наш хук все еще на месте
+                if fallRemote.FireServer ~= originalFireServer then
+                    print("NoFall: Hook was overridden, reinstalling...")
+                    hookEnabled = false
+                    setupHook()
+                end
+            end
+        end)
     end
 
     local function Enable()
@@ -578,7 +653,17 @@ local NoFall = (function()
         enabled = true
         Nexus.States.NoFallEnabled = true
         
-        SetupNoFallHook()
+        -- Пытаемся установить хук
+        local success = setupHook()
+        
+        if success then
+            print("NoFall: Enabled successfully")
+        else
+            print("NoFall: Will retry hook setup in background")
+        end
+        
+        -- Запускаем мониторинг для повторной установки хука при необходимости
+        monitorForFallRemote()
     end
 
     local function Disable()
@@ -586,23 +671,67 @@ local NoFall = (function()
         enabled = false
         Nexus.States.NoFallEnabled = false
         
-        RemoveNoFallHook()
+        -- Удаляем хук
+        removeHook()
+        
+        -- Останавливаем мониторинг
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+        
+        print("NoFall: Disabled")
     end
 
-    -- Автоматическая установка хука при запуске
+    -- Автоматически ищем RemoteEvent при запуске
     task.spawn(function()
-        task.wait(3)
-        pcall(GetFallRemote)
+        task.wait(5) -- Даем игре время загрузиться
+        findFallRemote()
+    end)
+
+    -- Восстанавливаем хук при повторном подключении RemoteEvent
+    local function onChildAdded(child)
+        if child:IsA("RemoteEvent") then
+            local nameLower = child.Name:lower()
+            if nameLower:find("fall") then
+                print("NoFall: New fall remote detected: " .. child:GetFullName())
+                fallRemote = child
+                if enabled then
+                    task.wait(0.5)
+                    setupHook()
+                end
+            end
+        end
+    end
+
+    -- Слушаем добавление новых RemoteEvents
+    for _, folder in ipairs({"Remotes", "RemoteEvents"}) do
+        local remotesFolder = Nexus.Services.ReplicatedStorage:FindFirstChild(folder)
+        if remotesFolder then
+            remotesFolder.ChildAdded:Connect(onChildAdded)
+        end
+    end
+
+    -- Также слушаем добавление в корень ReplicatedStorage
+    Nexus.Services.ReplicatedStorage.ChildAdded:Connect(function(child)
+        if child:IsA("RemoteEvent") and child.Name:lower():find("fall") then
+            print("NoFall: Fall remote added to ReplicatedStorage: " .. child.Name)
+            fallRemote = child
+            if enabled then
+                task.wait(0.5)
+                setupHook()
+            end
+        end
     end)
 
     return {
         Enable = Enable,
         Disable = Disable,
         IsEnabled = function() return enabled end,
-        SetupHook = SetupNoFallHook
+        GetRemote = function() return fallRemote end,
+        ReinstallHook = setupHook
     }
 end)()
-
 -- ========== AUTO SKILL CHECK ==========
 
 local function FindSkillCheckGUI()
