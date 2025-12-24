@@ -7,84 +7,209 @@ do
     screenGui.ResetOnSpawn = false
     screenGui.Parent = game:GetService("CoreGui")
 
-    -- Контейнер для крыльев и текста
+    -- Контейнер для всего
     local container = Instance.new("Frame")
     container.Name = "Container"
-    container.Size = UDim2.new(0, 400, 0, 300)
-    container.Position = UDim2.new(0.5, -200, 0.5, -150)
+    container.Size = UDim2.new(1, 0, 1, 0)
+    container.Position = UDim2.new(0, 0, 0, 0)
     container.BackgroundTransparency = 1
     container.BorderSizePixel = 0
-    container.Parent = background
+    container.Parent = screenGui
 
-    -- Текст Nexus Script
+    -- Контейнер для снежинок (за текстом)
+    local snowContainer = Instance.new("Frame")
+    snowContainer.Name = "SnowContainer"
+    snowContainer.Size = UDim2.new(1, 0, 1, 0)
+    snowContainer.Position = UDim2.new(0, 0, 0, 0)
+    snowContainer.BackgroundTransparency = 1
+    snowContainer.BorderSizePixel = 0
+    snowContainer.ZIndex = 1
+    snowContainer.Parent = container
+
+    -- Текст Nexus Script (по центру)
     local textLabel = Instance.new("TextLabel")
     textLabel.Name = "NexusText"
-    textLabel.Size = UDim2.new(1, 0, 0, 60)
-    textLabel.Position = UDim2.new(0, 0, 0.5, -30)
+    textLabel.Size = UDim2.new(0, 0, 0, 0)
+    textLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
+    textLabel.AnchorPoint = Vector2.new(0.5, 0.5)
     textLabel.BackgroundTransparency = 1
-    textLabel.Text = "NEXUS SCRIPT"
+    textLabel.Text = "NEXUS"
     textLabel.Font = Enum.Font.GothamBlack
-    textLabel.TextSize = 36
+    textLabel.TextSize = 64
     textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     textLabel.TextTransparency = 1
-    textLabel.TextStrokeTransparency = 0.5
-    textLabel.TextStrokeColor3 = Color3.fromRGB(100, 100, 255)
+    textLabel.TextStrokeTransparency = 0.7
+    textLabel.TextStrokeColor3 = Color3.fromRGB(100, 150, 255)
+    textLabel.ZIndex = 10
     textLabel.Parent = container
+
+    -- Подзаголовок
+    local subText = Instance.new("TextLabel")
+    subText.Name = "SubText"
+    subText.Size = UDim2.new(0, 0, 0, 0)
+    subText.Position = UDim2.new(0.5, 0, 0.6, 0)
+    subText.AnchorPoint = Vector2.new(0.5, 0.5)
+    subText.BackgroundTransparency = 1
+    subText.Text = "Violence District"
+    subText.Font = Enum.Font.GothamMedium
+    subText.TextSize = 28
+    subText.TextColor3 = Color3.fromRGB(200, 220, 255)
+    subText.TextTransparency = 1
+    subText.TextStrokeTransparency = 0.8
+    subText.TextStrokeColor3 = Color3.fromRGB(60, 100, 180)
+    subText.ZIndex = 10
+    subText.Parent = container
+
+    -- Функция создания снежинки
+    local function createSnowflake()
+        local snowflake = Instance.new("Frame")
+        local size = math.random(6, 15)
+        snowflake.Size = UDim2.new(0, size, 0, size)
+        snowflake.Position = UDim2.new(math.random(), math.random(-50, 50), 0, -size)
+        snowflake.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        snowflake.BackgroundTransparency = math.random(3, 7) / 10
+        snowflake.BorderSizePixel = 0
+        snowflake.ZIndex = 1
+        snowflake.Parent = snowContainer
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(1, 0)
+        corner.Parent = snowflake
+        
+        return snowflake
+    end
 
     -- Анимация появления
     local tweenService = game:GetService("TweenService")
     
     local function showAnimation()
-        -- Анимация фона
-        local bgTween = tweenService:Create(background, TweenInfo.new(0.5), {BackgroundTransparency = 0.7})
-        bgTween:Play()
+        -- Запускаем снегопад
+        task.spawn(function()
+            while snowContainer and snowContainer.Parent do
+                for i = 1, math.random(2, 5) do
+                    local snowflake = createSnowflake()
+                    
+                    -- Анимация падения снежинки
+                    local fallTime = math.random(3, 6)
+                    local tween = tweenService:Create(snowflake, TweenInfo.new(
+                        fallTime,
+                        Enum.EasingStyle.Linear
+                    ), {
+                        Position = UDim2.new(
+                            snowflake.Position.X.Scale,
+                            snowflake.Position.X.Offset + math.random(-100, 100),
+                            1.2,
+                            math.random(0, 50)
+                        ),
+                        BackgroundTransparency = 1,
+                        Rotation = math.random(-180, 180)
+                    })
+                    
+                    tween:Play()
+                    game:GetService("Debris"):AddItem(snowflake, fallTime + 0.5)
+                end
+                task.wait(math.random(2, 8) / 10)
+            end
+        end)
         
-        -- Задержка перед текстом
+        -- Ждем немного перед появлением текста
         task.wait(0.5)
         
-        -- Появление текста
-        local textTween = tweenService:Create(textLabel, TweenInfo.new(0.8, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        -- Появление основного текста с эффектом увеличения
+        local textTween = tweenService:Create(textLabel, TweenInfo.new(
+            1.2,
+            Enum.EasingStyle.Back,
+            Enum.EasingDirection.Out
+        ), {
             TextTransparency = 0,
-            TextStrokeTransparency = 0.5
+            TextStrokeTransparency = 0.5,
+            Size = UDim2.new(0, 400, 0, 80)
         })
+        
         textTween:Play()
         
-        -- Дрожание текста (эффект)
-        task.wait(0.2)
-        for i = 1, 3 do
-            textLabel.Position = UDim2.new(0, 0, 0.5, -30 + math.random(-2, 2))
-            task.wait(0.05)
-        end
-        textLabel.Position = UDim2.new(0, 0, 0.5, -30)
+        task.wait(0.5)
         
-        -- Ждем 2 секунды
-        task.wait(2)
-        
-        -- Исчезновение
-        local fadeOutTweenInfo = TweenInfo.new(0.8, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
-        
-        local fadeOutText = tweenService:Create(textLabel, fadeOutTweenInfo, {
-            TextTransparency = 1,
-            TextStrokeTransparency = 1
+        -- Появление подзаголовка
+        local subTextTween = tweenService:Create(subText, TweenInfo.new(
+            0.8,
+            Enum.EasingStyle.Quad,
+            Enum.EasingDirection.Out
+        ), {
+            TextTransparency = 0,
+            TextStrokeTransparency = 0.6,
+            Size = UDim2.new(0, 300, 0, 40)
         })
         
-        local fadeOutBg = tweenService:Create(background, TweenInfo.new(0.5), {BackgroundTransparency = 1})
+        subTextTween:Play()
+        
+        -- Эффект пульсации текста
+        task.spawn(function()
+            for _ = 1, 3 do
+                task.wait(0.5)
+                
+                local pulseTween = tweenService:Create(textLabel, TweenInfo.new(
+                    0.3,
+                    Enum.EasingStyle.Sine,
+                    Enum.EasingDirection.InOut
+                ), {
+                    TextColor3 = Color3.fromRGB(220, 230, 255),
+                    TextStrokeColor3 = Color3.fromRGB(120, 170, 255)
+                })
+                
+                pulseTween:Play()
+                task.wait(0.3)
+                
+                pulseTween = tweenService:Create(textLabel, TweenInfo.new(
+                    0.3,
+                    Enum.EasingStyle.Sine,
+                    Enum.EasingDirection.InOut
+                ), {
+                    TextColor3 = Color3.fromRGB(255, 255, 255),
+                    TextStrokeColor3 = Color3.fromRGB(100, 150, 255)
+                })
+                
+                pulseTween:Play()
+            end
+        end)
+        
+        -- Ждем 2.5 секунды
+        task.wait(2.5)
+        
+        -- Исчезновение текста
+        local fadeOutText = tweenService:Create(textLabel, TweenInfo.new(
+            0.8,
+            Enum.EasingStyle.Quint,
+            Enum.EasingDirection.In
+        ), {
+            TextTransparency = 1,
+            TextStrokeTransparency = 1,
+            Size = UDim2.new(0, 0, 0, 0)
+        })
+        
+        local fadeOutSubText = tweenService:Create(subText, TweenInfo.new(
+            0.8,
+            Enum.EasingStyle.Quint,
+            Enum.EasingDirection.In
+        ), {
+            TextTransparency = 1,
+            TextStrokeTransparency = 1,
+            Size = UDim2.new(0, 0, 0, 0)
+        })
         
         fadeOutText:Play()
-        
-        task.wait(0.3)
-        fadeOutBg:Play()
+        fadeOutSubText:Play()
         
         -- Удаляем GUI после анимации
         task.wait(1)
         screenGui:Destroy()
     end
     
-    -- Запускаем анимацию в отдельном потоке
+    -- Запускаем анимацию
     task.spawn(showAnimation)
     
     -- Ждем завершения анимации перед загрузкой библиотек
-    task.wait(3.5)
+    task.wait(4)
 end
 
 -- ========== ЗАГРУЗКА БИБЛИОТЕК ==========
