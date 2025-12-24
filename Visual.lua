@@ -76,8 +76,6 @@ local Visual = {
     }
 }
 
--- ========== HELPER FUNCTIONS ==========
-
 function Visual.GetGeneratorProgress(gen)
     local progress = 0
     if gen:GetAttribute("Progress") then
@@ -248,7 +246,6 @@ function Visual.AddObjectToTrack(obj)
     if nameLower:find("generator") then 
         Visual.ESP.trackedObjects[obj] = "Generators"
     elseif nameLower:find("pallet") then
-        -- Если в названии есть "pallet", проверяем содержимое
         if Visual.IsValidPallet(obj) then
             Visual.ESP.trackedObjects[obj] = "Pallets"
         end
@@ -262,19 +259,16 @@ function Visual.AddObjectToTrack(obj)
 end
 
 function Visual.IsValidPallet(obj)
-    -- Проверка 1: сам объект называется "PalletPoint"
     if obj.Name:lower():find("palletpoint") then
         return true
     end
     
-    -- Проверка 2: объект содержит дочерний "PalletPoint"
     for _, child in ipairs(obj:GetChildren()) do
         if child.Name:lower():find("palletpoint") then
             return true
         end
     end
     
-    -- Проверка 3: объект является Model и имеет PrimaryPart
     if obj:IsA("Model") and obj.PrimaryPart then
         local primaryName = obj.PrimaryPart.Name:lower()
         if primaryName:find("palletpoint") or primaryName:find("pallet") then
@@ -306,7 +300,6 @@ function Visual.UpdateESP()
     if currentTime - Visual.ESP.lastUpdate < Visual.ESP.UPDATE_INTERVAL then return end
     Visual.ESP.lastUpdate = currentTime
     
-    -- Update players
     for _, targetPlayer in ipairs(Nexus.Services.Players:GetPlayers()) do
         if targetPlayer ~= Nexus.Player and targetPlayer.Character then
             local hrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -325,7 +318,6 @@ function Visual.UpdateESP()
         end
     end
     
-    -- Update objects
     for obj, typeName in pairs(Visual.ESP.trackedObjects) do
         if obj and obj.Parent then
             local setting = Visual.ESP.settings[typeName]
@@ -366,10 +358,8 @@ end
 function Visual.StopESP()
     Visual.ESP.espLoopRunning = false
     
-    -- Clear all ESP objects
     Visual.ClearAllESP()
     
-    -- Disconnect connections
     for _, connection in pairs(Visual.ESP.espConnections) do
         Nexus.safeDisconnect(connection)
     end
@@ -377,7 +367,6 @@ function Visual.StopESP()
 end
 
 function Visual.ClearAllESP()
-    -- Clear players
     for _, targetPlayer in ipairs(Nexus.Services.Players:GetPlayers()) do
         if targetPlayer.Character then
             Visual.ClearHighlight(targetPlayer.Character)
@@ -385,7 +374,6 @@ function Visual.ClearAllESP()
         end
     end
     
-    -- Clear objects
     for obj, _ in pairs(Visual.ESP.trackedObjects) do
         if obj and obj.Parent then
             Visual.ClearHighlight(obj)
@@ -426,8 +414,6 @@ function Visual.UpdateESPDisplay()
     end
 end
 
--- ========== ADVANCED ESP SYSTEM ==========
-
 function Visual.ToggleAdvancedESP(enabled)
     Visual.AdvancedESP.settings.enabled = enabled
     
@@ -441,28 +427,43 @@ end
 function Visual.ClearAdvancedESP(plr)
     local d = Visual.AdvancedESP.espObjects[plr]
     if d then
-        local drawingObjects = {
-            d.BoxFill, d.Name, d.Distance, d.Tracer, d.HealthBg, 
-            d.HealthBar, d.HealthMask, d.HealthText, d.Box, d.BoxOutline
-        }
-        
-        for _, obj in ipairs(drawingObjects) do
-            if obj and typeof(obj) == "userdata" and obj.Remove then
-                pcall(function() obj:Remove() end)
+        local function safeRemove(obj)
+            if obj and typeof(obj) == "userdata" then
+                pcall(function()
+                    if obj.Remove then
+                        obj:Remove()
+                    elseif obj.Destroy then
+                        obj:Destroy()
+                    end
+                    obj = nil
+                end)
             end
         end
         
-        for i=1,24 do
-            if d["HealthStripe"..i] then
-                pcall(function() d["HealthStripe"..i]:Remove() end)
-            end
+        safeRemove(d.BoxFill)
+        safeRemove(d.Name)
+        safeRemove(d.Distance)
+        safeRemove(d.Tracer)
+        safeRemove(d.HealthBg)
+        safeRemove(d.HealthBar)
+        safeRemove(d.HealthMask)
+        safeRemove(d.HealthText)
+        safeRemove(d.Box)
+        safeRemove(d.BoxOutline)
+        
+        for i = 1, 24 do
+            safeRemove(d["HealthStripe"..i])
         end
         
         if d.Bones then
             for _, bone in ipairs(d.Bones) do
-                if bone and typeof(bone) == "userdata" and bone.Remove then
-                    pcall(function() bone:Remove() end)
-                end
+                safeRemove(bone)
+            end
+        end
+        
+        for k, v in pairs(d) do
+            if typeof(v) == "userdata" then
+                d[k] = nil
             end
         end
         
@@ -470,16 +471,70 @@ function Visual.ClearAdvancedESP(plr)
     end
     
     if Visual.AdvancedESP.playerConnections[plr] then
-        for _, connection in pairs(Visual.AdvancedESP.playerConnections[plr]) do
-            pcall(function() connection:Disconnect() end)
+        for connName, connection in pairs(Visual.AdvancedESP.playerConnections[plr]) do
+            if connection and typeof(connection) == "RBXScriptConnection" then
+                pcall(function() connection:Disconnect() end)
+            end
+            Visual.AdvancedESP.playerConnections[plr][connName] = nil
         end
         Visual.AdvancedESP.playerConnections[plr] = nil
     end
 end
 
+function Visual.ForceCleanupDrawings()
+    for plr, d in pairs(Visual.AdvancedESP.espObjects) do
+        if d then
+            local drawingObjects = {
+                d.BoxFill, d.Name, d.Distance, d.Tracer, d.HealthBg, 
+                d.HealthBar, d.HealthMask, d.HealthText, d.Box, d.BoxOutline
+            }
+            
+            for _, obj in ipairs(drawingObjects) do
+                if obj and typeof(obj) == "userdata" then
+                    pcall(function() 
+                        obj.Visible = false
+                        task.wait()
+                        if obj.Remove then
+                            obj:Remove()
+                        end
+                    end)
+                end
+            end
+            
+            for i = 1, 24 do
+                local stripe = d["HealthStripe"..i]
+                if stripe and typeof(stripe) == "userdata" then
+                    pcall(function() 
+                        stripe.Visible = false
+                        if stripe.Remove then
+                            stripe:Remove()
+                        end
+                    end)
+                end
+            end
+            
+            if d.Bones then
+                for _, bone in ipairs(d.Bones) do
+                    if bone and typeof(bone) == "userdata" then
+                        pcall(function() 
+                            bone.Visible = false
+                            if bone.Remove then
+                                bone:Remove()
+                            end
+                        end)
+                    end
+                end
+            end
+        end
+    end
+    
+    Visual.AdvancedESP.espObjects = {}
+end
+
 function Visual.CreateAdvancedESP(plr)
     if Visual.AdvancedESP.espObjects[plr] then
         Visual.ClearAdvancedESP(plr)
+        task.wait(0.05)
     end
     
     local settings = Visual.AdvancedESP.settings
@@ -732,7 +787,6 @@ function Visual.UpdateAdvancedESP()
                 local x = headPos.X - width / 2
                 local y = headPos.Y - (height - rawHeight) / 2
 
-                -- Box Fill
                 if d.BoxFill then
                     d.BoxFill.Position = Vector2.new(x, y)
                     d.BoxFill.Size = Vector2.new(width, height)
@@ -742,7 +796,6 @@ function Visual.UpdateAdvancedESP()
                     d.BoxFill.Visible = settings.boxFill
                 end
 
-                -- Box
                 if d.Box then
                     d.Box.Position = Vector2.new(x, y)
                     d.Box.Size = Vector2.new(width, height)
@@ -751,7 +804,6 @@ function Visual.UpdateAdvancedESP()
                     d.Box.Visible = settings.box
                 end
                 
-                -- Box Outline
                 if d.BoxOutline then
                     local thickness = settings.boxOutlineThickness or 0.4
                     d.BoxOutline.Position = Vector2.new(x - thickness, y - thickness)
@@ -761,7 +813,6 @@ function Visual.UpdateAdvancedESP()
                     d.BoxOutline.Visible = settings.box and settings.boxOutline
                 end
 
-                -- Name
                 if d.Name then
                     d.Name.Text = plr.Name
                     d.Name.Size = 20
@@ -769,7 +820,6 @@ function Visual.UpdateAdvancedESP()
                     d.Name.Visible = settings.name
                 end
 
-                -- Distance
                 if d.Distance then
                     local dist = math.floor((root.Position - camPos).Magnitude)
                     d.Distance.Text = dist .. "m"
@@ -778,7 +828,6 @@ function Visual.UpdateAdvancedESP()
                     d.Distance.Visible = settings.distance
                 end
 
-                -- Health Bar
                 if d.HealthBg and d.HealthBar and d.HealthText then
                     local barX = x - (settings.healthBarLeftOffset or 10)
                     local barY = y
@@ -822,7 +871,6 @@ function Visual.UpdateAdvancedESP()
                     end
                 end
 
-                -- Bones
                 if d.Bones then
                     local bonesVisible = settings.bones
                     local bones
@@ -875,7 +923,6 @@ function Visual.UpdateAdvancedESP()
                     end
                 end
 
-                -- Tracer
                 if d.Tracer then
                     local rootPos2D = Vector2.new(headPos.X, headPos.Y)
                     d.Tracer.From = screenCenter
@@ -884,7 +931,6 @@ function Visual.UpdateAdvancedESP()
                     d.Tracer.Visible = settings.tracers
                 end
             else
-                -- Hide all if not on screen
                 if d.BoxFill then d.BoxFill.Visible = false end
                 if d.Box then d.Box.Visible = false end
                 if d.BoxOutline then d.BoxOutline.Visible = false end
@@ -905,7 +951,6 @@ function Visual.UpdateAdvancedESP()
 end
 
 function Visual.StartAdvancedESP()
-    -- Setup player connections
     Nexus.Services.Players.PlayerAdded:Connect(function(plr)
         Visual.SetupPlayerAdvancedESP(plr)
     end)
@@ -914,36 +959,38 @@ function Visual.StartAdvancedESP()
         Visual.CleanupPlayerAdvancedESP(plr)
     end)
     
-    -- Setup existing players
     for _, plr in pairs(Nexus.Services.Players:GetPlayers()) do
         if plr ~= Nexus.Player then
             Visual.SetupPlayerAdvancedESP(plr)
         end
     end
     
-    -- Start update loop
     Visual.AdvancedESP.connections.renderStepped = Nexus.Services.RunService.RenderStepped:Connect(function()
         Visual.UpdateAdvancedESP()
     end)
 end
 
 function Visual.StopAdvancedESP()
-    -- Disconnect connections
-    for _, connection in pairs(Visual.AdvancedESP.connections) do
-        Nexus.safeDisconnect(connection)
+    if Visual.AdvancedESP.connections.renderStepped then
+        pcall(function() 
+            Visual.AdvancedESP.connections.renderStepped:Disconnect() 
+        end)
+        Visual.AdvancedESP.connections.renderStepped = nil
     end
-    Visual.AdvancedESP.connections = {}
     
-    -- Clear all ESP objects
+    local playersToClear = {}
     for plr, _ in pairs(Visual.AdvancedESP.espObjects) do
+        table.insert(playersToClear, plr)
+    end
+    
+    for _, plr in ipairs(playersToClear) do
         Visual.ClearAdvancedESP(plr)
     end
     
-    Visual.AdvancedESP.espObjects = {}
-    Visual.AdvancedESP.playerConnections = {}
+    table.clear(Visual.AdvancedESP.espObjects)
+    table.clear(Visual.AdvancedESP.playerConnections)
+    table.clear(Visual.AdvancedESP.connections)
 end
-
--- ========== VISUAL EFFECTS FUNCTIONS ==========
 
 function Visual.ToggleNoShadow(enabled)
     Visual.Effects.noShadowEnabled = enabled
@@ -968,11 +1015,9 @@ function Visual.ToggleNoFog(enabled)
     Visual.Effects.noFogEnabled = enabled
     
     if enabled then
-        -- Просто полностью убираем все эффекты тумана
         pcall(function()
             local lighting = Nexus.Services.Lighting
             
-            -- Убираем все эффекты тумана из Lighting
             for _, effect in ipairs(lighting:GetChildren()) do
                 if effect:IsA("Atmosphere") or 
                    effect.Name:lower():find("fog") or 
@@ -983,7 +1028,6 @@ function Visual.ToggleNoFog(enabled)
                 end
             end
             
-            -- Убираем туман с карты
             local map = Nexus.Services.Workspace:FindFirstChild("Map")
             if map then
                 for _, obj in ipairs(map:GetDescendants()) do
@@ -997,13 +1041,11 @@ function Visual.ToggleNoFog(enabled)
                 end
             end
             
-            -- Настраиваем параметры освещения
             lighting.FogEnd = 10000000
             lighting.FogStart = 0
             lighting.FogDensity = 0
             lighting.GlobalShadows = true
             
-            -- Запускаем постоянное обновление
             if Visual.ESP.espConnections.noFog then
                 Visual.ESP.espConnections.noFog:Disconnect()
             end
@@ -1017,7 +1059,6 @@ function Visual.ToggleNoFog(enabled)
             end)
         end)
     else
-        -- Просто отключаем соединение, не восстанавливая ничего
         if Visual.ESP.espConnections.noFog then
             Visual.ESP.espConnections.noFog:Disconnect()
             Visual.ESP.espConnections.noFog = nil
@@ -1062,15 +1103,12 @@ function Visual.SetTime(time)
     Nexus.Services.Lighting.ClockTime = time
 end
 
--- ========== INITIALIZATION ==========
-
 function Visual.Init(nxs)
     Nexus = nxs
     
     local Tabs = Nexus.Tabs
     local Options = Nexus.Options
     
-    -- ========== VISUAL EFFECTS ==========
     local NoShadowToggle = Tabs.Visual:AddToggle("NoShadow", {
         Title = "No Shadow", 
         Description = "", 
@@ -1121,7 +1159,6 @@ function Visual.Init(nxs)
         Visual.ToggleTimeChanger(v)
     end)
 
-    -- Auto time update
     task.spawn(function()
         while true do
             task.wait(1)
@@ -1132,7 +1169,6 @@ function Visual.Init(nxs)
         end
     end)
 
-    -- ========== ESP SETTINGS ==========
     Tabs.Visual:AddSection("ESP Settings")
 
     local ShowGeneratorPercentToggle = Tabs.Visual:AddToggle("ESPShowGenPercent", {
@@ -1268,7 +1304,6 @@ function Visual.Init(nxs)
     end)
     WindowColorpicker:SetValueRGB(Color3.fromRGB(100, 200, 200))
 
-    -- Store colorpickers
     Visual.ESP.settings.Survivors.Colorpicker = SurvivorColorpicker
     Visual.ESP.settings.Killers.Colorpicker = KillerColorpicker
     Visual.ESP.settings.Hooks.Colorpicker = HookColorpicker
@@ -1276,7 +1311,6 @@ function Visual.Init(nxs)
     Visual.ESP.settings.ExitGates.Colorpicker = GateColorpicker
     Visual.ESP.settings.Windows.Colorpicker = WindowColorpicker
 
-    -- ========== ADVANCED ESP ==========
     Tabs.Visual:AddSection("Advanced ESP Settings")
 
     local AdvancedESPToggle = Tabs.Visual:AddToggle("AdvancedESP", {
@@ -1353,7 +1387,6 @@ function Visual.Init(nxs)
         Visual.AdvancedESP.settings.bones = v
     end)
 
-    -- Start tracking objects
     task.spawn(function()
         task.wait(2)
         for _, obj in ipairs(Nexus.Services.Workspace:GetDescendants()) do
@@ -1370,19 +1403,17 @@ function Visual.Init(nxs)
     end)
 end
 
--- ========== CLEANUP ==========
-
 function Visual.Cleanup()
     Visual.StopESP()
     Visual.StopAdvancedESP()
     
-    -- Restore visual effects
+    Visual.ForceCleanupDrawings()
+    
     Visual.ToggleNoShadow(false)
     Visual.ToggleNoFog(false)
     Visual.ToggleFullBright(false)
     Visual.ToggleTimeChanger(false)
     
-    -- Disconnect all connections
     for _, connection in pairs(Visual.Connections) do
         Nexus.safeDisconnect(connection)
     end
@@ -1397,6 +1428,10 @@ function Visual.Cleanup()
         Nexus.safeDisconnect(connection)
     end
     Visual.AdvancedESP.connections = {}
+    
+    task.wait(0.1)
+    pcall(function() game:GetService("RunService"):RenderStepped():Wait() end)
+    collectgarbage()
 end
 
 return Visual
