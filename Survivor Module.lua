@@ -476,52 +476,194 @@ end)()
 
 local GunSilentAim = (function()
     local enabled = false
-    local connection = nil
-    local drawing = nil
+    local aimConnection = nil
+    local drawingObjects = {}
+    local currentTarget = nil
     local aimPart = "Head"
+    local maxDistance = 100
+    local aimSpeed = 20
+    local crosshairType = "crosshair"
+    local rgbEnabled = false
+    local usingGun = false
+    local rgbHue = 0
     
-    local function safeRemoveDrawing()
-        if drawing then
-            pcall(function()
-                drawing:Remove()
-                drawing = nil
-            end)
+    local function safeRemoveDrawings()
+        for _, obj in pairs(drawingObjects) do
+            if obj and typeof(obj) == "userdata" then
+                pcall(function()
+                    obj:Remove()
+                end)
+            end
         end
+        drawingObjects = {}
     end
     
-    local function createAimIndicator()
-        safeRemoveDrawing()
+    local function getRGBColor()
+        if not rgbEnabled then
+            return Color3.fromRGB(255, 0, 0)
+        end
         
-        drawing = Drawing.new("Circle")
-        drawing.Visible = true
-        drawing.Radius = 50
-        drawing.Thickness = 2
-        drawing.Color = Color3.fromRGB(255, 0, 0)
-        drawing.Filled = false
-        if game.Workspace.CurrentCamera then
-            drawing.Position = Vector2.new(game.Workspace.CurrentCamera.ViewportSize.X / 2, game.Workspace.CurrentCamera.ViewportSize.Y / 2)
+        rgbHue = (rgbHue + 0.01) % 1
+        local r, g, b = Color3.fromHSV(rgbHue, 1, 1):ToRGB()
+        return Color3.new(r, g, b)
+    end
+    
+    local function createCrosshair()
+        safeRemoveDrawings()
+        
+        local centerX = game.Workspace.CurrentCamera.ViewportSize.X / 2
+        local centerY = game.Workspace.CurrentCamera.ViewportSize.Y / 2
+        
+        if crosshairType == "dot" then
+            local dot = Drawing.new("Circle")
+            dot.Visible = true
+            dot.Radius = 3
+            dot.Thickness = 2
+            dot.Color = getRGBColor()
+            dot.Filled = true
+            dot.Position = Vector2.new(centerX, centerY)
+            table.insert(drawingObjects, dot)
+            
+        elseif crosshairType == "circle" then
+            local circle = Drawing.new("Circle")
+            circle.Visible = true
+            circle.Radius = 8
+            circle.Thickness = 2
+            circle.Color = getRGBColor()
+            circle.Filled = false
+            circle.Position = Vector2.new(centerX, centerY)
+            table.insert(drawingObjects, circle)
+            
+        elseif crosshairType == "crosshair" then
+            local crossLength = 12
+            local crossThickness = 2
+            
+            local line1 = Drawing.new("Line")
+            line1.Visible = true
+            line1.Thickness = crossThickness
+            line1.Color = getRGBColor()
+            line1.From = Vector2.new(centerX - crossLength, centerY)
+            line1.To = Vector2.new(centerX + crossLength, centerY)
+            table.insert(drawingObjects, line1)
+            
+            local line2 = Drawing.new("Line")
+            line2.Visible = true
+            line2.Thickness = crossThickness
+            line2.Color = getRGBColor()
+            line2.From = Vector2.new(centerX, centerY - crossLength)
+            line2.To = Vector2.new(centerX, centerY + crossLength)
+            table.insert(drawingObjects, line2)
+            
+        elseif crosshairType == "square" then
+            local squareSize = 8
+            
+            local square = Drawing.new("Square")
+            square.Visible = true
+            square.Thickness = 2
+            square.Color = getRGBColor()
+            square.Filled = false
+            square.Position = Vector2.new(centerX - squareSize/2, centerY - squareSize/2)
+            square.Size = Vector2.new(squareSize, squareSize)
+            table.insert(drawingObjects, square)
+            
+        elseif crosshairType == "triangle" then
+            local triangleSize = 10
+            
+            local point1 = Vector2.new(centerX, centerY - triangleSize)
+            local point2 = Vector2.new(centerX - triangleSize, centerY + triangleSize)
+            local point3 = Vector2.new(centerX + triangleSize, centerY + triangleSize)
+            
+            local line1 = Drawing.new("Line")
+            line1.Visible = true
+            line1.Thickness = 2
+            line1.Color = getRGBColor()
+            line1.From = point1
+            line1.To = point2
+            table.insert(drawingObjects, line1)
+            
+            local line2 = Drawing.new("Line")
+            line2.Visible = true
+            line2.Thickness = 2
+            line2.Color = getRGBColor()
+            line2.From = point2
+            line2.To = point3
+            table.insert(drawingObjects, line2)
+            
+            local line3 = Drawing.new("Line")
+            line3.Visible = true
+            line3.Thickness = 2
+            line3.Color = getRGBColor()
+            line3.From = point3
+            line3.To = point1
+            table.insert(drawingObjects, line3)
         end
     end
     
-    local function findBestTarget()
+    local function updateCrosshairPosition(targetPos)
+        if not game.Workspace.CurrentCamera then return end
+        
+        local screenPos, onScreen = game.Workspace.CurrentCamera:WorldToViewportPoint(targetPos)
+        
+        if onScreen then
+            local currentCenter = Vector2.new(game.Workspace.CurrentCamera.ViewportSize.X / 2, game.Workspace.CurrentCamera.ViewportSize.Y / 2)
+            local targetPos2D = Vector2.new(screenPos.X, screenPos.Y)
+            
+            local smoothFactor = aimSpeed / 20
+            local newPos = currentCenter:Lerp(targetPos2D, smoothFactor)
+            
+            for _, obj in pairs(drawingObjects) do
+                if obj.ClassName == "Circle" then
+                    obj.Position = newPos
+                elseif obj.ClassName == "Line" then
+                    local offsetX = newPos.X - currentCenter.X
+                    local offsetY = newPos.Y - currentCenter.Y
+                    obj.From = Vector2.new(obj.From.X + offsetX, obj.From.Y + offsetY)
+                    obj.To = Vector2.new(obj.To.X + offsetX, obj.To.Y + offsetY)
+                elseif obj.ClassName == "Square" then
+                    obj.Position = Vector2.new(newPos.X - 4, newPos.Y - 4)
+                end
+            end
+        end
+    end
+    
+    local function checkIfUsingTwistOfFate()
+        local character = Nexus.Player.Character
+        if not character then return false end
+        
+        local backpack = Nexus.Player:FindFirstChild("Backpack")
+        if not backpack then return false end
+        
+        for _, tool in ipairs(backpack:GetChildren()) do
+            if tool:IsA("Tool") and tool.Name == "Twist of Fate" then
+                if tool.Parent == character then
+                    return true
+                end
+            end
+        end
+        
+        return false
+    end
+    
+    local function findKillerTarget()
         local localPlayer = Nexus.Player
         local localCharacter = localPlayer.Character
-        if not localCharacter then return nil, nil end
+        if not localCharacter then return nil end
         
         local localRoot = localCharacter:FindFirstChild("HumanoidRootPart")
-        if not localRoot then return nil, nil end
+        if not localRoot then return nil end
         
         local bestTarget = nil
         local bestPart = nil
         local bestDistance = math.huge
-        local maxDistance = 100
         
         for _, player in Nexus.Services.Players:GetPlayers() do
-            if player ~= localPlayer then
-                local character = player.Character
-                if character then
-                    local humanoid = character:FindFirstChild("Humanoid")
-                    if humanoid and humanoid.Health > 0 then
+            if player == localPlayer then continue end
+            
+            local character = player.Character
+            if character then
+                local humanoid = character:FindFirstChild("Humanoid")
+                if humanoid and humanoid.Health > 0 then
+                    if player.Team and player.Team.Name:lower():find("killer") then
                         local targetPart = character:FindFirstChild(aimPart)
                         if targetPart then
                             local distance = (localRoot.Position - targetPart.Position).Magnitude
@@ -529,11 +671,11 @@ local GunSilentAim = (function()
                             if distance <= maxDistance then
                                 local origin = game.Workspace.CurrentCamera.CFrame.Position
                                 local direction = (targetPart.Position - origin).Unit
-                                local ray = Ray.new(origin, direction * 1000)
+                                local ray = Ray.new(origin, direction * maxDistance)
                                 
                                 local hit = game.Workspace:FindPartOnRayWithIgnoreList(ray, {localPlayer.Character})
                                 
-                                if hit and (hit:IsDescendantOf(character) or not hit) then
+                                if not hit or hit:IsDescendantOf(character) then
                                     if distance < bestDistance then
                                         bestDistance = distance
                                         bestTarget = player
@@ -550,56 +692,59 @@ local GunSilentAim = (function()
         return bestTarget, bestPart
     end
     
-    local function hookGunFire()
-        local gunRemote = Nexus.Services.ReplicatedStorage.Remotes.Items["Twist of Fate"].Fire
-        
-        local mt = getrawmetatable(game)
-        if not mt then return end
-        
-        local oldNamecall
-        if not oldNamecall then
-            oldNamecall = mt.__namecall
+    local function updateCrosshair()
+        if not usingGun then
+            safeRemoveDrawings()
+            return
         end
         
-        setreadonly(mt, false)
+        if #drawingObjects == 0 then
+            createCrosshair()
+        end
         
-        mt.__namecall = newcclosure(function(self, ...)
-            local method = getnamecallmethod()
-            local args = {...}
+        local targetPlayer, targetPart = findKillerTarget()
+        
+        if targetPlayer and targetPart then
+            currentTarget = targetPart
+            updateCrosshairPosition(targetPart.Position)
             
-            if self == gunRemote and method == "FireServer" and enabled then
-                local targetPlayer, targetPart = findBestTarget()
-                
-                if targetPlayer and targetPart then
-                    args[1] = targetPlayer
-                    args[2] = targetPart
-                    
-                    local character = targetPlayer.Character
-                    if character then
-                        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-                        if humanoidRootPart then
-                            local velocity = humanoidRootPart.Velocity
-                            local distance = (game.Workspace.CurrentCamera.CFrame.Position - humanoidRootPart.Position).Magnitude
-                            
-                            local travelTime = distance / 500
-                            
-                            local predictedPosition = humanoidRootPart.Position + (velocity * travelTime)
-                            
-                            args[3] = predictedPosition
-                        end
-                    end
-                end
+            for _, obj in pairs(drawingObjects) do
+                obj.Color = getRGBColor()
             end
+        else
+            currentTarget = nil
             
-            return oldNamecall(self, unpack(args))
-        end)
+            local centerX = game.Workspace.CurrentCamera.ViewportSize.X / 2
+            local centerY = game.Workspace.CurrentCamera.ViewportSize.Y / 2
+            
+            for _, obj in pairs(drawingObjects) do
+                if obj.ClassName == "Circle" then
+                    obj.Position = Vector2.new(centerX, centerY)
+                elseif obj.ClassName == "Line" then
+                    local crossLength = 12
+                    
+                    if obj.From.X == centerX - crossLength and obj.From.Y == centerY then
+                        obj.From = Vector2.new(centerX - crossLength, centerY)
+                        obj.To = Vector2.new(centerX + crossLength, centerY)
+                    elseif obj.From.X == centerX and obj.From.Y == centerY - crossLength then
+                        obj.From = Vector2.new(centerX, centerY - crossLength)
+                        obj.To = Vector2.new(centerX, centerY + crossLength)
+                    end
+                elseif obj.ClassName == "Square" then
+                    obj.Position = Vector2.new(centerX - 4, centerY - 4)
+                end
+                
+                obj.Color = getRGBColor()
+            end
+        end
+    end
+    
+    local function checkGunUsage()
+        local oldUsingGun = usingGun
+        usingGun = checkIfUsingTwistOfFate()
         
-        setreadonly(mt, true)
-        
-        return function()
-            setreadonly(mt, false)
-            mt.__namecall = oldNamecall
-            setreadonly(mt, true)
+        if oldUsingGun and not usingGun then
+            safeRemoveDrawings()
         end
     end
     
@@ -608,31 +753,17 @@ local GunSilentAim = (function()
         enabled = true
         Nexus.States.GunSilentEnabled = true
         
-        createAimIndicator()
-        
-        local unhook = hookGunFire()
-        
-        connection = Nexus.Services.RunService.RenderStepped:Connect(function()
+        aimConnection = Nexus.Services.RunService.RenderStepped:Connect(function()
             if not enabled then return end
             
-            if drawing then
-                local targetPlayer, targetPart = findBestTarget()
-                if targetPlayer and targetPart then
-                    drawing.Color = Color3.fromRGB(0, 255, 0)
-                else
-                    drawing.Color = Color3.fromRGB(255, 0, 0)
-                end
-                
-                if game.Workspace.CurrentCamera then
-                    drawing.Position = Vector2.new(
-                        game.Workspace.CurrentCamera.ViewportSize.X / 2,
-                        game.Workspace.CurrentCamera.ViewportSize.Y / 2
-                    )
-                end
+            checkGunUsage()
+            
+            if usingGun then
+                updateCrosshair()
+            else
+                safeRemoveDrawings()
             end
         end)
-        
-        Survivor.Connections.GunSilentUnhook = unhook
     end
     
     local function Disable()
@@ -640,17 +771,15 @@ local GunSilentAim = (function()
         enabled = false
         Nexus.States.GunSilentEnabled = false
         
-        safeRemoveDrawing()
+        safeRemoveDrawings()
         
-        if Survivor.Connections.GunSilentUnhook then
-            pcall(Survivor.Connections.GunSilentUnhook)
-            Survivor.Connections.GunSilentUnhook = nil
+        if aimConnection then
+            aimConnection:Disconnect()
+            aimConnection = nil
         end
         
-        if connection then
-            connection:Disconnect()
-            connection = nil
-        end
+        usingGun = false
+        currentTarget = nil
     end
     
     return {
@@ -660,7 +789,26 @@ local GunSilentAim = (function()
         SetAimPart = function(value)
             aimPart = value
         end,
-        GetAimPart = function() return aimPart end
+        GetAimPart = function() return aimPart end,
+        SetMaxDistance = function(value)
+            maxDistance = value
+        end,
+        GetMaxDistance = function() return maxDistance end,
+        SetAimSpeed = function(value)
+            aimSpeed = value
+        end,
+        GetAimSpeed = function() return aimSpeed end,
+        SetCrosshairType = function(value)
+            crosshairType = value
+            if enabled and usingGun then
+                createCrosshair()
+            end
+        end,
+        GetCrosshairType = function() return crosshairType end,
+        SetRGBEnabled = function(value)
+            rgbEnabled = value
+        end,
+        GetRGBEnabled = function() return rgbEnabled end
     }
 end)()
 
@@ -1125,6 +1273,59 @@ function Survivor.Init(nxs)
     GunAimPartDropdown:OnChanged(function(value)
         Nexus.SafeCallback(function()
             GunSilentAim.SetAimPart(value)
+        end)
+    end)
+
+    local GunDistanceSlider = Tabs.Main:AddSlider("GunDistance", {
+        Title = "Aim Distance",
+        Description = "Max distance for aimbot",
+        Default = 100,
+        Min = 0,
+        Max = 500,
+        Rounding = 1,
+        Callback = function(value)
+            Nexus.SafeCallback(function()
+                GunSilentAim.SetMaxDistance(value)
+            end)
+        end
+    })
+
+    local GunAimSpeedSlider = Tabs.Main:AddSlider("GunAimSpeed", {
+        Title = "Aim Speed",
+        Description = "Lower = smoother, Higher = faster",
+        Default = 20,
+        Min = 5,
+        Max = 20,
+        Rounding = 1,
+        Callback = function(value)
+            Nexus.SafeCallback(function()
+                GunSilentAim.SetAimSpeed(value)
+            end)
+        end
+    })
+
+    local CrosshairTypeDropdown = Tabs.Main:AddDropdown("CrosshairType", {
+        Title = "Crosshair Type",
+        Values = {"dot", "circle", "crosshair", "square", "triangle"},
+        Multi = false,
+        Default = "crosshair",
+    })
+
+    CrosshairTypeDropdown:OnChanged(function(value)
+        Nexus.SafeCallback(function()
+            GunSilentAim.SetCrosshairType(value)
+        end)
+    end)
+
+    local CrosshairRGBToggle = Tabs.Main:AddToggle("CrosshairRGB", {
+        Title = "RGB Crosshair", 
+        Description = "Rainbow color effect for crosshair", 
+        Default = false
+    })
+
+    CrosshairRGBToggle:OnChanged(function(v) 
+        Nexus.SafeCallback(function()
+            GunSilentAim.SetRGBEnabled(v)
         end)
     end)
 
