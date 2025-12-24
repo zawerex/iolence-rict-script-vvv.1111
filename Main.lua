@@ -7,16 +7,17 @@ do
     screenGui.ResetOnSpawn = false
     screenGui.Parent = game:GetService("CoreGui")
 
-    -- Контейнер для всего
-    local container = Instance.new("Frame")
-    container.Name = "Container"
-    container.Size = UDim2.new(1, 0, 1, 0)
-    container.Position = UDim2.new(0, 0, 0, 0)
-    container.BackgroundTransparency = 1
-    container.BorderSizePixel = 0
-    container.Parent = screenGui
+    -- Главный контейнер для текста и снежинок
+    local mainContainer = Instance.new("Frame")
+    mainContainer.Name = "MainContainer"
+    mainContainer.Size = UDim2.new(0, 500, 0, 150)
+    mainContainer.Position = UDim2.new(0.5, -250, 0.5, -75)
+    mainContainer.BackgroundTransparency = 1
+    mainContainer.BorderSizePixel = 0
+    mainContainer.ClipsDescendants = true
+    mainContainer.Parent = screenGui
 
-    -- Контейнер для снежинок (за текстом)
+    -- Контейнер для снежинок (внутри основного контейнера)
     local snowContainer = Instance.new("Frame")
     snowContainer.Name = "SnowContainer"
     snowContainer.Size = UDim2.new(1, 0, 1, 0)
@@ -24,54 +25,54 @@ do
     snowContainer.BackgroundTransparency = 1
     snowContainer.BorderSizePixel = 0
     snowContainer.ZIndex = 1
-    snowContainer.Parent = container
+    snowContainer.Parent = mainContainer
 
-    -- Текст Nexus Script (по центру)
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Name = "NexusText"
-    textLabel.Size = UDim2.new(0, 0, 0, 0)
-    textLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
-    textLabel.AnchorPoint = Vector2.new(0.5, 0.5)
-    textLabel.BackgroundTransparency = 1
-    textLabel.Text = "NEXUS"
-    textLabel.Font = Enum.Font.GothamBlack
-    textLabel.TextSize = 64
-    textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    textLabel.TextTransparency = 1
-    textLabel.TextStrokeTransparency = 0.7
-    textLabel.TextStrokeColor3 = Color3.fromRGB(100, 150, 255)
-    textLabel.ZIndex = 10
-    textLabel.Parent = container
+    -- Текст NEXUS
+    local nexusText = Instance.new("TextLabel")
+    nexusText.Name = "NexusText"
+    nexusText.Size = UDim2.new(1, 0, 1, 0)
+    nexusText.Position = UDim2.new(0, 0, 0, 0)
+    nexusText.BackgroundTransparency = 1
+    nexusText.Text = "NEXUS"
+    nexusText.Font = Enum.Font.GothamBlack
+    nexusText.TextSize = 72
+    nexusText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nexusText.TextTransparency = 1
+    nexusText.ZIndex = 10
+    nexusText.Parent = mainContainer
 
-    -- Подзаголовок
-    local subText = Instance.new("TextLabel")
-    subText.Name = "SubText"
-    subText.Size = UDim2.new(0, 0, 0, 0)
-    subText.Position = UDim2.new(0.5, 0, 0.6, 0)
-    subText.AnchorPoint = Vector2.new(0.5, 0.5)
-    subText.BackgroundTransparency = 1
-    subText.Text = "Violence District"
-    subText.Font = Enum.Font.GothamMedium
-    subText.TextSize = 28
-    subText.TextColor3 = Color3.fromRGB(200, 220, 255)
-    subText.TextTransparency = 1
-    subText.TextStrokeTransparency = 0.8
-    subText.TextStrokeColor3 = Color3.fromRGB(60, 100, 180)
-    subText.ZIndex = 10
-    subText.Parent = container
+    -- Текст Violence District (скрыт сначала)
+    local violenceText = Instance.new("TextLabel")
+    violenceText.Name = "ViolenceText"
+    violenceText.Size = UDim2.new(1, 0, 1, 0)
+    violenceText.Position = UDim2.new(0, 0, 0, 0)
+    violenceText.BackgroundTransparency = 1
+    violenceText.Text = "Violence District"
+    violenceText.Font = Enum.Font.GothamMedium
+    violenceText.TextSize = 36
+    violenceText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    violenceText.TextTransparency = 1
+    violenceText.ZIndex = 10
+    violenceText.Parent = mainContainer
 
-    -- Функция создания снежинки
+    -- Функция создания маленькой снежинки
     local function createSnowflake()
         local snowflake = Instance.new("Frame")
-        local size = math.random(6, 15)
+        local size = math.random(3, 8)  -- Очень маленькие снежинки
         snowflake.Size = UDim2.new(0, size, 0, size)
-        snowflake.Position = UDim2.new(math.random(), math.random(-50, 50), 0, -size)
+        snowflake.Position = UDim2.new(
+            math.random(),  -- X позиция (0-1)
+            math.random(-20, 20),  -- Случайное смещение
+            0,  -- Начинаем сверху
+            -size  -- Начальная позиция Y
+        )
         snowflake.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        snowflake.BackgroundTransparency = math.random(3, 7) / 10
+        snowflake.BackgroundTransparency = math.random(5, 8) / 10  -- Прозрачные снежинки
         snowflake.BorderSizePixel = 0
         snowflake.ZIndex = 1
         snowflake.Parent = snowContainer
         
+        -- Делаем круглую снежинку
         local corner = Instance.new("UICorner")
         corner.CornerRadius = UDim.new(1, 0)
         corner.Parent = snowflake
@@ -83,122 +84,93 @@ do
     local tweenService = game:GetService("TweenService")
     
     local function showAnimation()
-        -- Запускаем снегопад
+        -- Запускаем снегопад внутри контейнера
         task.spawn(function()
             while snowContainer and snowContainer.Parent do
-                for i = 1, math.random(2, 5) do
+                -- Создаем несколько снежинок за раз
+                for i = 1, math.random(1, 3) do
                     local snowflake = createSnowflake()
                     
-                    -- Анимация падения снежинки
-                    local fallTime = math.random(3, 6)
-                    local tween = tweenService:Create(snowflake, TweenInfo.new(
-                        fallTime,
-                        Enum.EasingStyle.Linear
-                    ), {
-                        Position = UDim2.new(
-                            snowflake.Position.X.Scale,
-                            snowflake.Position.X.Offset + math.random(-100, 100),
-                            1.2,
-                            math.random(0, 50)
-                        ),
-                        BackgroundTransparency = 1,
-                        Rotation = math.random(-180, 180)
-                    })
-                    
-                    tween:Play()
-                    game:GetService("Debris"):AddItem(snowflake, fallTime + 0.5)
+                    if snowflake then
+                        -- Анимация падения снежинки (медленное падение)
+                        local fallTime = math.random(4, 7)
+                        local tween = tweenService:Create(snowflake, TweenInfo.new(
+                            fallTime,
+                            Enum.EasingStyle.Linear
+                        ), {
+                            Position = UDim2.new(
+                                snowflake.Position.X.Scale,
+                                snowflake.Position.X.Offset + math.random(-30, 30),
+                                1.2,  -- Ниже контейнера
+                                math.random(0, 20)
+                            ),
+                            BackgroundTransparency = 1,
+                            Rotation = math.random(-90, 90)
+                        })
+                        
+                        tween:Play()
+                        game:GetService("Debris"):AddItem(snowflake, fallTime + 0.3)
+                    end
                 end
-                task.wait(math.random(2, 8) / 10)
+                task.wait(math.random(3, 7) / 10)  -- Интервал между созданием снежинок
             end
         end)
         
-        -- Ждем немного перед появлением текста
-        task.wait(0.5)
+        -- Ждем немного
+        task.wait(0.3)
         
-        -- Появление основного текста с эффектом увеличения
-        local textTween = tweenService:Create(textLabel, TweenInfo.new(
-            1.2,
-            Enum.EasingStyle.Back,
-            Enum.EasingDirection.Out
-        ), {
-            TextTransparency = 0,
-            TextStrokeTransparency = 0.5,
-            Size = UDim2.new(0, 400, 0, 80)
-        })
-        
-        textTween:Play()
-        
-        task.wait(0.5)
-        
-        -- Появление подзаголовка
-        local subTextTween = tweenService:Create(subText, TweenInfo.new(
-            0.8,
+        -- Появление текста NEXUS
+        local nexusAppear = tweenService:Create(nexusText, TweenInfo.new(
+            1,
             Enum.EasingStyle.Quad,
             Enum.EasingDirection.Out
         ), {
-            TextTransparency = 0,
-            TextStrokeTransparency = 0.6,
-            Size = UDim2.new(0, 300, 0, 40)
+            TextTransparency = 0
         })
         
-        subTextTween:Play()
+        nexusAppear:Play()
         
-        -- Эффект пульсации текста
-        task.spawn(function()
-            for _ = 1, 3 do
-                task.wait(0.5)
-                
-                local pulseTween = tweenService:Create(textLabel, TweenInfo.new(
-                    0.3,
-                    Enum.EasingStyle.Sine,
-                    Enum.EasingDirection.InOut
-                ), {
-                    TextColor3 = Color3.fromRGB(220, 230, 255),
-                    TextStrokeColor3 = Color3.fromRGB(120, 170, 255)
-                })
-                
-                pulseTween:Play()
-                task.wait(0.3)
-                
-                pulseTween = tweenService:Create(textLabel, TweenInfo.new(
-                    0.3,
-                    Enum.EasingStyle.Sine,
-                    Enum.EasingDirection.InOut
-                ), {
-                    TextColor3 = Color3.fromRGB(255, 255, 255),
-                    TextStrokeColor3 = Color3.fromRGB(100, 150, 255)
-                })
-                
-                pulseTween:Play()
-            end
-        end)
+        -- Ждем 1.5 секунды
+        task.wait(1.5)
         
-        -- Ждем 2.5 секунды
-        task.wait(2.5)
+        -- Растворение NEXUS
+        local nexusDisappear = tweenService:Create(nexusText, TweenInfo.new(
+            0.5,
+            Enum.EasingStyle.Quad,
+            Enum.EasingDirection.In
+        ), {
+            TextTransparency = 1
+        })
         
-        -- Исчезновение текста
-        local fadeOutText = tweenService:Create(textLabel, TweenInfo.new(
+        nexusDisappear:Play()
+        
+        -- Ждем завершения растворения
+        task.wait(0.5)
+        
+        -- Появление Violence District на том же месте
+        local violenceAppear = tweenService:Create(violenceText, TweenInfo.new(
             0.8,
+            Enum.EasingStyle.Back,
+            Enum.EasingDirection.Out
+        ), {
+            TextTransparency = 0
+        })
+        
+        violenceAppear:Play()
+        
+        -- Ждем 1.5 секунды
+        task.wait(1.5)
+        
+        -- Исчезновение Violence District
+        local violenceDisappear = tweenService:Create(violenceText, TweenInfo.new(
+            0.7,
             Enum.EasingStyle.Quint,
             Enum.EasingDirection.In
         ), {
-            TextTransparency = 1,
-            TextStrokeTransparency = 1,
-            Size = UDim2.new(0, 0, 0, 0)
+            TextTransparency = 1
         })
         
-        local fadeOutSubText = tweenService:Create(subText, TweenInfo.new(
-            0.8,
-            Enum.EasingStyle.Quint,
-            Enum.EasingDirection.In
-        ), {
-            TextTransparency = 1,
-            TextStrokeTransparency = 1,
-            Size = UDim2.new(0, 0, 0, 0)
-        })
-        
-        fadeOutText:Play()
-        fadeOutSubText:Play()
+        violenceDisappear:Play()
         
         -- Удаляем GUI после анимации
         task.wait(1)
@@ -211,7 +183,6 @@ do
     -- Ждем завершения анимации перед загрузкой библиотек
     task.wait(4)
 end
-
 -- ========== ЗАГРУЗКА БИБЛИОТЕК ==========
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/zawerex/govno435345/refs/heads/main/g"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
