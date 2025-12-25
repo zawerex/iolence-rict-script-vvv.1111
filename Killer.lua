@@ -118,6 +118,337 @@ local SpearCrosshair = (function()
     }
 end)()
 
+-- ========== DOUBLE TAP ==========
+
+local DoubleTap = (function()
+    local enabled = false
+    local hooked = false
+    local originalNamecall = nil
+    local mt = nil
+    
+    local function GetBasicAttackRemote()
+        local success, result = pcall(function()
+            return Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Attacks"):WaitForChild("BasicAttack")
+        end)
+        return success and result or nil
+    end
+    
+    local function setupHook()
+        if hooked then return end
+        
+        local basicAttack = GetBasicAttackRemote()
+        if not basicAttack then
+            print("DoubleTap: BasicAttack remote not found")
+            return false
+        end
+        
+        -- Получаем метатаблицу
+        mt = getrawmetatable(basicAttack)
+        if not mt then
+            print("DoubleTap: Could not get metatable")
+            return false
+        end
+        
+        originalNamecall = mt.__namecall
+        
+        -- Временно снимаем защиту
+        local wasReadonly = isreadonly and isreadonly(mt)
+        if setreadonly then
+            setreadonly(mt, false)
+        end
+        
+        mt.__namecall = newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            
+            if self == basicAttack and method == "FireServer" and enabled then
+                local args = {...}
+                
+                -- Первый оригинальный вызов
+                originalNamecall(self, unpack(args))
+                
+                -- Второй вызов для дауна
+                task.wait(0.03) -- Минимальная задержка
+                originalNamecall(self, unpack(args))
+                
+                return
+            end
+            
+            return originalNamecall(self, ...)
+        end)
+        
+        -- Возвращаем защиту если была
+        if setreadonly and wasReadonly then
+            setreadonly(mt, true)
+        end
+        
+        hooked = true
+        print("DoubleTap: Hook установлен")
+        return true
+    end
+    
+    local function removeHook()
+        if not hooked or not mt or not originalNamecall then return end
+        
+        -- Временно снимаем защиту
+        local wasReadonly = isreadonly and isreadonly(mt)
+        if setreadonly then
+            setreadonly(mt, false)
+        end
+        
+        mt.__namecall = originalNamecall
+        
+        -- Возвращаем защиту если была
+        if setreadonly and wasReadonly then
+            setreadonly(mt, true)
+        end
+        
+        hooked = false
+        originalNamecall = nil
+        mt = nil
+        print("DoubleTap: Hook удален")
+    end
+    
+    local function Enable()
+        if enabled then return end
+        enabled = true
+        Nexus.States.DoubleTapEnabled = true
+        
+        if not setupHook() then
+            -- Пробуем найти Remote позже
+            task.spawn(function()
+                task.wait(2)
+                if enabled then
+                    setupHook()
+                end
+            end)
+        end
+        
+        print("DoubleTap: ON")
+    end
+    
+    local function Disable()
+        if not enabled then return end
+        enabled = false
+        Nexus.States.DoubleTapEnabled = false
+        
+        removeHook()
+        print("DoubleTap: OFF")
+    end
+    
+    return {
+        Enable = Enable,
+        Disable = Disable,
+        IsEnabled = function() return enabled end
+    }
+end)()
+
+-- ========== SPAM HOOK ==========
+
+local SpamHook = (function()
+    local enabled = false
+    local spamActive = false
+    local spamCount = 0
+    local maxSpam = 50
+    local hooked = false
+    local originalNamecall = nil
+    local mt = nil
+    
+    local function GetHookEventRemote()
+        local success, result = pcall(function()
+            return Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Carry"):WaitForChild("HookEvent")
+        end)
+        return success and result or nil
+    end
+    
+    local function findNearestSurvivor()
+        local character = Nexus.Player.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then
+            return nil
+        end
+        
+        local myPosition = character.HumanoidRootPart.Position
+        local nearestPlayer = nil
+        local nearestDistance = math.huge
+        
+        for _, player in pairs(Nexus.Services.Players:GetPlayers()) do
+            if player ~= Nexus.Player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local team = player.Team
+                if team and team.Name == "Survivor" then
+                    local distance = (player.Character.HumanoidRootPart.Position - myPosition).Magnitude
+                    if distance < nearestDistance and distance < 50 then
+                        nearestDistance = distance
+                        nearestPlayer = player
+                    end
+                end
+            end
+        end
+        
+        return nearestPlayer
+    end
+    
+    local function executeHookSpam()
+        if not enabled or spamActive then return end
+        
+        spamActive = true
+        spamCount = 0
+        
+        local hookEvent = GetHookEventRemote()
+        if not hookEvent then
+            spamActive = false
+            return
+        end
+        
+        task.spawn(function()
+            while enabled and spamActive and spamCount < maxSpam do
+                local target = findNearestSurvivor()
+                if target and target.Character then
+                    -- Вызываем HookEvent
+                    local success = pcall(function()
+                        hookEvent:FireServer(target.Character)
+                    end)
+                    
+                    if success then
+                        spamCount = spamCount + 1
+                    end
+                else
+                    -- Если нет цели, ждем и пробуем снова
+                    task.wait(0.5)
+                    continue
+                end
+                
+                task.wait(0.1) -- Задержка между вызовами
+            end
+            
+            spamActive = false
+            spamCount = 0
+        end)
+    end
+    
+    local function setupHook()
+        if hooked then return end
+        
+        local hookEvent = GetHookEventRemote()
+        if not hookEvent then
+            print("SpamHook: HookEvent remote not found")
+            return false
+        end
+        
+        -- Получаем метатаблицу
+        mt = getrawmetatable(hookEvent)
+        if not mt then
+            print("SpamHook: Could not get metatable")
+            return false
+        end
+        
+        originalNamecall = mt.__namecall
+        
+        -- Временно снимаем защиту
+        local wasReadonly = isreadonly and isreadonly(mt)
+        if setreadonly then
+            setreadonly(mt, false)
+        end
+        
+        mt.__namecall = newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            
+            if self == hookEvent and method == "FireServer" and enabled and spamCount < maxSpam then
+                local args = {...}
+                
+                -- Оригинальный вызов
+                originalNamecall(self, unpack(args))
+                
+                spamCount = spamCount + 1
+                
+                -- Если нужно спамить несколько раз сразу
+                if enabled and spamCount < maxSpam then
+                    task.wait(0.05)
+                    originalNamecall(self, unpack(args))
+                    spamCount = spamCount + 1
+                end
+                
+                return
+            end
+            
+            return originalNamecall(self, ...)
+        end)
+        
+        -- Возвращаем защиту если была
+        if setreadonly and wasReadonly then
+            setreadonly(mt, true)
+        end
+        
+        hooked = true
+        print("SpamHook: Hook установлен")
+        return true
+    end
+    
+    local function removeHook()
+        if not hooked or not mt or not originalNamecall then return end
+        
+        -- Временно снимаем защиту
+        local wasReadonly = isreadonly and isreadonly(mt)
+        if setreadonly then
+            setreadonly(mt, false)
+        end
+        
+        mt.__namecall = originalNamecall
+        
+        -- Возвращаем защиту если была
+        if setreadonly and wasReadonly then
+            setreadonly(mt, true)
+        end
+        
+        hooked = false
+        originalNamecall = nil
+        mt = nil
+        spamActive = false
+        spamCount = 0
+        print("SpamHook: Hook удален")
+    end
+    
+    local function Enable()
+        if enabled then return end
+        enabled = true
+        Nexus.States.SpamHookEnabled = true
+        
+        if not setupHook() then
+            -- Пробуем найти Remote позже
+            task.spawn(function()
+                task.wait(2)
+                if enabled then
+                    setupHook()
+                end
+            end)
+        end
+        
+        -- Запускаем спам
+        task.spawn(executeHookSpam)
+        
+        print("SpamHook: ON")
+    end
+    
+    local function Disable()
+        if not enabled then return end
+        enabled = false
+        Nexus.States.SpamHookEnabled = false
+        
+        spamActive = false
+        spamCount = 0
+        
+        removeHook()
+        print("SpamHook: OFF")
+    end
+    
+    return {
+        Enable = Enable,
+        Disable = Disable,
+        IsEnabled = function() return enabled end,
+        IsSpamming = function() return spamActive end,
+        GetSpamCount = function() return spamCount end,
+        GetMaxSpam = function() return maxSpam end
+    }
+end)()
+
 -- ========== DESTROY PALLETS ==========
 
 local palletsDestroyed = false
@@ -1074,6 +1405,40 @@ function Killer.Init(nxs)
         end)
     end)
 
+    -- ========== DOUBLE TAP ==========
+    local DoubleTapToggle = Tabs.Killer:AddToggle("DoubleTap", {
+        Title = "Double Tap", 
+        Description = "Атакует дважды при одной атаке (Killer only)", 
+        Default = false
+    })
+
+    DoubleTapToggle:OnChanged(function(v)
+        Nexus.SafeCallback(function()
+            if v then 
+                DoubleTap.Enable() 
+            else 
+                DoubleTap.Disable() 
+            end
+        end)
+    end)
+
+    -- ========== SPAM HOOK ==========
+    local SpamHookToggle = Tabs.Killer:AddToggle("SpamHook", {
+        Title = "Spam Hook", 
+        Description = "Автоматически спамит крюком ближайшего выжившего", 
+        Default = false
+    })
+
+    SpamHookToggle:OnChanged(function(v)
+        Nexus.SafeCallback(function()
+            if v then 
+                SpamHook.Enable() 
+            else 
+                SpamHook.Disable() 
+            end
+        end)
+    end)
+
     -- ========== DESTROY PALLETS ==========
     local DestroyPalletsToggle = Tabs.Killer:AddToggle("DestroyPallets", {
         Title = "Destroy Pallets", 
@@ -1237,6 +1602,11 @@ function Killer.Init(nxs)
         Content = "Alex - Chainsaw\nTony - Fists\nBrandon - Speed\nJake - Long lunge\nRichter - Stealth\nGraham - Faster vaults\nRichard - Default mask"
     })
 
+    Tabs.Killer:AddParagraph({
+        Title = "Functions Information",
+        Content = "Double Tap - Атакует дважды за один клик\nSpam Hook - Автоматически вешает ближайшего выжившего"
+    })
+
     -- ========== HANDLE DESTRUCTION FUNCTIONS ==========
     local function handleDestructionFunctions()
         while true do
@@ -1265,6 +1635,8 @@ end
 function Killer.Cleanup()
     -- Отключаем все функции
     SpearCrosshair.Disable()
+    DoubleTap.Disable()
+    SpamHook.Disable()
     NoSlowdown.Disable()
     Hitbox.Disable()
     ThirdPerson.Disable()
