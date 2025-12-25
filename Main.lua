@@ -1,5 +1,7 @@
 -- ========== ПРЕДВАРИТЕЛЬНЫЙ ЭКРАН ЗАГРУЗКИ ==========
 do
+    local TweenService = game:GetService("TweenService")
+    
     -- Создаем GUI для предзагрузки
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "NexusPreload"
@@ -7,7 +9,15 @@ do
     screenGui.ResetOnSpawn = false
     screenGui.Parent = game:GetService("CoreGui")
 
-    -- Текст NEXUS
+    -- Основной контейнер
+    local mainContainer = Instance.new("Frame")
+    mainContainer.Name = "MainContainer"
+    mainContainer.Size = UDim2.new(1, 0, 1, 0)
+    mainContainer.Position = UDim2.new(0, 0, 0, 0)
+    mainContainer.BackgroundTransparency = 1
+    mainContainer.Parent = screenGui
+
+    -- Текст NEXUS SCRIPT
     local nexusText = Instance.new("TextLabel")
     nexusText.Name = "NexusText"
     nexusText.Size = UDim2.new(1, 0, 1, 0)
@@ -34,9 +44,10 @@ do
     violenceText.TextTransparency = 1
     violenceText.ZIndex = 10
     violenceText.Parent = mainContainer
-        
-        -- Появление текста NEXUS
-        local nexusAppear = tweenService:Create(nexusText, TweenInfo.new(
+    
+    local function showAnimation()
+        -- Появление текста NEXUS SCRIPT
+        local nexusAppear = TweenService:Create(nexusText, TweenInfo.new(
             1,
             Enum.EasingStyle.Quad,
             Enum.EasingDirection.Out
@@ -45,26 +56,66 @@ do
         })
         
         nexusAppear:Play()
+        nexusAppear.Completed:Wait()
         
         -- Ждем 1.5 секунды
         task.wait(1.5)
         
-        -- Растворение NEXUS
-        local nexusDisappear = tweenService:Create(nexusText, TweenInfo.new(
-            0.5,
-            Enum.EasingStyle.Quad,
-            Enum.EasingDirection.In
-        ), {
-            TextTransparency = 1
-        })
+        -- Эффект разрушения букв (анимация падения букв)
+        for i = 1, #nexusText.Text do
+            local charFrame = Instance.new("Frame")
+            charFrame.Size = UDim2.new(0, 15, 0, 30)
+            charFrame.Position = UDim2.new(0.5 - (#nexusText.Text * 7.5) / 200 + (i-1) * 15/200, 0, 0.5, 0)
+            charFrame.BackgroundTransparency = 1
+            charFrame.Parent = mainContainer
+            
+            local charLabel = Instance.new("TextLabel")
+            charLabel.Size = UDim2.new(1, 0, 1, 0)
+            charLabel.BackgroundTransparency = 1
+            charLabel.Text = string.sub(nexusText.Text, i, i)
+            charLabel.Font = Enum.Font.GothamBlack
+            charLabel.TextSize = 25
+            charLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            charLabel.Parent = charFrame
+            
+            -- Анимация падения буквы
+            local fallTween = TweenService:Create(charFrame, TweenInfo.new(
+                0.5,
+                Enum.EasingStyle.Quad,
+                Enum.EasingDirection.In
+            ), {
+                Position = UDim2.new(
+                    charFrame.Position.X.Scale,
+                    charFrame.Position.X.Offset,
+                    charFrame.Position.Y.Scale + 0.5,
+                    charFrame.Position.Y.Offset
+                ),
+                Rotation = math.random(-45, 45)
+            })
+            
+            local fadeTween = TweenService:Create(charLabel, TweenInfo.new(
+                0.5,
+                Enum.EasingStyle.Quad,
+                Enum.EasingDirection.In
+            ), {
+                TextTransparency = 1
+            })
+            
+            -- Запускаем с задержкой для эффекта каскада
+            task.delay((i-1) * 0.05, function()
+                fallTween:Play()
+                fadeTween:Play()
+                
+                task.wait(0.5)
+                charFrame:Destroy()
+            end)
+        end
         
-        nexusDisappear:Play()
-        
-        -- Ждем завершения растворения
+        -- Ждем завершения анимации падения
         task.wait(0.5)
         
         -- Появление Violence District на том же месте
-        local violenceAppear = tweenService:Create(violenceText, TweenInfo.new(
+        local violenceAppear = TweenService:Create(violenceText, TweenInfo.new(
             0.8,
             Enum.EasingStyle.Back,
             Enum.EasingDirection.Out
@@ -73,12 +124,13 @@ do
         })
         
         violenceAppear:Play()
+        violenceAppear.Completed:Wait()
         
         -- Ждем 1.5 секунды
         task.wait(1.5)
         
         -- Исчезновение Violence District
-        local violenceDisappear = tweenService:Create(violenceText, TweenInfo.new(
+        local violenceDisappear = TweenService:Create(violenceText, TweenInfo.new(
             0.7,
             Enum.EasingStyle.Quint,
             Enum.EasingDirection.In
@@ -87,9 +139,9 @@ do
         })
         
         violenceDisappear:Play()
+        violenceDisappear.Completed:Wait()
         
         -- Удаляем GUI после анимации
-        task.wait(1)
         screenGui:Destroy()
     end
     
