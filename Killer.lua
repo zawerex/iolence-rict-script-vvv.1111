@@ -1,4 +1,178 @@
-local Nexus = _G.Nexus
+Мне нужно добавить функции - Double Tap и Spam Hook 
+
+Код функции Double Tap  - -- VD: Rewrite Double Tap (Original)
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+-- Получаем необходимые объекты
+local LocalPlayer = Players.LocalPlayer
+local BasicAttack = ReplicatedStorage.Remotes.Attacks.BasicAttack
+
+-- Флаг
+local doubleTapEnabled = false
+
+-- Хук __namecall
+local mt = getrawmetatable(BasicAttack)
+local originalNamecall = mt.__namecall
+
+-- Временно снимаем защиту
+local wasReadonly = isreadonly and isreadonly(mt)
+if setreadonly then
+    setreadonly(mt, false)
+end
+
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    
+    if self == BasicAttack and method == "FireServer" and doubleTapEnabled then
+        local args = {...}
+        
+        -- Первый оригинальный вызов
+        originalNamecall(self, unpack(args))
+        
+        -- Второй вызов для дауна
+        task.wait(0.03) -- Минимальная задержка
+        originalNamecall(self, unpack(args))
+        
+        return
+    end
+    
+    return originalNamecall(self, ...)
+end)
+
+-- Возвращаем защиту если была
+if setreadonly and wasReadonly then
+    setreadonly(mt, true)
+end
+
+Код функции Spam Hook - -- VD: Rewrite - Spam Hook Function
+-- Активация: H
+-- Спамит крюком 50 раз
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+-- Получаем необходимые объекты
+local LocalPlayer = Players.LocalPlayer
+local HookEvent = ReplicatedStorage.Remotes.Carry.HookEvent
+
+-- Флаг
+local spamHookEnabled = false
+local spamCount = 0
+local maxSpam = 50
+
+-- Найти ближайшего выжившего
+local function findNearestSurvivor()
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then
+        return nil
+    end
+    
+    local myPosition = character.HumanoidRootPart.Position
+    local nearestPlayer = nil
+    local nearestDistance = math.huge
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local team = player.Team
+            if team and team.Name == "Survivor" then
+                local distance = (player.Character.HumanoidRootPart.Position - myPosition).Magnitude
+                if distance < nearestDistance and distance < 50 then
+                    nearestDistance = distance
+                    nearestPlayer = player
+                end
+            end
+        end
+    end
+    
+    return nearestPlayer
+end
+
+-- Функция спама
+local function executeHookSpam()
+    if not spamHookEnabled then return end
+    
+    spamCount = 0
+    
+    for i = 1, maxSpam do
+        if not spamHookEnabled then break end
+        
+        local target = findNearestSurvivor()
+        if target and target.Character then
+            -- Вызываем HookEvent
+            local success = pcall(function()
+                HookEvent:FireServer(target.Character)
+            end)
+            
+            if success then
+                spamCount = spamCount + 1
+            end
+        end
+        
+        task.wait(0.1) -- Задержка между вызовами
+    end
+end
+
+-- Хук HookEvent для автоматического спама при активации
+local mt = getrawmetatable(HookEvent)
+local originalNamecall = mt.__namecall
+
+-- Временно снимаем защиту
+local wasReadonly = isreadonly and isreadonly(mt)
+if setreadonly then
+    setreadonly(mt, false)
+end
+
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    
+    if self == HookEvent and method == "FireServer" and spamHookEnabled and spamCount < maxSpam then
+        local args = {...}
+        
+        -- Оригинальный вызов
+        originalNamecall(self, unpack(args))
+        
+        spamCount = spamCount + 1
+        
+        -- Если нужно спамить несколько раз сразу
+        if spamHookEnabled and spamCount < maxSpam then
+            task.wait(0.05)
+            originalNamecall(self, unpack(args))
+            spamCount = spamCount + 1
+        end
+        
+        return
+    end
+    
+    return originalNamecall(self, ...)
+end)
+
+-- Возвращаем защиту если была
+if setreadonly and wasReadonly then
+    setreadonly(mt, true)
+end
+
+-- Обработчик клавиши H
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.H then
+        spamHookEnabled = not spamHookEnabled
+        
+        if spamHookEnabled then
+            -- Запускаем спам
+            task.spawn(function()
+                executeHookSpam()
+            end)
+        else
+            spamCount = 0
+        end  
+
+Обе функции должны работать через Toggle , убери у них привязку клавиш если есть , они должны работать чисто через toggle . 
+
+Вот сам код куда нужно внести эти изменения - local Nexus = _G.Nexus
 
 local Killer = {
     Connections = {},
@@ -109,276 +283,6 @@ local SpearCrosshair = (function()
         end
         
         print("Spear Crosshair: OFF")
-    end
-    
-    return {
-        Enable = Enable,
-        Disable = Disable,
-        IsEnabled = function() return enabled end
-    }
-end)()
-
--- ========== DOUBLE TAP ==========
-
-local DoubleTap = (function()
-    local enabled = false
-    local BasicAttack = nil
-    local mt = nil
-    local originalNamecall = nil
-    local wasReadonly = nil
-
-    local function initialize()
-        if BasicAttack then return true end
-        
-        local success, result = pcall(function()
-            BasicAttack = Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Attacks"):WaitForChild("BasicAttack")
-            return BasicAttack
-        end)
-        
-        return success
-    end
-    
-    local function Enable()
-        if enabled then return end
-        
-        if not initialize() then
-            print("DoubleTap: Не удалось инициализировать BasicAttack")
-            return
-        end
-        
-        enabled = true
-        Nexus.States.DoubleTapEnabled = true
-        
-        -- Хук __namecall
-        mt = getrawmetatable(BasicAttack)
-        originalNamecall = mt.__namecall
-        
-        -- Временно снимаем защиту
-        wasReadonly = isreadonly and isreadonly(mt)
-        if setreadonly then
-            setreadonly(mt, false)
-        end
-        
-        mt.__namecall = newcclosure(function(self, ...)
-            local method = getnamecallmethod()
-            
-            if self == BasicAttack and method == "FireServer" and enabled then
-                local args = {...}
-                
-                -- Первый оригинальный вызов
-                originalNamecall(self, unpack(args))
-                
-                -- Второй вызов для дауна
-                task.wait(0.03) -- Минимальная задержка
-                originalNamecall(self, unpack(args))
-                
-                return
-            end
-            
-            return originalNamecall(self, ...)
-        end)
-        
-        -- Возвращаем защиту если была
-        if setreadonly and wasReadonly then
-            setreadonly(mt, true)
-        end
-        
-        print("DoubleTap: ON")
-    end
-    
-    local function Disable()
-        if not enabled then return end
-        enabled = false
-        Nexus.States.DoubleTapEnabled = false
-        
-        if mt and originalNamecall then
-            -- Временно снимаем защиту
-            local currentReadonly = isreadonly and isreadonly(mt)
-            if setreadonly then
-                setreadonly(mt, false)
-            end
-            
-            mt.__namecall = originalNamecall
-            
-            -- Возвращаем защиту если была
-            if setreadonly and wasReadonly then
-                setreadonly(mt, true)
-            end
-        end
-        
-        mt = nil
-        originalNamecall = nil
-        wasReadonly = nil
-        
-        print("DoubleTap: OFF")
-    end
-    
-    return {
-        Enable = Enable,
-        Disable = Disable,
-        IsEnabled = function() return enabled end
-    }
-end)()
-
--- ========== SPAM HOOK ==========
-
-local SpamHook = (function()
-    local enabled = false
-    local HookEvent = nil
-    local mt = nil
-    local originalNamecall = nil
-    local wasReadonly = nil
-    local spamCount = 0
-    local maxSpam = 80
-
-    local function initialize()
-        if HookEvent then return true end
-        
-        local success, result = pcall(function()
-            HookEvent = Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Carry"):WaitForChild("HookEvent")
-            return HookEvent
-        end)
-        
-        return success
-    end
-    
-    -- Найти ближайшего выжившего
-    local function findNearestSurvivor()
-        local character = Nexus.Player.Character
-        if not character or not character:FindFirstChild("HumanoidRootPart") then
-            return nil
-        end
-        
-        local myPosition = character.HumanoidRootPart.Position
-        local nearestPlayer = nil
-        local nearestDistance = math.huge
-        
-        for _, player in pairs(Nexus.Services.Players:GetPlayers()) do
-            if player ~= Nexus.Player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local team = player.Team
-                if team and team.Name == "Survivor" then
-                    local distance = (player.Character.HumanoidRootPart.Position - myPosition).Magnitude
-                    if distance < nearestDistance and distance < 50 then
-                        nearestDistance = distance
-                        nearestPlayer = player
-                    end
-                end
-            end
-        end
-        
-        return nearestPlayer
-    end
-    
-    -- Функция спама
-    local function executeHookSpam()
-        if not enabled then return end
-        
-        spamCount = 0
-        
-        for i = 1, maxSpam do
-            if not enabled then break end
-            
-            local target = findNearestSurvivor()
-            if target and target.Character then
-                -- Вызываем HookEvent
-                local success = pcall(function()
-                    HookEvent:FireServer(target.Character)
-                end)
-                
-                if success then
-                    spamCount = spamCount + 1
-                end
-            end
-            
-            task.wait(0.1) -- Задержка между вызовами
-        end
-    end
-    
-    local function Enable()
-        if enabled then return end
-        
-        if not initialize() then
-            print("SpamHook: Не удалось инициализировать HookEvent")
-            return
-        end
-        
-        enabled = true
-        Nexus.States.SpamHookEnabled = true
-        spamCount = 0
-        
-        -- Хук HookEvent для автоматического спама при активации
-        mt = getrawmetatable(HookEvent)
-        originalNamecall = mt.__namecall
-        
-        -- Временно снимаем защиту
-        wasReadonly = isreadonly and isreadonly(mt)
-        if setreadonly then
-            setreadonly(mt, false)
-        end
-        
-        mt.__namecall = newcclosure(function(self, ...)
-            local method = getnamecallmethod()
-            
-            if self == HookEvent and method == "FireServer" and enabled and spamCount < maxSpam then
-                local args = {...}
-                
-                -- Оригинальный вызов
-                originalNamecall(self, unpack(args))
-                
-                spamCount = spamCount + 1
-                
-                -- Если нужно спамить несколько раз сразу
-                if enabled and spamCount < maxSpam then
-                    task.wait(0.05)
-                    originalNamecall(self, unpack(args))
-                    spamCount = spamCount + 1
-                end
-                
-                return
-            end
-            
-            return originalNamecall(self, ...)
-        end)
-        
-        -- Возвращаем защиту если была
-        if setreadonly and wasReadonly then
-            setreadonly(mt, true)
-        end
-        
-        -- Запускаем спам
-        task.spawn(function()
-            executeHookSpam()
-        end)
-        
-        print("SpamHook: ON")
-    end
-    
-    local function Disable()
-        if not enabled then return end
-        enabled = false
-        Nexus.States.SpamHookEnabled = false
-        
-        if mt and originalNamecall then
-            -- Временно снимаем защиту
-            local currentReadonly = isreadonly and isreadonly(mt)
-            if setreadonly then
-                setreadonly(mt, false)
-            end
-            
-            mt.__namecall = originalNamecall
-            
-            -- Возвращаем защиту если была
-            if setreadonly and wasReadonly then
-                setreadonly(mt, true)
-            end
-        end
-        
-        spamCount = 0
-        mt = nil
-        originalNamecall = nil
-        wasReadonly = nil
-        
-        print("SpamHook: OFF")
     end
     
     return {
@@ -1344,40 +1248,6 @@ function Killer.Init(nxs)
         end)
     end)
 
-    -- ========== DOUBLE TAP ==========
-    local DoubleTapToggle = Tabs.Killer:AddToggle("DoubleTap", {
-        Title = "Double Tap", 
-        Description = "Атакует дважды при одной атаке", 
-        Default = false
-    })
-
-    DoubleTapToggle:OnChanged(function(v)
-        Nexus.SafeCallback(function()
-            if v then 
-                DoubleTap.Enable() 
-            else 
-                DoubleTap.Disable() 
-            end
-        end)
-    end)
-
-    -- ========== SPAM HOOK ==========
-    local SpamHookToggle = Tabs.Killer:AddToggle("SpamHook", {
-        Title = "Spam Hook", 
-        Description = "Спамит крюком 80 раз", 
-        Default = false
-    })
-
-    SpamHookToggle:OnChanged(function(v)
-        Nexus.SafeCallback(function()
-            if v then 
-                SpamHook.Enable() 
-            else 
-                SpamHook.Disable() 
-            end
-        end)
-    end)
-
     -- ========== DESTROY PALLETS ==========
     local DestroyPalletsToggle = Tabs.Killer:AddToggle("DestroyPallets", {
         Title = "Destroy Pallets", 
@@ -1569,8 +1439,6 @@ end
 function Killer.Cleanup()
     -- Отключаем все функции
     SpearCrosshair.Disable()
-    DoubleTap.Disable()
-    SpamHook.Disable()
     NoSlowdown.Disable()
     Hitbox.Disable()
     ThirdPerson.Disable()
@@ -1589,4 +1457,4 @@ function Killer.Cleanup()
     print("Killer module cleaned up")
 end
 
-return Killer
+return Killer --  Дай полный модульный код с добавленными новыми функциями , сохрани весь функционал
