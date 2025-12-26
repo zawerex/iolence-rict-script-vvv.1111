@@ -194,19 +194,41 @@ local Crosshair = (function()
     end
     
     local function Disable()
-        if not enabled then return end
-        enabled = false
-        Nexus.States.CrosshairEnabled = false
-        Nexus.States.RainbowCrosshairEnabled = false
-        print("Crosshair: OFF")
-        
-        destroyCrosshair()
-        
-        if screenGui then
-            screenGui:Destroy()
-            screenGui = nil
+    if not enabled then return end
+    enabled = false
+    Nexus.States.CrosshairEnabled = false
+    Nexus.States.RainbowCrosshairEnabled = false
+    print("Crosshair: OFF")
+    
+    -- Останавливаем радужный эффект
+    if rainbowConnection then
+        rainbowConnection:Disconnect()
+        rainbowConnection = nil
+    end
+    
+    -- Восстанавливаем белый цвет прицела
+    if frame then
+        if currentType == "crosshair" then
+            local line1 = frame:FindFirstChild("Line1")
+            local line2 = frame:FindFirstChild("Line2")
+            if line1 then line1.BackgroundColor3 = Color3.new(1, 1, 1) end
+            if line2 then line2.BackgroundColor3 = Color3.new(1, 1, 1) end
+        elseif currentType == "dot" then
+            local dot = frame:FindFirstChild("Dot")
+            if dot then dot.BackgroundColor3 = Color3.new(1, 1, 1) end
+        elseif currentType == "circle" then
+            local outerCircle = frame:FindFirstChild("OuterCircle")
+            if outerCircle then outerCircle.BackgroundColor3 = Color3.new(1, 1, 1) end
         end
     end
+    
+    destroyCrosshair()
+    
+    if screenGui then
+        screenGui:Destroy()
+        screenGui = nil
+    end
+end
     
     local function setType(typeName)
         if not crosshairTypes[typeName] then
@@ -222,13 +244,29 @@ local Crosshair = (function()
         end
     end
     
-    local function toggleRainbow(value)
-        rainbowEnabled = value
-        Nexus.States.RainbowCrosshairEnabled = value
-        print("Rainbow Crosshair: " .. (value and "ON" or "OFF"))
-        
-        updateRainbowEffect()
+   local function toggleRainbow(value)
+    rainbowEnabled = value
+    Nexus.States.RainbowCrosshairEnabled = value
+    print("Rainbow Crosshair: " .. (value and "ON" or "OFF"))
+    
+    if not value and frame then
+        -- При выключении радуги восстанавливаем белый цвет
+        if currentType == "crosshair" then
+            local line1 = frame:FindFirstChild("Line1")
+            local line2 = frame:FindFirstChild("Line2")
+            if line1 then line1.BackgroundColor3 = Color3.new(1, 1, 1) end
+            if line2 then line2.BackgroundColor3 = Color3.new(1, 1, 1) end
+        elseif currentType == "dot" then
+            local dot = frame:FindFirstChild("Dot")
+            if dot then dot.BackgroundColor3 = Color3.new(1, 1, 1) end
+        elseif currentType == "circle" then
+            local outerCircle = frame:FindFirstChild("OuterCircle")
+            if outerCircle then outerCircle.BackgroundColor3 = Color3.new(1, 1, 1) end
+        end
     end
+    
+    updateRainbowEffect()
+end
     
     return {
         Enable = Enable,
