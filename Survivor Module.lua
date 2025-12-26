@@ -279,6 +279,201 @@ end
     }
 end)()
 
+-- ========== SACRIFICE SELF (KILL KILLER) ==========
+
+local SacrificeSelf = (function()
+    local enabled = false
+    local connection = nil
+    
+    local function GetKillRemote()
+        local success, result = pcall(function()
+            local remotes = Nexus.Services.ReplicatedStorage:WaitForChild("Remotes")
+            
+            -- Поиск RemoteEvent для убийства
+            for _, remote in pairs(remotes:GetDescendants()) do
+                if remote:IsA("RemoteEvent") and (remote.Name:lower():find("kill") or 
+                   remote.Name:lower():find("death") or 
+                   remote.Name:lower():find("die") or
+                   remote.Name:lower():find("attack")) then
+                    return remote
+                end
+            end
+            
+            -- Поиск в Attacks
+            local attacks = remotes:FindFirstChild("Attacks")
+            if attacks then
+                local basicAttack = attacks:FindFirstChild("BasicAttack")
+                if basicAttack then
+                    return basicAttack
+                end
+            end
+            
+            return nil
+        end)
+        return success and result or nil
+    end
+    
+    local function IsKiller(player)
+        if not player or not player.Team then return false end
+        local teamName = player.Team.Name:lower()
+        return teamName:find("killer") or teamName == "killer"
+    end
+    
+    local function FindNearestKiller()
+        local character = Nexus.Player.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then
+            return nil
+        end
+        
+        local myPosition = character.HumanoidRootPart.Position
+        local nearestKiller = nil
+        local nearestDistance = math.huge
+        
+        for _, player in pairs(Nexus.Services.Players:GetPlayers()) do
+            if player ~= Nexus.Player and IsKiller(player) and player.Character then
+                local killerRoot = player.Character:FindFirstChild("HumanoidRootPart")
+                if killerRoot then
+                    local distance = (myPosition - killerRoot.Position).Magnitude
+                    if distance < nearestDistance and distance < 50 then
+                        nearestDistance = distance
+                        nearestKiller = player
+                    end
+                end
+            end
+        end
+        
+        return nearestKiller
+    end
+    
+    local function PerformSacrifice()
+        if not enabled then return end
+        
+        print("Activating Sacrifice Self...")
+        
+        -- Находим ближайшего киллера
+        local killer = FindNearestKiller()
+        if not killer then
+            print("No killer found nearby")
+            return
+        end
+        
+        local killerCharacter = killer.Character
+        local myCharacter = Nexus.Player.Character
+        
+        if not killerCharacter or not myCharacter then
+            print("Characters not found")
+            return
+        end
+        
+        -- Получаем Remote для убийства
+        local killRemote = GetKillRemote()
+        
+        -- Убиваем киллера
+        local success = false
+        
+        -- Метод 1: Через RemoteEvent
+        if killRemote then
+            local remoteSuccess = pcall(function()
+                killRemote:FireServer(killerCharacter)
+                print("Killer killed via RemoteEvent")
+                success = true
+            end)
+            
+            if not remoteSuccess then
+                -- Попробуем с другими аргументами
+                pcall(function() killRemote:FireServer() end)
+                pcall(function() killRemote:FireServer(false) end)
+                pcall(function() killRemote:FireServer(true) end)
+            end
+        end
+        
+        -- Метод 2: Прямое воздействие на Humanoid
+        local killerHumanoid = killerCharacter:FindFirstChildOfClass("Humanoid")
+        if killerHumanoid then
+            pcall(function()
+                killerHumanoid.Health = 0
+                print("Killer health set to 0")
+                success = true
+            end)
+        end
+        
+        -- Метод 3: BreakJoints
+        pcall(function()
+            killerCharacter:BreakJoints()
+            print("Killer joints broken")
+            success = true
+        end)
+        
+        -- Убиваем себя
+        task.wait(0.2) -- Небольшая задержка
+        
+        -- Метод 1: Через RemoteEvent
+        if killRemote then
+            pcall(function()
+                killRemote:FireServer(myCharacter)
+                print("Self killed via RemoteEvent")
+            end)
+        end
+        
+        -- Метод 2: Прямое воздействие на свой Humanoid
+        local myHumanoid = myCharacter:FindFirstChildOfClass("Humanoid")
+        if myHumanoid then
+            pcall(function()
+                myHumanoid.Health = 0
+                print("Self health set to 0")
+            end)
+        end
+        
+        -- Метод 3: BreakJoints для себя
+        pcall(function()
+            myCharacter:BreakJoints()
+            print("Self joints broken")
+        end)
+        
+        if success then
+            print("Sacrifice completed successfully!")
+        else
+            print("Sacrifice attempted but may have failed")
+        end
+    end
+    
+    local function Enable()
+        if enabled then return end
+        enabled = true
+        Nexus.States.SacrificeSelfEnabled = true
+        print("Sacrifice Self: ON")
+        
+        -- Запускаем проверку и выполнение
+        connection = Nexus.Services.RunService.Heartbeat:Connect(function()
+            if enabled then
+                PerformSacrifice()
+                -- Отключаем после одного выполнения
+                Disable()
+            end
+        end)
+    end
+    
+    local function Disable()
+        if not enabled then return end
+        enabled = false
+        Nexus.States.SacrificeSelfEnabled = false
+        
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+        
+        print("Sacrifice Self: OFF")
+    end
+    
+    return {
+        Enable = Enable,
+        Disable = Disable,
+        IsEnabled = function() return enabled end,
+        Activate = PerformSacrifice
+    }
+end)()
+
 -- ========== AUTO VICTORY (SURVIVOR) ==========
 
 local AutoVictory = (function()
@@ -1440,6 +1635,23 @@ function Survivor.Init(nxs)
         end)
     end)
 
+    -- ========== SACRIFICE SELF ==========
+    local SacrificeSelfToggle = Tabs.Killer:AddToggle("SacrificeSelf", {
+        Title = "Sacrifice Self (Kill Killer)", 
+        Description = "Kills nearest killer and yourself", 
+        Default = false
+    })
+
+    SacrificeSelfToggle:OnChanged(function(v)
+        Nexus.SafeCallback(function()
+            if v then 
+                SacrificeSelf.Enable() 
+            else 
+                SacrificeSelf.Disable() 
+            end
+        end)
+    end)
+    
     -- ========== AUTO PERFECT SKILL ==========
     local AutoSkillToggle = Tabs.Main:AddToggle("AutoPerfectSkill", {
         Title = "Auto Perfect Skill Check", 
@@ -1465,6 +1677,7 @@ function Survivor.Cleanup()
     AutoVictory.Disable()
     NoSlowdown.Disable()
     AutoParry.Disable()
+    SacrificeSelf.Disable()  
     FakeParry.Disable()
     ResetAllHealing()
     GateTool.Disable()
