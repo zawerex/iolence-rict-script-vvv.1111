@@ -11,6 +11,27 @@ local Binds = {
     DisplayGui = nil
 }
 
+-- Функция для извлечения чистой буквы клавиши из Enum.KeyCode
+function Binds.ExtractKeyName(keyCode)
+    if not keyCode or keyCode == "" then
+        return ""
+    end
+    
+    local keyString = tostring(keyCode)
+    
+    -- Если это Enum.KeyCode
+    if string.find(keyString, "Enum%.KeyCode%.") then
+        -- Извлекаем только часть после точки
+        local keyName = string.match(keyString, "Enum%.KeyCode%.(.+)")
+        if keyName then
+            return keyName
+        end
+    end
+    
+    -- Если это уже строка с буквой
+    return keyString
+end
+
 function Binds.Init(nxs)
     Nexus = nxs
     
@@ -419,7 +440,8 @@ function Binds.UpdateDisplay()
     for _, funcName in ipairs(sortedKeys) do
         local data = Binds.ActiveKeybinds[funcName]
         if data and data.key ~= "" then
-            Binds.CreateKeybindDisplay(scrollFrame, data.displayName, data.key, funcName)
+            local cleanKey = Binds.ExtractKeyName(data.key)
+            Binds.CreateKeybindDisplay(scrollFrame, data.displayName, cleanKey, funcName)
         end
     end
     
@@ -442,7 +464,7 @@ end
 function Binds.CreateKeybindDisplay(parent, displayName, key, funcName)
     local textLabel = Instance.new("TextLabel")
     textLabel.Name = "Keybind_" .. funcName
-    textLabel.Text = displayName .. " - " .. tostring(key)
+    textLabel.Text = displayName .. " - " .. key
     textLabel.Font = Enum.Font.GothamMedium
     textLabel.TextSize = 14
     textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -501,12 +523,13 @@ end
 
 function Binds.UpdateKeybindDisplay(funcName, displayName, key)
     if displayName and key then
-        if key ~= "" then
+        local cleanKey = Binds.ExtractKeyName(key)
+        if cleanKey ~= "" then
             Binds.ActiveKeybinds[funcName] = {
                 displayName = displayName,
-                key = key
+                key = cleanKey
             }
-            print("[Keybinds] " .. displayName .. " -> " .. tostring(key))
+            print("[Keybinds] " .. displayName .. " -> " .. cleanKey)
         else
             Binds.ActiveKeybinds[funcName] = nil
             Binds.KeyStates[funcName] = nil
@@ -593,7 +616,8 @@ function Binds.ToggleOption(optionName)
 end
 
 function Binds.HandleKeybindChange(funcName, displayName, newKey)
-    print("Keybind changed for " .. displayName .. " to: " .. tostring(newKey))
+    local cleanKey = Binds.ExtractKeyName(newKey)
+    print("Keybind changed for " .. displayName .. " to: " .. cleanKey)
     
     Binds.UpdateKeybindDisplay(funcName, displayName, newKey)
 end
