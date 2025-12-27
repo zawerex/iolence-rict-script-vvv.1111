@@ -17,8 +17,7 @@ local Visual = {
         trackedObjects = {},
         espConnections = {},
         espLoopRunning = false,
-        showGeneratorPercent = true,
-        maxRenderDistance = 700
+        showGeneratorPercent = true
     },
     AdvancedESP = {
         settings = {
@@ -42,8 +41,7 @@ local Visual = {
             boxFill = {Enabled = true},
             boxFillColorName = "White",
             boxFillTransparency = 0.9,
-            healthBarLeftOffset = 10,
-            maxRenderDistance = 700
+            healthBarLeftOffset = 10
         },
         colorMap = {
             Red = Color3.fromRGB(255,0,0),
@@ -289,10 +287,6 @@ function Visual.TrackObjects()
         end
     end
     
-    if Visual.ESP.espConnections.descendantAdded then
-        Visual.ESP.espConnections.descendantAdded:Disconnect()
-    end
-    
     Visual.ESP.espConnections.descendantAdded = Nexus.Services.Workspace.DescendantAdded:Connect(function(obj)
         if obj:IsA("Model") then
             Visual.AddObjectToTrack(obj)
@@ -305,71 +299,45 @@ function Visual.UpdateESP()
     if currentTime - Visual.ESP.lastUpdate < Visual.ESP.UPDATE_INTERVAL then return end
     Visual.ESP.lastUpdate = currentTime
     
-    local Camera = Nexus.Camera
-    local camPos = Camera.CFrame.Position
-    local maxDistance = Visual.ESP.maxRenderDistance
-    
     for _, targetPlayer in ipairs(Nexus.Services.Players:GetPlayers()) do
         if targetPlayer ~= Nexus.Player and targetPlayer.Character then
             local hrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
             if hrp then
-                local distance = (hrp.Position - camPos).Magnitude
-                if distance <= maxDistance then
-                    local role = Visual.GetRole(targetPlayer)
-                    local setting = (role == "Killer") and Visual.ESP.settings.Killers or Visual.ESP.settings.Survivors
-                    
-                    if setting and setting.Enabled then
-                        local color = setting.Colorpicker and setting.Colorpicker.Value or setting.Color
-                        Visual.EnsureHighlight(targetPlayer.Character, color, false)
-                    else
-                        Visual.ClearHighlight(targetPlayer.Character)
-                        Visual.ClearLabel(targetPlayer.Character)
-                    end
+                local role = Visual.GetRole(targetPlayer)
+                local setting = (role == "Killer") and Visual.ESP.settings.Killers or Visual.ESP.settings.Survivors
+                
+                if setting and setting.Enabled then
+                    local color = setting.Colorpicker and setting.Colorpicker.Value or setting.Color
+                    Visual.EnsureHighlight(targetPlayer.Character, color, false)
                 else
                     Visual.ClearHighlight(targetPlayer.Character)
                     Visual.ClearLabel(targetPlayer.Character)
                 end
-            else
-                Visual.ClearHighlight(targetPlayer.Character)
-                Visual.ClearLabel(targetPlayer.Character)
             end
         end
     end
     
     for obj, typeName in pairs(Visual.ESP.trackedObjects) do
         if obj and obj.Parent then
-            local objPosition = obj:GetPivot().Position
-            local distance = (objPosition - camPos).Magnitude
-            if distance <= maxDistance then
-                local setting = Visual.ESP.settings[typeName]
-                if setting and setting.Enabled then
-                    if typeName == "Generators" then
-                        local progress = Visual.GetGeneratorProgress(obj)
-                        Visual.EnsureGeneratorESP(obj, progress)
-                    else
-                        local color = setting.Colorpicker and setting.Colorpicker.Value or setting.Color
-                        Visual.EnsureHighlight(obj, color, true)
-                        Visual.ClearLabel(obj)
-                    end
+            local setting = Visual.ESP.settings[typeName]
+            if setting and setting.Enabled then
+                if typeName == "Generators" then
+                    local progress = Visual.GetGeneratorProgress(obj)
+                    Visual.EnsureGeneratorESP(obj, progress)
                 else
-                    Visual.ClearHighlight(obj)
+                    local color = setting.Colorpicker and setting.Colorpicker.Value or setting.Color
+                    Visual.EnsureHighlight(obj, color, true)
                     Visual.ClearLabel(obj)
                 end
             else
                 Visual.ClearHighlight(obj)
                 Visual.ClearLabel(obj)
             end
-        else
-            Visual.ESP.trackedObjects[obj] = nil
         end
     end
 end
 
 function Visual.StartESPLoop()
-    if Visual.ESP.espConnections.mainLoop then
-        pcall(function() Visual.ESP.espConnections.mainLoop:Disconnect() end)
-    end
-    
     Visual.ESP.espConnections.mainLoop = task.spawn(function()
         while Visual.ESP.espLoopRunning do
             Visual.UpdateESP()
@@ -389,17 +357,10 @@ end
 function Visual.StopESP()
     Visual.ESP.espLoopRunning = false
     
-    if Visual.ESP.espConnections.mainLoop then
-        pcall(function() Visual.ESP.espConnections.mainLoop:Disconnect() end)
-        Visual.ESP.espConnections.mainLoop = nil
-    end
-    
     Visual.ClearAllESP()
     
-    for name, connection in pairs(Visual.ESP.espConnections) do
-        if connection then
-            pcall(function() connection:Disconnect() end)
-        end
+    for _, connection in pairs(Visual.ESP.espConnections) do
+        Nexus.safeDisconnect(connection)
     end
     Visual.ESP.espConnections = {}
 end
@@ -520,6 +481,7 @@ function Visual.ForceCleanupDrawings()
                 if obj and typeof(obj) == "userdata" then
                     pcall(function() 
                         obj.Visible = false
+                        task.wait()
                         if obj.Remove then
                             obj:Remove()
                         end
@@ -560,6 +522,7 @@ end
 function Visual.CreateAdvancedESP(plr)
     if Visual.AdvancedESP.espObjects[plr] then
         Visual.ClearAdvancedESP(plr)
+        task.wait(0.05)
     end
     
     local settings = Visual.AdvancedESP.settings
@@ -683,9 +646,7 @@ function Visual.SetupPlayerAdvancedESP(plr)
     Visual.CreateAdvancedESP(plr)
     
     local charAddedConnection = plr.CharacterAdded:Connect(function(char)
-        task.wait(0.5)
-        
-        if not Visual.AdvancedESP.advancedESPRunning then return end
+        wait(0.5)
         
         if not Visual.AdvancedESP.espObjects[plr] then
             Visual.CreateAdvancedESP(plr)
@@ -695,7 +656,7 @@ function Visual.SetupPlayerAdvancedESP(plr)
         if humanoid then
             if Visual.AdvancedESP.playerConnections[plr] then
                 if Visual.AdvancedESP.playerConnections[plr].died then
-                    pcall(function() Visual.AdvancedESP.playerConnections[plr].died:Disconnect() end)
+                    Visual.AdvancedESP.playerConnections[plr].died:Disconnect()
                 end
                 
                 Visual.AdvancedESP.playerConnections[plr].died = humanoid.Died:Connect(function()
@@ -710,36 +671,18 @@ function Visual.SetupPlayerAdvancedESP(plr)
     end)
     
     if Visual.AdvancedESP.playerConnections[plr] then
-        if Visual.AdvancedESP.playerConnections[plr].charAdded then
-            pcall(function() Visual.AdvancedESP.playerConnections[plr].charAdded:Disconnect() end)
-        end
-        if Visual.AdvancedESP.playerConnections[plr].charRemoving then
-            pcall(function() Visual.AdvancedESP.playerConnections[plr].charRemoving:Disconnect() end)
-        end
-        
         Visual.AdvancedESP.playerConnections[plr].charAdded = charAddedConnection
         Visual.AdvancedESP.playerConnections[plr].charRemoving = charRemovingConnection
-    else
-        Visual.AdvancedESP.playerConnections[plr] = {
-            charAdded = charAddedConnection,
-            charRemoving = charRemovingConnection
-        }
     end
     
     if plr.Character then
         task.spawn(function()
             local char = plr.Character
-            task.wait(0.5)
-            
-            if not Visual.AdvancedESP.advancedESPRunning then return end
+            wait(0.5)
             
             local humanoid = char:FindFirstChildOfClass("Humanoid")
             if humanoid then
                 if Visual.AdvancedESP.playerConnections[plr] then
-                    if Visual.AdvancedESP.playerConnections[plr].died then
-                        pcall(function() Visual.AdvancedESP.playerConnections[plr].died:Disconnect() end)
-                    end
-                    
                     Visual.AdvancedESP.playerConnections[plr].died = humanoid.Died:Connect(function()
                         Visual.ClearAdvancedESP(plr)
                     end)
@@ -784,33 +727,16 @@ function Visual.UpdateAdvancedESP()
         end
     end
     
-    if not anyComponentEnabled then 
-        Visual.ForceCleanupDrawings()
-        return 
-    end
+    if not anyComponentEnabled then return end
     
     local Camera = Nexus.Camera
     local camPos = Camera.CFrame.Position
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-    local maxDistance = Visual.AdvancedESP.settings.maxRenderDistance
-    
-    local activePlayers = {}
-    for _, plr in pairs(Nexus.Services.Players:GetPlayers()) do
-        if plr ~= Nexus.Player then
-            activePlayers[plr] = true
-        end
-    end
-    
-    for plr, _ in pairs(Visual.AdvancedESP.espObjects) do
-        if not activePlayers[plr] then
-            Visual.ClearAdvancedESP(plr)
-        end
-    end
     
     for plr, d in pairs(Visual.AdvancedESP.espObjects) do
         if not plr or not plr.Parent then
             Visual.ClearAdvancedESP(plr)
-            goto continue
+            continue
         end
         
         local char = plr.Character
@@ -828,25 +754,18 @@ function Visual.UpdateAdvancedESP()
                 for i=1,24 do
                     if d["HealthStripe"..i] then d["HealthStripe"..i].Visible = false end
                 end
-                if d.Bones then 
-                    for _,line in ipairs(d.Bones) do 
-                        line.Visible = false 
-                    end 
-                end
+                if d.Bones then for _,line in ipairs(d.Bones) do line.Visible = false end end
                 if d.Tracer then d.Tracer.Visible = false end
-                goto continue
+                continue
             end
             
             local root = char.HumanoidRootPart
             local head = char.Head
-            
-            local playerDistance = (root.Position - camPos).Magnitude
-            local withinDistance = playerDistance <= maxDistance
 
             local function screenPosOrNil(part)
                 if part then
                     local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                    if onScreen and pos.Z > 0 and withinDistance then 
+                    if onScreen and pos.Z > 0 then 
                         return Vector2.new(pos.X, pos.Y) 
                     end
                 end
@@ -856,7 +775,7 @@ function Visual.UpdateAdvancedESP()
             local headPos, onScreen = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
             local footPos = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 2.5, 0))
 
-            if onScreen and withinDistance then
+            if onScreen then
                 local rawHeight = footPos.Y - headPos.Y
                 local height = rawHeight * Visual.AdvancedESP.settings.scale
                 local width = (height / 2) * Visual.AdvancedESP.settings.scale
@@ -869,7 +788,7 @@ function Visual.UpdateAdvancedESP()
                     d.BoxFill.Color = Visual.AdvancedESP.colorMap[Visual.AdvancedESP.settings.boxFillColorName] or Visual.AdvancedESP.colorMap.White
                     d.BoxFill.Filled = true
                     d.BoxFill.Transparency = 1 - (Visual.AdvancedESP.settings.boxFillTransparency or 0.9)
-                    d.BoxFill.Visible = Visual.AdvancedESP.settings.boxFill.Enabled and withinDistance
+                    d.BoxFill.Visible = Visual.AdvancedESP.settings.boxFill.Enabled
                 end
 
                 if d.Box then
@@ -877,7 +796,7 @@ function Visual.UpdateAdvancedESP()
                     d.Box.Size = Vector2.new(width, height)
                     d.Box.Color = Visual.AdvancedESP.colorMap[Visual.AdvancedESP.settings.boxColorName] or Visual.AdvancedESP.colorMap.White
                     d.Box.Thickness = 1.7
-                    d.Box.Visible = Visual.AdvancedESP.settings.box.Enabled and withinDistance
+                    d.Box.Visible = Visual.AdvancedESP.settings.box.Enabled
                 end
                 
                 if d.BoxOutline then
@@ -886,22 +805,22 @@ function Visual.UpdateAdvancedESP()
                     d.BoxOutline.Size = Vector2.new(width + thickness * 2, height + thickness * 2)
                     d.BoxOutline.Color = Visual.AdvancedESP.colorMap[Visual.AdvancedESP.settings.boxOutlineColorName] or Visual.AdvancedESP.colorMap.Black
                     d.BoxOutline.Thickness = thickness
-                    d.BoxOutline.Visible = Visual.AdvancedESP.settings.box.Enabled and Visual.AdvancedESP.settings.boxOutline.Enabled and withinDistance
+                    d.BoxOutline.Visible = Visual.AdvancedESP.settings.box.Enabled and Visual.AdvancedESP.settings.boxOutline.Enabled
                 end
 
                 if d.Name then
                     d.Name.Text = plr.Name
                     d.Name.Size = Visual.AdvancedESP.settings.name.TextSize
                     d.Name.Position = Vector2.new(headPos.X, y - 22)
-                    d.Name.Visible = Visual.AdvancedESP.settings.name.Enabled and withinDistance
+                    d.Name.Visible = Visual.AdvancedESP.settings.name.Enabled
                 end
 
                 if d.Distance then
-                    local dist = math.floor(playerDistance)
+                    local dist = math.floor((root.Position - camPos).Magnitude)
                     d.Distance.Text = dist .. "m"
                     d.Distance.Size = Visual.AdvancedESP.settings.distance.TextSize
                     d.Distance.Position = Vector2.new(headPos.X, y + height + 6)
-                    d.Distance.Visible = Visual.AdvancedESP.settings.distance.Enabled and withinDistance
+                    d.Distance.Visible = Visual.AdvancedESP.settings.distance.Enabled
                 end
 
                 if d.HealthBg and d.HealthBar and d.HealthText then
@@ -912,9 +831,9 @@ function Visual.UpdateAdvancedESP()
                     
                     d.HealthBg.Position = Vector2.new(barX, barY)
                     d.HealthBg.Size = Vector2.new(barWidth, barHeight)
-                    d.HealthBg.Visible = Visual.AdvancedESP.settings.healthbar.Enabled and withinDistance
+                    d.HealthBg.Visible = Visual.AdvancedESP.settings.healthbar.Enabled
                     
-                    if Visual.AdvancedESP.settings.healthbar.Enabled and withinDistance then
+                    if Visual.AdvancedESP.settings.healthbar.Enabled then
                         local HEALTH_STRIPES = 24
                         local hpPerc = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
                         for i = 1, HEALTH_STRIPES do
@@ -948,7 +867,7 @@ function Visual.UpdateAdvancedESP()
                 end
 
                 if d.Bones then
-                    local bonesVisible = Visual.AdvancedESP.settings.bones.Enabled and withinDistance
+                    local bonesVisible = Visual.AdvancedESP.settings.bones.Enabled
                     local bones
                     
                     if Visual.IsR6(char) then
@@ -1004,7 +923,7 @@ function Visual.UpdateAdvancedESP()
                     d.Tracer.From = screenCenter
                     d.Tracer.To = rootPos2D
                     d.Tracer.Color = Visual.AdvancedESP.colorMap[Visual.AdvancedESP.settings.tracerColorName] or Visual.AdvancedESP.colorMap.White
-                    d.Tracer.Visible = Visual.AdvancedESP.settings.tracers.Enabled and withinDistance
+                    d.Tracer.Visible = Visual.AdvancedESP.settings.tracers.Enabled
                 end
             else
                 if d.BoxFill then d.BoxFill.Visible = false end
@@ -1017,18 +936,12 @@ function Visual.UpdateAdvancedESP()
                 for i = 1, 24 do
                     if d["HealthStripe"..i] then d["HealthStripe"..i].Visible = false end
                 end
-                if d.Bones then 
-                    for _, line in ipairs(d.Bones) do 
-                        line.Visible = false 
-                    end 
-                end
+                if d.Bones then for _, line in ipairs(d.Bones) do line.Visible = false end end
                 if d.Tracer then d.Tracer.Visible = false end
             end
         else
             Visual.ClearAdvancedESP(plr)
         end
-        
-        ::continue::
     end
 end
 
@@ -1036,18 +949,11 @@ function Visual.StartAdvancedESP()
     if Visual.AdvancedESP.advancedESPRunning then return end
     Visual.AdvancedESP.advancedESPRunning = true
     
-    if Visual.AdvancedESP.connections.playerAdded then
-        pcall(function() Visual.AdvancedESP.connections.playerAdded:Disconnect() end)
-    end
-    if Visual.AdvancedESP.connections.playerRemoving then
-        pcall(function() Visual.AdvancedESP.connections.playerRemoving:Disconnect() end)
-    end
-    
-    Visual.AdvancedESP.connections.playerAdded = Nexus.Services.Players.PlayerAdded:Connect(function(plr)
+    Nexus.Services.Players.PlayerAdded:Connect(function(plr)
         Visual.SetupPlayerAdvancedESP(plr)
     end)
     
-    Visual.AdvancedESP.connections.playerRemoving = Nexus.Services.Players.PlayerRemoving:Connect(function(plr)
+    Nexus.Services.Players.PlayerRemoving:Connect(function(plr)
         Visual.CleanupPlayerAdvancedESP(plr)
     end)
     
@@ -1055,10 +961,6 @@ function Visual.StartAdvancedESP()
         if plr ~= Nexus.Player then
             Visual.SetupPlayerAdvancedESP(plr)
         end
-    end
-    
-    if Visual.AdvancedESP.connections.renderStepped then
-        pcall(function() Visual.AdvancedESP.connections.renderStepped:Disconnect() end)
     end
     
     Visual.AdvancedESP.connections.renderStepped = Nexus.Services.RunService.RenderStepped:Connect(function()
@@ -1077,16 +979,6 @@ function Visual.StopAdvancedESP()
         Visual.AdvancedESP.connections.renderStepped = nil
     end
     
-    if Visual.AdvancedESP.connections.playerAdded then
-        pcall(function() Visual.AdvancedESP.connections.playerAdded:Disconnect() end)
-        Visual.AdvancedESP.connections.playerAdded = nil
-    end
-    
-    if Visual.AdvancedESP.connections.playerRemoving then
-        pcall(function() Visual.AdvancedESP.connections.playerRemoving:Disconnect() end)
-        Visual.AdvancedESP.connections.playerRemoving = nil
-    end
-    
     local playersToClear = {}
     for plr, _ in pairs(Visual.AdvancedESP.espObjects) do
         table.insert(playersToClear, plr)
@@ -1096,17 +988,9 @@ function Visual.StopAdvancedESP()
         Visual.ClearAdvancedESP(plr)
     end
     
-    for plr, connections in pairs(Visual.AdvancedESP.playerConnections) do
-        for name, connection in pairs(connections) do
-            if connection and typeof(connection) == "RBXScriptConnection" then
-                pcall(function() connection:Disconnect() end)
-            end
-        end
-    end
-    
-    Visual.AdvancedESP.espObjects = {}
-    Visual.AdvancedESP.playerConnections = {}
-    Visual.AdvancedESP.connections = {}
+    table.clear(Visual.AdvancedESP.espObjects)
+    table.clear(Visual.AdvancedESP.playerConnections)
+    table.clear(Visual.AdvancedESP.connections)
 end
 
 function Visual.ToggleNoShadow(enabled)
@@ -1145,7 +1029,7 @@ function Visual.ToggleNoFog(enabled)
         for _, obj in ipairs(lighting:GetChildren()) do
             if obj:IsA("Atmosphere") then
                 table.insert(originalAtmospheres, obj:Clone())
-                pcall(function() obj:Destroy() end)
+                obj:Destroy()
             end
         end
         
@@ -1162,15 +1046,11 @@ function Visual.ToggleNoFog(enabled)
             for _, obj in ipairs(map:GetDescendants()) do
                 if obj:IsA("Atmosphere") then
                     table.insert(workspaceAtmospheres, {Object = obj, Parent = obj.Parent})
-                    pcall(function() obj:Destroy() end)
+                    obj:Destroy()
                 end
             end
         end
         Visual.Effects.workspaceAtmosphereCache = workspaceAtmospheres
-        
-        if Visual.ESP.espConnections.noFog then
-            pcall(function() Visual.ESP.espConnections.noFog:Disconnect() end)
-        end
         
         Visual.ESP.espConnections.noFog = Nexus.Services.RunService.Heartbeat:Connect(function()
             if Visual.Effects.noFogEnabled then
@@ -1181,7 +1061,7 @@ function Visual.ToggleNoFog(enabled)
         end)
     else
         if Visual.ESP.espConnections.noFog then
-            pcall(function() Visual.ESP.espConnections.noFog:Disconnect() end)
+            Visual.ESP.espConnections.noFog:Disconnect()
             Visual.ESP.espConnections.noFog = nil
         end
         
@@ -1332,19 +1212,6 @@ function Visual.Init(nxs)
         Visual.ESP.showGeneratorPercent = v
         Visual.UpdateESPDisplay()
     end)
-
-    local ESPMaxDistanceSlider = Tabs.Visual:AddSlider("ESPMaxDistance", {
-        Title = "ESP Max Distance", 
-        Description = "Maximum distance to show ESP (0-700)",
-        Default = 700,
-        Min = 0,
-        Max = 700,
-        Rounding = 0,
-        Callback = function(value)
-            Visual.ESP.maxRenderDistance = value
-            Visual.AdvancedESP.settings.maxRenderDistance = value
-        end
-    })
 
     local ESPSurvivorsToggle = Tabs.Visual:AddToggle("ESPSurvivors", {
         Title = "Survivors ESP", 
@@ -1604,36 +1471,19 @@ function Visual.Cleanup()
     Visual.ToggleTimeChanger(false)
     
     for _, connection in pairs(Visual.Connections) do
-        if connection then
-            pcall(function() connection:Disconnect() end)
-        end
+        Nexus.safeDisconnect(connection)
     end
     Visual.Connections = {}
     
-    for name, connection in pairs(Visual.ESP.espConnections) do
-        if connection then
-            pcall(function() connection:Disconnect() end)
-        end
+    for _, connection in pairs(Visual.ESP.espConnections) do
+        Nexus.safeDisconnect(connection)
     end
     Visual.ESP.espConnections = {}
     
-    for name, connection in pairs(Visual.AdvancedESP.connections) do
-        if connection then
-            pcall(function() connection:Disconnect() end)
-        end
+    for _, connection in pairs(Visual.AdvancedESP.connections) do
+        Nexus.safeDisconnect(connection)
     end
     Visual.AdvancedESP.connections = {}
-    
-    for plr, connections in pairs(Visual.AdvancedESP.playerConnections) do
-        for name, connection in pairs(connections) do
-            if connection then
-                pcall(function() connection:Disconnect() end)
-            end
-        end
-    end
-    Visual.AdvancedESP.playerConnections = {}
-    
-    Visual.AdvancedESP.espObjects = {}
     
     task.wait(0.1)
     pcall(function() game:GetService("RunService"):RenderStepped():Wait() end)
