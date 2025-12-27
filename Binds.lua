@@ -1,4 +1,3 @@
--- Binds Module - Keybinds for all functions
 local Nexus = _G.Nexus
 
 local Binds = {
@@ -516,38 +515,28 @@ function Binds.CreateDisplayGUI()
     local container = Instance.new("Frame")
     container.Name = "Container"
     container.BackgroundTransparency = 1
-    container.Size = UDim2.new(0, 200, 1, -40)
-    container.Position = UDim2.new(1, -210, 0, 20)
+    container.Size = UDim2.new(0, 180, 0, 0)
+    container.Position = UDim2.new(1, -185, 0, 10)
     container.AnchorPoint = Vector2.new(1, 0)
     container.Parent = Binds.DisplayGui
-    
-    local title = Instance.new("TextLabel")
-    title.Name = "Title"
-    title.Text = "KEYBINDS"
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 16
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    title.BackgroundTransparency = 0.7
-    title.Size = UDim2.new(1, 0, 0, 30)
-    title.Position = UDim2.new(0, 0, 0, 0)
-    title.TextXAlignment = Enum.TextXAlignment.Center
-    title.Parent = container
     
     local scrollFrame = Instance.new("ScrollingFrame")
     scrollFrame.Name = "ScrollFrame"
     scrollFrame.BackgroundTransparency = 1
-    scrollFrame.Size = UDim2.new(1, 0, 1, -35)
-    scrollFrame.Position = UDim2.new(0, 0, 0, 35)
+    scrollFrame.Size = UDim2.new(1, 0, 1, 0)
+    scrollFrame.Position = UDim2.new(0, 0, 0, 0)
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
     scrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
     scrollFrame.ScrollBarThickness = 4
     scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
+    scrollFrame.ScrollBarImageTransparency = 0.5
     scrollFrame.Parent = container
     
     local uiListLayout = Instance.new("UIListLayout")
-    uiListLayout.Padding = UDim.new(0, 2)
+    uiListLayout.Padding = UDim.new(0, 4)
     uiListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    uiListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
     uiListLayout.Parent = scrollFrame
     
     Binds.UpdateDisplay()
@@ -572,26 +561,49 @@ function Binds.UpdateDisplay()
             Binds.CreateKeybindDisplay(scrollFrame, data.displayName, data.key)
         end
     end
+    
+    -- Обновляем размер контейнера на основе количества элементов
+    local itemCount = #sortedKeys
+    local itemHeight = 28
+    local padding = 4
+    local maxHeight = 400 -- Максимальная высота перед появлением скролла
+    
+    local totalHeight = (itemHeight + padding) * itemCount - padding
+    if totalHeight > maxHeight then
+        totalHeight = maxHeight
+    end
+    
+    Binds.DisplayGui.Container.Size = UDim2.new(0, 180, 0, totalHeight)
 end
 
 function Binds.CreateKeybindDisplay(parent, displayName, key)
     local frame = Instance.new("Frame")
     frame.Name = "Keybind_" .. displayName
-    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    frame.BackgroundTransparency = 0.5
-    frame.Size = UDim2.new(1, -10, 0, 25)
-    frame.Position = UDim2.new(0, 5, 0, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    frame.BackgroundTransparency = 0.2
+    frame.Size = UDim2.new(1, 0, 0, 24)
     frame.Parent = parent
+    frame.LayoutOrder = #parent:GetChildren()
+    
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 4)
+    uiCorner.Parent = frame
+    
+    local uiStroke = Instance.new("UIStroke")
+    uiStroke.Color = Color3.fromRGB(50, 50, 50)
+    uiStroke.Thickness = 1
+    uiStroke.Transparency = 0.5
+    uiStroke.Parent = frame
     
     local nameLabel = Instance.new("TextLabel")
     nameLabel.Name = "Name"
     nameLabel.Text = displayName
-    nameLabel.Font = Enum.Font.Gotham
+    nameLabel.Font = Enum.Font.GothamMedium
     nameLabel.TextSize = 12
-    nameLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+    nameLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
     nameLabel.BackgroundTransparency = 1
     nameLabel.Size = UDim2.new(0.7, -5, 1, 0)
-    nameLabel.Position = UDim2.new(0, 5, 0, 0)
+    nameLabel.Position = UDim2.new(0, 8, 0, 0)
     nameLabel.TextXAlignment = Enum.TextXAlignment.Left
     nameLabel.Parent = frame
     
@@ -600,16 +612,12 @@ function Binds.CreateKeybindDisplay(parent, displayName, key)
     keyLabel.Text = tostring(key)
     keyLabel.Font = Enum.Font.GothamBold
     keyLabel.TextSize = 12
-    keyLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+    keyLabel.TextColor3 = Color3.fromRGB(120, 180, 255)
     keyLabel.BackgroundTransparency = 1
-    keyLabel.Size = UDim2.new(0.3, 0, 1, 0)
+    keyLabel.Size = UDim2.new(0.3, -8, 1, 0)
     keyLabel.Position = UDim2.new(0.7, 0, 0, 0)
     keyLabel.TextXAlignment = Enum.TextXAlignment.Right
     keyLabel.Parent = frame
-    
-    local uiCorner = Instance.new("UICorner")
-    uiCorner.CornerRadius = UDim.new(0, 4)
-    uiCorner.Parent = frame
 end
 
 function Binds.UpdateKeybindDisplay(funcName, displayName, key)
