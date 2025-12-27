@@ -367,7 +367,7 @@ end
 
 function Visual.StartESPLoop()
     if Visual.ESP.espConnections.mainLoop then
-        Visual.ESP.espConnections.mainLoop:Disconnect()
+        pcall(function() Visual.ESP.espConnections.mainLoop:Disconnect() end)
     end
     
     Visual.ESP.espConnections.mainLoop = task.spawn(function()
@@ -390,13 +390,13 @@ function Visual.StopESP()
     Visual.ESP.espLoopRunning = false
     
     if Visual.ESP.espConnections.mainLoop then
-        Visual.ESP.espConnections.mainLoop:Disconnect()
+        pcall(function() Visual.ESP.espConnections.mainLoop:Disconnect() end)
         Visual.ESP.espConnections.mainLoop = nil
     end
     
     Visual.ClearAllESP()
     
-    for _, connection in pairs(Visual.ESP.espConnections) do
+    for name, connection in pairs(Visual.ESP.espConnections) do
         if connection then
             pcall(function() connection:Disconnect() end)
         end
@@ -695,7 +695,7 @@ function Visual.SetupPlayerAdvancedESP(plr)
         if humanoid then
             if Visual.AdvancedESP.playerConnections[plr] then
                 if Visual.AdvancedESP.playerConnections[plr].died then
-                    Visual.AdvancedESP.playerConnections[plr].died:Disconnect()
+                    pcall(function() Visual.AdvancedESP.playerConnections[plr].died:Disconnect() end)
                 end
                 
                 Visual.AdvancedESP.playerConnections[plr].died = humanoid.Died:Connect(function()
@@ -711,10 +711,10 @@ function Visual.SetupPlayerAdvancedESP(plr)
     
     if Visual.AdvancedESP.playerConnections[plr] then
         if Visual.AdvancedESP.playerConnections[plr].charAdded then
-            Visual.AdvancedESP.playerConnections[plr].charAdded:Disconnect()
+            pcall(function() Visual.AdvancedESP.playerConnections[plr].charAdded:Disconnect() end)
         end
         if Visual.AdvancedESP.playerConnections[plr].charRemoving then
-            Visual.AdvancedESP.playerConnections[plr].charRemoving:Disconnect()
+            pcall(function() Visual.AdvancedESP.playerConnections[plr].charRemoving:Disconnect() end)
         end
         
         Visual.AdvancedESP.playerConnections[plr].charAdded = charAddedConnection
@@ -737,7 +737,7 @@ function Visual.SetupPlayerAdvancedESP(plr)
             if humanoid then
                 if Visual.AdvancedESP.playerConnections[plr] then
                     if Visual.AdvancedESP.playerConnections[plr].died then
-                        Visual.AdvancedESP.playerConnections[plr].died:Disconnect()
+                        pcall(function() Visual.AdvancedESP.playerConnections[plr].died:Disconnect() end)
                     end
                     
                     Visual.AdvancedESP.playerConnections[plr].died = humanoid.Died:Connect(function()
@@ -828,7 +828,11 @@ function Visual.UpdateAdvancedESP()
                 for i=1,24 do
                     if d["HealthStripe"..i] then d["HealthStripe"..i].Visible = false end
                 end
-                if d.Bones then for _,line in ipairs(d.Bones) do line.Visible = false end end
+                if d.Bones then 
+                    for _,line in ipairs(d.Bones) do 
+                        line.Visible = false 
+                    end 
+                end
                 if d.Tracer then d.Tracer.Visible = false end
                 goto continue
             end
@@ -1013,7 +1017,11 @@ function Visual.UpdateAdvancedESP()
                 for i = 1, 24 do
                     if d["HealthStripe"..i] then d["HealthStripe"..i].Visible = false end
                 end
-                if d.Bones then for _, line in ipairs(d.Bones) do line.Visible = false end end
+                if d.Bones then 
+                    for _, line in ipairs(d.Bones) do 
+                        line.Visible = false 
+                    end 
+                end
                 if d.Tracer then d.Tracer.Visible = false end
             end
         else
@@ -1029,10 +1037,10 @@ function Visual.StartAdvancedESP()
     Visual.AdvancedESP.advancedESPRunning = true
     
     if Visual.AdvancedESP.connections.playerAdded then
-        Visual.AdvancedESP.connections.playerAdded:Disconnect()
+        pcall(function() Visual.AdvancedESP.connections.playerAdded:Disconnect() end)
     end
     if Visual.AdvancedESP.connections.playerRemoving then
-        Visual.AdvancedESP.connections.playerRemoving:Disconnect()
+        pcall(function() Visual.AdvancedESP.connections.playerRemoving:Disconnect() end)
     end
     
     Visual.AdvancedESP.connections.playerAdded = Nexus.Services.Players.PlayerAdded:Connect(function(plr)
@@ -1050,7 +1058,7 @@ function Visual.StartAdvancedESP()
     end
     
     if Visual.AdvancedESP.connections.renderStepped then
-        Visual.AdvancedESP.connections.renderStepped:Disconnect()
+        pcall(function() Visual.AdvancedESP.connections.renderStepped:Disconnect() end)
     end
     
     Visual.AdvancedESP.connections.renderStepped = Nexus.Services.RunService.RenderStepped:Connect(function()
@@ -1070,12 +1078,12 @@ function Visual.StopAdvancedESP()
     end
     
     if Visual.AdvancedESP.connections.playerAdded then
-        Visual.AdvancedESP.connections.playerAdded:Disconnect()
+        pcall(function() Visual.AdvancedESP.connections.playerAdded:Disconnect() end)
         Visual.AdvancedESP.connections.playerAdded = nil
     end
     
     if Visual.AdvancedESP.connections.playerRemoving then
-        Visual.AdvancedESP.connections.playerRemoving:Disconnect()
+        pcall(function() Visual.AdvancedESP.connections.playerRemoving:Disconnect() end)
         Visual.AdvancedESP.connections.playerRemoving = nil
     end
     
@@ -1089,16 +1097,16 @@ function Visual.StopAdvancedESP()
     end
     
     for plr, connections in pairs(Visual.AdvancedESP.playerConnections) do
-        for _, connection in pairs(connections) do
+        for name, connection in pairs(connections) do
             if connection and typeof(connection) == "RBXScriptConnection" then
                 pcall(function() connection:Disconnect() end)
             end
         end
     end
     
-    table.clear(Visual.AdvancedESP.espObjects)
-    table.clear(Visual.AdvancedESP.playerConnections)
-    table.clear(Visual.AdvancedESP.connections)
+    Visual.AdvancedESP.espObjects = {}
+    Visual.AdvancedESP.playerConnections = {}
+    Visual.AdvancedESP.connections = {}
 end
 
 function Visual.ToggleNoShadow(enabled)
@@ -1137,7 +1145,7 @@ function Visual.ToggleNoFog(enabled)
         for _, obj in ipairs(lighting:GetChildren()) do
             if obj:IsA("Atmosphere") then
                 table.insert(originalAtmospheres, obj:Clone())
-                obj:Destroy()
+                pcall(function() obj:Destroy() end)
             end
         end
         
@@ -1154,14 +1162,14 @@ function Visual.ToggleNoFog(enabled)
             for _, obj in ipairs(map:GetDescendants()) do
                 if obj:IsA("Atmosphere") then
                     table.insert(workspaceAtmospheres, {Object = obj, Parent = obj.Parent})
-                    obj:Destroy()
+                    pcall(function() obj:Destroy() end)
                 end
             end
         end
         Visual.Effects.workspaceAtmosphereCache = workspaceAtmospheres
         
         if Visual.ESP.espConnections.noFog then
-            Visual.ESP.espConnections.noFog:Disconnect()
+            pcall(function() Visual.ESP.espConnections.noFog:Disconnect() end)
         end
         
         Visual.ESP.espConnections.noFog = Nexus.Services.RunService.Heartbeat:Connect(function()
@@ -1173,7 +1181,7 @@ function Visual.ToggleNoFog(enabled)
         end)
     else
         if Visual.ESP.espConnections.noFog then
-            Visual.ESP.espConnections.noFog:Disconnect()
+            pcall(function() Visual.ESP.espConnections.noFog:Disconnect() end)
             Visual.ESP.espConnections.noFog = nil
         end
         
@@ -1617,7 +1625,7 @@ function Visual.Cleanup()
     Visual.AdvancedESP.connections = {}
     
     for plr, connections in pairs(Visual.AdvancedESP.playerConnections) do
-        for _, connection in pairs(connections) do
+        for name, connection in pairs(connections) do
             if connection then
                 pcall(function() connection:Disconnect() end)
             end
