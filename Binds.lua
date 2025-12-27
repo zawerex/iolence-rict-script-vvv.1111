@@ -1,3 +1,4 @@
+-- Binds Module - Keybinds for all functions
 local Nexus = _G.Nexus
 
 local Binds = {
@@ -139,6 +140,20 @@ function Binds.Init(nxs)
         end,
         ChangedCallback = function(newKey)
             Binds.HandleKeybindChange("NoHitbox", newKey)
+        end
+    })
+    
+    local AntiFailKeybind = Tabs.Binds:AddKeybind("AntiFailKeybind", {
+        Title = "Anti-Fail Generator",
+        Mode = "Toggle",
+        Default = "",
+        Callback = function()
+            Nexus.SafeCallback(function()
+                Binds.ToggleOption("AntiFailGenerator")
+            end)
+        end,
+        ChangedCallback = function(newKey)
+            Binds.HandleKeybindChange("AntiFailGenerator", newKey)
         end
     })
     
@@ -316,6 +331,165 @@ function Binds.Init(nxs)
         end
     })
     
+    -- ========== VISUAL BINDS ==========
+    Tabs.Binds:AddSection("Visual Binds")
+    
+    local NoShadowKeybind = Tabs.Binds:AddKeybind("NoShadowKeybind", {
+        Title = "No Shadow",
+        Mode = "Toggle",
+        Default = "",
+        Callback = function()
+            Nexus.SafeCallback(function()
+                Binds.ToggleOption("NoShadow")
+            end)
+        end,
+        ChangedCallback = function(newKey)
+            Binds.HandleKeybindChange("NoShadow", newKey)
+        end
+    })
+    
+    local NoFogKeybind = Tabs.Binds:AddKeybind("NoFogKeybind", {
+        Title = "No Fog",
+        Mode = "Toggle",
+        Default = "",
+        Callback = function()
+            Nexus.SafeCallback(function()
+                Binds.ToggleOption("NoFog")
+            end)
+        end,
+        ChangedCallback = function(newKey)
+            Binds.HandleKeybindChange("NoFog", newKey)
+        end
+    })
+    
+    local FullBrightKeybind = Tabs.Binds:AddKeybind("FullBrightKeybind", {
+        Title = "FullBright",
+        Mode = "Toggle",
+        Default = "",
+        Callback = function()
+            Nexus.SafeCallback(function()
+                Binds.ToggleOption("FullBright")
+            end)
+        end,
+        ChangedCallback = function(newKey)
+            Binds.HandleKeybindChange("FullBright", newKey)
+        end
+    })
+    
+    local TimeChangerKeybind = Tabs.Binds:AddKeybind("TimeChangerKeybind", {
+        Title = "Time Changer",
+        Mode = "Toggle",
+        Default = "",
+        Callback = function()
+            Nexus.SafeCallback(function()
+                Binds.ToggleOption("TimeChanger")
+            end)
+        end,
+        ChangedCallback = function(newKey)
+            Binds.HandleKeybindChange("TimeChanger", newKey)
+        end
+    })
+    
+    local ESPSurvivorsKeybind = Tabs.Binds:AddKeybind("ESPSurvivorsKeybind", {
+        Title = "Survivors ESP",
+        Mode = "Toggle",
+        Default = "",
+        Callback = function()
+            Nexus.SafeCallback(function()
+                Binds.ToggleOption("ESPSurvivors")
+            end)
+        end,
+        ChangedCallback = function(newKey)
+            Binds.HandleKeybindChange("ESPSurvivors", newKey)
+        end
+    })
+    
+    local ESPKillersKeybind = Tabs.Binds:AddKeybind("ESPKillersKeybind", {
+        Title = "Killers ESP",
+        Mode = "Toggle",
+        Default = "",
+        Callback = function()
+            Nexus.SafeCallback(function()
+                Binds.ToggleOption("ESPKillers")
+            end)
+        end,
+        ChangedCallback = function(newKey)
+            Binds.HandleKeybindChange("ESPKillers", newKey)
+        end
+    })
+    
+    local ESPHooksKeybind = Tabs.Binds:AddKeybind("ESPHooksKeybind", {
+        Title = "Hooks ESP",
+        Mode = "Toggle",
+        Default = "",
+        Callback = function()
+            Nexus.SafeCallback(function()
+                Binds.ToggleOption("ESPHooks")
+            end)
+        end,
+        ChangedCallback = function(newKey)
+            Binds.HandleKeybindChange("ESPHooks", newKey)
+        end
+    })
+    
+    local ESPGeneratorsKeybind = Tabs.Binds:AddKeybind("ESPGeneratorsKeybind", {
+        Title = "Generators ESP",
+        Mode = "Toggle",
+        Default = "",
+        Callback = function()
+            Nexus.SafeCallback(function()
+                Binds.ToggleOption("ESPGenerators")
+            end)
+        end,
+        ChangedCallback = function(newKey)
+            Binds.HandleKeybindChange("ESPGenerators", newKey)
+        end
+    })
+    
+    local ESPPalletsKeybind = Tabs.Binds:AddKeybind("ESPPalletsKeybind", {
+        Title = "Pallets ESP",
+        Mode = "Toggle",
+        Default = "",
+        Callback = function()
+            Nexus.SafeCallback(function()
+                Binds.ToggleOption("ESPPallets")
+            end)
+        end,
+        ChangedCallback = function(newKey)
+            Binds.HandleKeybindChange("ESPPallets", newKey)
+        end
+    })
+    
+    local ESPGatesKeybind = Tabs.Binds:AddKeybind("ESPGatesKeybind", {
+        Title = "Exit Gates ESP",
+        Mode = "Toggle",
+        Default = "",
+        Callback = function()
+            Nexus.SafeCallback(function()
+                Binds.ToggleOption("ESPGates")
+            end)
+        end,
+        ChangedCallback = function(newKey)
+            Binds.HandleKeybindChange("ESPGates", newKey)
+        end
+    })
+    
+    local ESPWindowsKeybind = Tabs.Binds:AddKeybind("ESPWindowsKeybind", {
+        Title = "Windows ESP",
+        Mode = "Toggle",
+        Default = "",
+        Callback = function()
+            Nexus.SafeCallback(function()
+                Binds.ToggleOption("ESPWindows")
+            end)
+        end,
+        ChangedCallback = function(newKey)
+            Binds.HandleKeybindChange("ESPWindows", newKey)
+        end
+    })
+    
+    print("✓ Binds module initialized")
+end
 
 -- ========== CURSOR UNLOCK FUNCTIONS ==========
 
