@@ -437,8 +437,8 @@ function Binds.CreateDisplayGUI()
     local container = Instance.new("Frame")
     container.Name = "Container"
     container.BackgroundTransparency = 1
-    container.Size = UDim2.new(0, 250, 0, 0) 
-    container.Position = UDim2.new(1, -5, 0, 30) 
+    container.Size = UDim2.new(0, 250, 0, 0) -- Увеличена ширина для длинного текста
+    container.Position = UDim2.new(1, -5, 0, 30) -- Правее, почти вплотную к краю
     container.AnchorPoint = Vector2.new(1, 0)
     container.Parent = Binds.DisplayGui
     
