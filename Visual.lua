@@ -21,8 +21,8 @@ local Visual = {
     },
     AdvancedESP = {
         settings = {
-            name = {Enabled = true, TextSize = 15},
-            distance = {Enabled = true, TextSize = 13},
+            name = {Enabled = true, TextSize = 9},
+            distance = {Enabled = true, TextSize = 9},
             healthbar = {Enabled = true},
             box = {Enabled = true},
             boxType = "full",
@@ -1343,14 +1343,12 @@ function Visual.Init(nxs)
     Visual.ESP.settings.ExitGates.Colorpicker = GateColorpicker
     Visual.ESP.settings.Windows.Colorpicker = WindowColorpicker
 
-    Tabs.Visual:AddSection("Advanced ESP Settings")
-
     Tabs.Visual:AddSection("ESP Components")
 
     local ESPBoxToggle = Tabs.Visual:AddToggle("ESPBox", {
         Title = "Player Boxes", 
         Description = "Show/hide player boxes", 
-        Default = true
+        Default = false
     })
     ESPBoxToggle:OnChanged(function(v)
         Visual.AdvancedESP.settings.box.Enabled = v
@@ -1362,7 +1360,7 @@ function Visual.Init(nxs)
     local ESPNamesToggle = Tabs.Visual:AddToggle("ESPNames", {
         Title = "Player Names", 
         Description = "Show/hide player names", 
-        Default = true
+        Default = false
     })
     ESPNamesToggle:OnChanged(function(v)
         Visual.AdvancedESP.settings.name.Enabled = v
@@ -1374,7 +1372,7 @@ function Visual.Init(nxs)
     local ESPHealthBarToggle = Tabs.Visual:AddToggle("ESPHealthBar", {
         Title = "Health Bar", 
         Description = "Show/hide health bar", 
-        Default = true
+        Default = false
     })
     ESPHealthBarToggle:OnChanged(function(v)
         Visual.AdvancedESP.settings.healthbar.Enabled = v
@@ -1386,7 +1384,7 @@ function Visual.Init(nxs)
     local ESPDistanceToggle = Tabs.Visual:AddToggle("ESPDistance", {
         Title = "Distance", 
         Description = "Show/hide distance to players", 
-        Default = true
+        Default = false
     })
     ESPDistanceToggle:OnChanged(function(v)
         Visual.AdvancedESP.settings.distance.Enabled = v
@@ -1398,7 +1396,7 @@ function Visual.Init(nxs)
     local ESPBoxFillToggle = Tabs.Visual:AddToggle("ESPBoxFill", {
         Title = "Filled Box", 
         Description = "Show/hide filled boxes", 
-        Default = true
+        Default = false
     })
     ESPBoxFillToggle:OnChanged(function(v)
         Visual.AdvancedESP.settings.boxFill.Enabled = v
@@ -1410,7 +1408,7 @@ function Visual.Init(nxs)
     local ESPTracersToggle = Tabs.Visual:AddToggle("ESPTracers", {
         Title = "Tracers", 
         Description = "Show/hide tracers to players", 
-        Default = true
+        Default = false
     })
     ESPTracersToggle:OnChanged(function(v)
         Visual.AdvancedESP.settings.tracers.Enabled = v
@@ -1422,7 +1420,7 @@ function Visual.Init(nxs)
     local ESPBonesToggle = Tabs.Visual:AddToggle("ESPBones", {
         Title = "Player Bones", 
         Description = "Show/hide player bones", 
-        Default = true
+        Default = false
     })
     ESPBonesToggle:OnChanged(function(v)
         Visual.AdvancedESP.settings.bones.Enabled = v
@@ -1462,9 +1460,7 @@ end
 function Visual.Cleanup()
     Visual.StopESP()
     Visual.StopAdvancedESP()
-    
     Visual.ForceCleanupDrawings()
-    
     Visual.ToggleNoShadow(false)
     Visual.ToggleNoFog(false)
     Visual.ToggleFullBright(false)
