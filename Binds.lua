@@ -3,6 +3,7 @@ local Nexus = _G.Nexus
 local Binds = {
     Keybinds = {},
     ActiveKeybinds = {},
+    KeyStates = {}, -- Для отслеживания состояния каждой клавиши
     CursorUnlock = {
         enabled = false,
         connection = nil
@@ -57,10 +58,11 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("AutoParry")
+                Binds.UpdateKeyState("AutoParry")
             end)
         end,
         ChangedCallback = function(newKey)
-            Binds.HandleKeybindChange("AutoParry", "Auto Parry", newKey)
+            Binds.HandleKeybindChange("AutoParry", "AutoParry", newKey)
         end
     })
     
@@ -71,10 +73,11 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("AutoParryV2")
+                Binds.UpdateKeyState("AutoParryV2")
             end)
         end,
         ChangedCallback = function(newKey)
-            Binds.HandleKeybindChange("AutoParryV2", "Auto Parry V2", newKey)
+            Binds.HandleKeybindChange("AutoParryV2", "AutoParry V2", newKey)
         end
     })
     
@@ -85,6 +88,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("Heal")
+                Binds.UpdateKeyState("Heal")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -99,6 +103,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("InstantHeal")
+                Binds.UpdateKeyState("InstantHeal")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -113,6 +118,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("SilentHeal")
+                Binds.UpdateKeyState("SilentHeal")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -127,6 +133,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("GateTool")
+                Binds.UpdateKeyState("GateTool")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -141,6 +148,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("NoHitbox")
+                Binds.UpdateKeyState("NoHitbox")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -155,6 +163,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("AntiFailGenerator")
+                Binds.UpdateKeyState("AntiFailGenerator")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -169,6 +178,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("AutoPerfectSkill")
+                Binds.UpdateKeyState("AutoPerfectSkill")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -186,6 +196,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("OneHitKill")
+                Binds.UpdateKeyState("OneHitKill")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -200,6 +211,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("AntiBlind")
+                Binds.UpdateKeyState("AntiBlind")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -214,6 +226,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("NoSlowdown")
+                Binds.UpdateKeyState("NoSlowdown")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -228,6 +241,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("DestroyPallets")
+                Binds.UpdateKeyState("DestroyPallets")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -242,6 +256,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("BreakGenerator")
+                Binds.UpdateKeyState("BreakGenerator")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -259,6 +274,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("InfiniteLunge")
+                Binds.UpdateKeyState("InfiniteLunge")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -273,6 +289,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("WalkSpeed")
+                Binds.UpdateKeyState("WalkSpeed")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -287,6 +304,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("Noclip")
+                Binds.UpdateKeyState("Noclip")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -301,6 +319,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("FOVChanger")
+                Binds.UpdateKeyState("FOVChanger")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -315,6 +334,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("Fly")
+                Binds.UpdateKeyState("Fly")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -329,6 +349,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("FreeCamera")
+                Binds.UpdateKeyState("FreeCamera")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -346,6 +367,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("NoShadow")
+                Binds.UpdateKeyState("NoShadow")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -360,6 +382,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("NoFog")
+                Binds.UpdateKeyState("NoFog")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -374,6 +397,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("FullBright")
+                Binds.UpdateKeyState("FullBright")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -388,6 +412,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("TimeChanger")
+                Binds.UpdateKeyState("TimeChanger")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -402,6 +427,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("ESPSurvivors")
+                Binds.UpdateKeyState("ESPSurvivors")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -416,6 +442,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("ESPKillers")
+                Binds.UpdateKeyState("ESPKillers")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -430,6 +457,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("ESPHooks")
+                Binds.UpdateKeyState("ESPHooks")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -444,6 +472,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("ESPGenerators")
+                Binds.UpdateKeyState("ESPGenerators")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -458,6 +487,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("ESPPallets")
+                Binds.UpdateKeyState("ESPPallets")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -472,6 +502,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("ESPGates")
+                Binds.UpdateKeyState("ESPGates")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -486,6 +517,7 @@ function Binds.Init(nxs)
         Callback = function()
             Nexus.SafeCallback(function()
                 Binds.ToggleOption("ESPWindows")
+                Binds.UpdateKeyState("ESPWindows")
             end)
         end,
         ChangedCallback = function(newKey)
@@ -516,7 +548,7 @@ function Binds.CreateDisplayGUI()
     container.Name = "Container"
     container.BackgroundTransparency = 1
     container.Size = UDim2.new(0, 180, 0, 0)
-    container.Position = UDim2.new(1, -185, 0, 10)
+    container.Position = UDim2.new(1, -10, 0, 10)
     container.AnchorPoint = Vector2.new(1, 0)
     container.Parent = Binds.DisplayGui
     
@@ -527,10 +559,8 @@ function Binds.CreateDisplayGUI()
     scrollFrame.Position = UDim2.new(0, 0, 0, 0)
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
     scrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
-    scrollFrame.ScrollBarThickness = 4
+    scrollFrame.ScrollBarThickness = 0
     scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
-    scrollFrame.ScrollBarImageTransparency = 0.5
     scrollFrame.Parent = container
     
     local uiListLayout = Instance.new("UIListLayout")
@@ -549,7 +579,7 @@ function Binds.UpdateDisplay()
     
     -- Полностью очищаем старые элементы
     for _, child in ipairs(scrollFrame:GetChildren()) do
-        if child:IsA("Frame") and child.Name:match("Keybind_") then
+        if child:IsA("TextLabel") then
             child:Destroy()
         end
     end
@@ -564,84 +594,95 @@ function Binds.UpdateDisplay()
     for _, funcName in ipairs(sortedKeys) do
         local data = Binds.ActiveKeybinds[funcName]
         if data and data.key ~= "" then
-            Binds.CreateKeybindDisplay(scrollFrame, data.displayName, data.key)
+            Binds.CreateKeybindDisplay(scrollFrame, data.displayName, data.key, funcName)
         end
     end
     
-    -- Ждем один кадр для обновления UIListLayout
-    task.wait(0.01)
-    
     -- Обновляем размер контейнера на основе количества элементов
     local itemCount = #sortedKeys
-    local itemHeight = 28
+    local itemHeight = 20
     local padding = 4
-    local maxHeight = 400 -- Максимальная высота перед появлением скролла
+    local maxHeight = 400
     
     local totalHeight = (itemHeight + padding) * itemCount - padding
     if totalHeight > maxHeight then
         totalHeight = maxHeight
-    elseif totalHeight < 40 then
-        totalHeight = 40 -- Минимальная высота
+    elseif totalHeight < 0 then
+        totalHeight = 0
     end
     
     Binds.DisplayGui.Container.Size = UDim2.new(0, 180, 0, totalHeight)
 end
 
-function Binds.CreateKeybindDisplay(parent, displayName, key)
-    local frame = Instance.new("Frame")
-    frame.Name = "Keybind_" .. displayName:gsub("%s+", "_")
-    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    frame.BackgroundTransparency = 0.2
-    frame.Size = UDim2.new(1, 0, 0, 24)
-    frame.Parent = parent
-    -- LayoutOrder будет автоматически назначен UIListLayout
+function Binds.CreateKeybindDisplay(parent, displayName, key, funcName)
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Name = "Keybind_" .. funcName
+    textLabel.Text = displayName .. " - " .. tostring(key)
+    textLabel.Font = Enum.Font.GothamMedium
+    textLabel.TextSize = 14
+    textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Size = UDim2.new(1, 0, 0, 20)
+    textLabel.TextXAlignment = Enum.TextXAlignment.Right
+    textLabel.Parent = parent
     
-    local uiCorner = Instance.new("UICorner")
-    uiCorner.CornerRadius = UDim.new(0, 4)
-    uiCorner.Parent = frame
+    -- Получаем текущее состояние для этой функции
+    local option = Nexus.Options[funcName]
+    if option then
+        Binds.UpdateKeyColor(textLabel, option.Value)
+    else
+        -- Для CursorToggle и других без опций
+        Binds.UpdateKeyColor(textLabel, Binds.KeyStates[funcName] or false)
+    end
+end
+
+function Binds.UpdateKeyColor(textLabel, isEnabled)
+    if not textLabel or not textLabel.Parent then return end
     
-    local uiStroke = Instance.new("UIStroke")
-    uiStroke.Color = Color3.fromRGB(50, 50, 50)
-    uiStroke.Thickness = 1
-    uiStroke.Transparency = 0.5
-    uiStroke.Parent = frame
+    -- Получаем текущий текст
+    local currentText = textLabel.Text
     
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Name = "Name"
-    nameLabel.Text = displayName
-    nameLabel.Font = Enum.Font.GothamMedium
-    nameLabel.TextSize = 12
-    nameLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Size = UDim2.new(0.7, -5, 1, 0)
-    nameLabel.Position = UDim2.new(0, 8, 0, 0)
-    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-    nameLabel.Parent = frame
+    -- Меняем цвет текста в зависимости от состояния
+    if isEnabled then
+        textLabel.TextColor3 = Color3.fromRGB(0, 255, 0) -- Зеленый при включении
+    else
+        textLabel.TextColor3 = Color3.fromRGB(255, 50, 50) -- Красный при выключении
+    end
+end
+
+function Binds.UpdateKeyState(funcName)
+    -- Обновляем состояние в таблице
+    local option = Nexus.Options[funcName]
+    if option then
+        Binds.KeyStates[funcName] = option.Value
+    else
+        -- Для функций без опций (например, CursorToggle)
+        if Binds.KeyStates[funcName] == nil then
+            Binds.KeyStates[funcName] = false
+        else
+            Binds.KeyStates[funcName] = not Binds.KeyStates[funcName]
+        end
+    end
     
-    local keyLabel = Instance.new("TextLabel")
-    keyLabel.Name = "Key"
-    keyLabel.Text = tostring(key)
-    keyLabel.Font = Enum.Font.GothamBold
-    keyLabel.TextSize = 12
-    keyLabel.TextColor3 = Color3.fromRGB(120, 180, 255)
-    keyLabel.BackgroundTransparency = 1
-    keyLabel.Size = UDim2.new(0.3, -8, 1, 0)
-    keyLabel.Position = UDim2.new(0.7, 0, 0, 0)
-    keyLabel.TextXAlignment = Enum.TextXAlignment.Right
-    keyLabel.Parent = frame
+    -- Обновляем цвет текста
+    Binds.UpdateKeybindDisplay(funcName)
 end
 
 function Binds.UpdateKeybindDisplay(funcName, displayName, key)
-    if key and key ~= "" then
-        Binds.ActiveKeybinds[funcName] = {
-            displayName = displayName,
-            key = key
-        }
-        print("[Keybinds] " .. displayName .. " -> " .. tostring(key))
-    else
-        Binds.ActiveKeybinds[funcName] = nil
+    if displayName and key then
+        if key ~= "" then
+            Binds.ActiveKeybinds[funcName] = {
+                displayName = displayName,
+                key = key
+            }
+            print("[Keybinds] " .. displayName .. " -> " .. tostring(key))
+        else
+            Binds.ActiveKeybinds[funcName] = nil
+            Binds.KeyStates[funcName] = nil
+        end
     end
     
+    -- Обновляем отображение
     Binds.UpdateDisplay()
 end
 
@@ -650,9 +691,14 @@ end
 function Binds.ToggleCursorUnlock()
     if Binds.CursorUnlock.enabled then
         Binds.DisableCursorUnlock()
+        Binds.KeyStates["CursorToggle"] = false
     else
         Binds.EnableCursorUnlock()
+        Binds.KeyStates["CursorToggle"] = true
     end
+    
+    -- Обновляем цвет для CursorToggle
+    Binds.UpdateKeybindDisplay("CursorToggle")
 end
 
 function Binds.EnableCursorUnlock()
@@ -755,6 +801,7 @@ function Binds.Cleanup()
     end
     
     Binds.ActiveKeybinds = {}
+    Binds.KeyStates = {}
     
     print("Binds module cleaned up")
 end
