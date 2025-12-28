@@ -1,3 +1,4 @@
+-- ========== MODULE DECLARATION ==========
 local Nexus = _G.Nexus
 
 local Visual = {
@@ -441,27 +442,28 @@ end
 function Visual.ClearAdvancedESP(plr)
     local d = Visual.AdvancedESP.espObjects[plr]
     if d then
+        -- Скрываем все Drawing объекты вместо удаления
         local drawingObjects = {
             d.BoxFill, d.Name, d.Distance, d.Tracer, d.HealthBg, 
             d.HealthBar, d.HealthMask, d.HealthText, d.Box, d.BoxOutline
         }
         
         for _, obj in ipairs(drawingObjects) do
-            if obj and typeof(obj) == "userdata" and obj.Remove then
-                pcall(function() obj:Remove() end)
+            if obj and typeof(obj) == "userdata" then
+                pcall(function() obj.Visible = false end)
             end
         end
         
         for i=1,24 do
             if d["HealthStripe"..i] then
-                pcall(function() d["HealthStripe"..i]:Remove() end)
+                pcall(function() d["HealthStripe"..i].Visible = false end)
             end
         end
         
         if d.Bones then
             for _, bone in ipairs(d.Bones) do
-                if bone and typeof(bone) == "userdata" and bone.Remove then
-                    pcall(function() bone:Remove() end)
+                if bone and typeof(bone) == "userdata" then
+                    pcall(function() bone.Visible = false end)
                 end
             end
         end
@@ -493,7 +495,9 @@ function Visual.CreateAdvancedESP(plr)
     
     local function create(tp, props)
         local o = Drawing.new(tp)
-        for i,v in pairs(props) do o[i]=v end
+        for i,v in pairs(props) do 
+            o[i]=v 
+        end
         return o
     end
     
@@ -541,22 +545,25 @@ function Visual.CreateAdvancedESP(plr)
         Visible = false
     })
     
-    d.HealthBg = Drawing.new("Square")
-    d.HealthBg.Visible = false
-    d.HealthBg.Filled = true
-    d.HealthBg.Color = Color3.new(0,0,0)
-    d.HealthBg.Transparency = 1
+    d.HealthBg = create("Square",{
+        Color = Color3.new(0,0,0),
+        Filled = true,
+        Transparency = 1,
+        Visible = false
+    })
     
-    d.HealthBar = Drawing.new("Square")
-    d.HealthBar.Visible = false
-    d.HealthBar.Filled = true
-    d.HealthBar.Transparency = 1
+    d.HealthBar = create("Square",{
+        Filled = true,
+        Transparency = 1,
+        Visible = false
+    })
     
-    d.HealthMask = Drawing.new("Square")
-    d.HealthMask.Visible = false
-    d.HealthMask.Filled = true
-    d.HealthMask.Color = Color3.new(0,0,0)
-    d.HealthMask.Transparency = 0.3
+    d.HealthMask = create("Square",{
+        Color = Color3.new(0,0,0),
+        Filled = true,
+        Transparency = 0.3,
+        Visible = false
+    })
     
     d.HealthText = create("Text",{
         Size = 14,
@@ -579,6 +586,15 @@ function Visual.CreateAdvancedESP(plr)
         Visible = false,
         Filled = false
     })
+    
+    -- Создаем полоски здоровья сразу
+    for i=1,24 do
+        d["HealthStripe"..i] = create("Square", {
+            Filled = true,
+            Transparency = 1,
+            Visible = false
+        })
+    end
     
     for i=1,14 do
         d.Bones[i] = create("Line", {
@@ -603,7 +619,7 @@ function Visual.SetupPlayerAdvancedESP(plr)
     Visual.CreateAdvancedESP(plr)
     
     local charAddedConnection = plr.CharacterAdded:Connect(function(char)
-        wait(0.5)
+        task.wait(0.5)
         
         if not Visual.AdvancedESP.espObjects[plr] then
             Visual.CreateAdvancedESP(plr)
@@ -635,7 +651,7 @@ function Visual.SetupPlayerAdvancedESP(plr)
     if plr.Character then
         task.spawn(function()
             local char = plr.Character
-            wait(0.5)
+            task.wait(0.5)
             
             local humanoid = char:FindFirstChildOfClass("Humanoid")
             if humanoid then
@@ -796,16 +812,14 @@ function Visual.UpdateAdvancedESP()
                             local stripeY = barY + barHeight * (i - 1) / HEALTH_STRIPES
                             local stripeH = barHeight / HEALTH_STRIPES
                             local stripeColor = Visual.GetHealthGradientColor(stripeY - barY, barHeight)
-                            if not d["HealthStripe"..i] then
-                                d["HealthStripe"..i] = Drawing.new("Square")
-                                d["HealthStripe"..i].Filled = true
-                            end
                             local stripe = d["HealthStripe"..i]
-                            stripe.Color = stripeColor
-                            stripe.Position = Vector2.new(barX, stripeY)
-                            stripe.Size = Vector2.new(barWidth, stripeH)
-                            stripe.Visible = (i - 1) / HEALTH_STRIPES < hpPerc
-                            stripe.Transparency = 1
+                            if stripe then
+                                stripe.Color = stripeColor
+                                stripe.Position = Vector2.new(barX, stripeY)
+                                stripe.Size = Vector2.new(barWidth, stripeH)
+                                stripe.Visible = (i - 1) / HEALTH_STRIPES < hpPerc
+                                stripe.Transparency = 1
+                            end
                         end
                         
                         d.HealthText.Text = tostring(math.floor(hum.Health))
@@ -906,11 +920,11 @@ end
 
 function Visual.StartAdvancedESP()
     -- Setup player connections
-    Nexus.Services.Players.PlayerAdded:Connect(function(plr)
+    Visual.AdvancedESP.connections.playerAdded = Nexus.Services.Players.PlayerAdded:Connect(function(plr)
         Visual.SetupPlayerAdvancedESP(plr)
     end)
     
-    Nexus.Services.Players.PlayerRemoving:Connect(function(plr)
+    Visual.AdvancedESP.connections.playerRemoving = Nexus.Services.Players.PlayerRemoving:Connect(function(plr)
         Visual.CleanupPlayerAdvancedESP(plr)
     end)
     
