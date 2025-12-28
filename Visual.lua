@@ -17,20 +17,34 @@ local Visual = {
         boxESP = {
             enabled = false,
             teamCheck = false,
-            color = Color3.fromRGB(255, 255, 255),
-            colorpicker = nil
+            color = Color3.fromRGB(255,255,255),
+            colorpicker = nil,
+            outline = false,
+            outlineColor = Color3.fromRGB(0,0,0),
+            outlineColorpicker = nil
         },
         namesESP = {
             enabled = false,
-            color = Color3.fromRGB(255, 255, 255),
-            colorpicker = nil
+            color = Color3.fromRGB(255,255,255),
+            colorpicker = nil,
+            outline = false,
+            outlineColor = Color3.fromRGB(0,0,0),
+            outlineColorpicker = nil,
+            font = 2,
+            size = 15,
+            showDistance = false
+        },
+        healthBar = {
+            enabled = false,
+            side = "Left",
+            offset = 8
         },
         trackedObjects = {},
         espConnections = {},
         espLoopRunning = false,
         showGeneratorPercent = true,
-        boxObjects = {},
-        nameLabels = {}
+        espObjects = {},
+        drawingConnections = {}
     },
     Effects = {
         noShadowEnabled = false,
@@ -265,108 +279,223 @@ function Visual.IsValidPallet(obj)
     return false
 end
 
-function Visual.CreateBoxESP(character)
-    if not character then return nil end
+function Visual.CreateDrawingESP(player)
+    local espData = {}
+    espData.Box = Drawing.new("Square")
+    espData.BoxOutline = Drawing.new("Square")
+    espData.Name = Drawing.new("Text")
+    espData.HealthBar = Drawing.new("Square")
+    espData.HealthBarOutline = Drawing.new("Square")
+    espData.Updater = nil
     
-    local box = character:FindFirstChild("VD_Box")
-    if not box then
-        box = Instance.new("BoxHandleAdornment")
-        box.Name = "VD_Box"
-        box.Adornee = character
-        box.AlwaysOnTop = true
-        box.ZIndex = 10
-        box.Size = Vector3.new(4, 6, 4)
-        box.Color3 = Visual.GetTeamColor(Nexus.Services.Players:GetPlayerFromCharacter(character))
-        box.Transparency = 0.3
-        box.Parent = character
-    end
+    Visual.ESP.espObjects[player] = espData
     
-    Visual.ESP.boxObjects[character] = box
-    return box
-end
-
-function Visual.UpdateBoxESP(character)
-    if not character then return end
-    
-    local box = Visual.ESP.boxObjects[character]
-    if not box then
-        box = Visual.CreateBoxESP(character)
-    end
-    
-    if box then
-        local player = Nexus.Services.Players:GetPlayerFromCharacter(character)
-        if player then
-            box.Color3 = Visual.GetTeamColor(player)
-            box.Visible = Visual.ESP.boxESP.enabled
-        end
-    end
-end
-
-function Visual.RemoveBoxESP(character)
-    if character and Visual.ESP.boxObjects[character] then
-        local box = Visual.ESP.boxObjects[character]
-        pcall(function() box:Destroy() end)
-        Visual.ESP.boxObjects[character] = nil
-    end
-end
-
-function Visual.CreateNameESP(character)
-    if not character then return nil end
-    
-    local label = character:FindFirstChild("VD_NameLabel")
-    if not label then
-        label = Instance.new("BillboardGui")
-        label.Name = "VD_NameLabel"
-        label.Size = UDim2.new(0, 200, 0, 50)
-        label.StudsOffset = Vector3.new(0, 7, 0)
-        label.AlwaysOnTop = true
-        label.MaxDistance = 1000
-        label.Parent = character
+    local function UpdateDrawingESP()
+        local espData = Visual.ESP.espObjects[player]
+        if not espData then return end
         
-        local textLabel = Instance.new("TextLabel")
-        textLabel.Name = "NameText"
-        textLabel.Size = UDim2.new(1, 0, 1, 0)
-        textLabel.BackgroundTransparency = 1
-        textLabel.TextSize = 14
-        textLabel.Font = Enum.Font.SourceSansBold
-        textLabel.TextColor3 = Visual.ESP.namesESP.color
-        textLabel.TextStrokeTransparency = 0
-        textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        textLabel.Parent = label
-        
-        Visual.ESP.nameLabels[character] = label
-    end
-    
-    return label
-end
-
-function Visual.UpdateNameESP(character)
-    if not character then return end
-    
-    local label = Visual.ESP.nameLabels[character]
-    if not label then
-        label = Visual.CreateNameESP(character)
-    end
-    
-    if label then
-        local player = Nexus.Services.Players:GetPlayerFromCharacter(character)
-        if player then
-            local textLabel = label:FindFirstChild("NameText")
-            if textLabel then
-                textLabel.Text = player.Name
-                textLabel.TextColor3 = Visual.ESP.namesESP.color
-                label.Enabled = Visual.ESP.namesESP.enabled
+        if player.Character ~= nil and player.Character:FindFirstChild("Humanoid") ~= nil and 
+           player.Character:FindFirstChild("HumanoidRootPart") ~= nil and 
+           player.Character.Humanoid.Health > 0 and player.Character:FindFirstChild("Head") ~= nil then
+            
+            local target2dPosition, isVisible = Nexus.Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+            local scale_factor = 1 / (target2dPosition.Z * math.tan(math.rad(Nexus.Camera.FieldOfView * 0.5)) * 2) * 100
+            local width, height = math.floor(40 * scale_factor), math.floor(60 * scale_factor)
+            
+            if Visual.ESP.boxESP.enabled then
+                espData.Box.Visible = isVisible
+                espData.Box.Color = Visual.GetTeamColor(player)
+                espData.Box.Size = Vector2.new(width,height)
+                espData.Box.Position = Vector2.new(target2dPosition.X - espData.Box.Size.X / 2, target2dPosition.Y - espData.Box.Size.Y / 2)
+                espData.Box.Thickness = 1
+                espData.Box.ZIndex = 69
+                
+                if Visual.ESP.boxESP.outline then
+                    espData.BoxOutline.Visible = isVisible
+                    espData.BoxOutline.Color = Visual.ESP.boxESP.outlineColor
+                    espData.BoxOutline.Size = Vector2.new(width,height)
+                    espData.BoxOutline.Position = Vector2.new(target2dPosition.X - espData.Box.Size.X / 2, target2dPosition.Y - espData.Box.Size.Y / 2)
+                    espData.BoxOutline.Thickness = 3
+                    espData.BoxOutline.ZIndex = 1
+                else
+                    espData.BoxOutline.Visible = false
+                end
+            else
+                espData.Box.Visible = false
+                espData.BoxOutline.Visible = false
             end
+            
+            if Visual.ESP.namesESP.enabled then
+                espData.Name.Visible = isVisible
+                espData.Name.Color = Visual.ESP.namesESP.color
+                local nameText = player.Name
+                if Visual.ESP.namesESP.showDistance then
+                    local distance = math.floor((Nexus.Camera.CFrame.p - player.Character.HumanoidRootPart.Position).magnitude)
+                    nameText = nameText .. " " .. distance .. "m"
+                end
+                espData.Name.Text = nameText
+                espData.Name.Center = true
+                espData.Name.Outline = Visual.ESP.namesESP.outline
+                espData.Name.OutlineColor = Visual.ESP.namesESP.outlineColor
+                espData.Name.Position = Vector2.new(target2dPosition.X, target2dPosition.Y - height * 0.5 + -15)
+                espData.Name.Font = Visual.ESP.namesESP.font
+                espData.Name.Size = Visual.ESP.namesESP.size
+            else
+                espData.Name.Visible = false
+            end
+            
+            if Visual.ESP.healthBar.enabled then
+                espData.HealthBarOutline.Visible = isVisible
+                espData.HealthBarOutline.Color = Color3.fromRGB(0,0,0)
+                espData.HealthBarOutline.Filled = true
+                espData.HealthBarOutline.ZIndex = 1
+    
+                espData.HealthBar.Visible = isVisible
+                espData.HealthBar.Color = Color3.fromRGB(255,0,0):lerp(Color3.fromRGB(0,255,0), player.Character:FindFirstChild("Humanoid").Health/player.Character:FindFirstChild("Humanoid").MaxHealth)
+                espData.HealthBar.Thickness = 1
+                espData.HealthBar.Filled = true
+                espData.HealthBar.ZIndex = 69
+                
+                local boxPosition = Vector2.new(target2dPosition.X - width / 2, target2dPosition.Y - height / 2)
+                
+                if Visual.ESP.healthBar.side == "Left" then
+                    espData.HealthBarOutline.Size = Vector2.new(2,height)
+                    espData.HealthBarOutline.Position = boxPosition + Vector2.new(-Visual.ESP.healthBar.offset,0)
+                    
+                    espData.HealthBar.Size = Vector2.new(1,-(espData.HealthBarOutline.Size.Y - 2) * (player.Character:FindFirstChild("Humanoid").Health/player.Character:FindFirstChild("Humanoid").MaxHealth))
+                    espData.HealthBar.Position = espData.HealthBarOutline.Position + Vector2.new(1,-1 + espData.HealthBarOutline.Size.Y)
+                    
+                elseif Visual.ESP.healthBar.side == "Bottom" then
+                    espData.HealthBarOutline.Size = Vector2.new(width,3)
+                    espData.HealthBarOutline.Position = boxPosition + Vector2.new(0,height + Visual.ESP.healthBar.offset)
+
+                    espData.HealthBar.Size = Vector2.new((espData.HealthBarOutline.Size.X - 2) * (player.Character:FindFirstChild("Humanoid").Health/player.Character:FindFirstChild("Humanoid").MaxHealth),1)
+                    espData.HealthBar.Position = espData.HealthBarOutline.Position + Vector2.new(1,-1 + espData.HealthBarOutline.Size.Y)
+                    
+                elseif Visual.ESP.healthBar.side == "Right" then
+                    espData.HealthBarOutline.Size = Vector2.new(2,height)
+                    espData.HealthBarOutline.Position = boxPosition + Vector2.new(width + Visual.ESP.healthBar.offset - 1,0)
+                    
+                    espData.HealthBar.Size = Vector2.new(1,-(espData.HealthBarOutline.Size.Y - 2) * (player.Character:FindFirstChild("Humanoid").Health/player.Character:FindFirstChild("Humanoid").MaxHealth))
+                    espData.HealthBar.Position = espData.HealthBarOutline.Position + Vector2.new(1,-1 + espData.HealthBarOutline.Size.Y)
+                end
+            else
+                espData.HealthBar.Visible = false
+                espData.HealthBarOutline.Visible = false
+            end
+        else
+            espData.Box.Visible = false
+            espData.BoxOutline.Visible = false
+            espData.Name.Visible = false
+            espData.HealthBar.Visible = false
+            espData.HealthBarOutline.Visible = false
         end
+    end
+    
+    espData.Updater = Nexus.Services.RunService.RenderStepped:Connect(UpdateDrawingESP)
+    
+    local function CleanupDrawingESP()
+        local espData = Visual.ESP.espObjects[player]
+        if espData then
+            if espData.Updater then
+                espData.Updater:Disconnect()
+            end
+
+            espData.Box.Visible = false
+            espData.BoxOutline.Visible = false
+            espData.Name.Visible = false
+            espData.HealthBar.Visible = false
+            espData.HealthBarOutline.Visible = false
+            
+            pcall(function() espData.Box:Remove() end)
+            pcall(function() espData.BoxOutline:Remove() end)
+            pcall(function() espData.Name:Remove() end)
+            pcall(function() espData.HealthBar:Remove() end)
+            pcall(function() espData.HealthBarOutline:Remove() end)
+            
+            Visual.ESP.espObjects[player] = nil
+        end
+    end
+    
+    if player.CharacterRemoving then
+        player.CharacterRemoving:Connect(CleanupDrawingESP)
+    end
+    
+    player.AncestryChanged:Connect(function()
+        if not player.Parent then
+            CleanupDrawingESP()
+        end
+    end)
+end
+
+function Visual.SetupPlayerDrawingESP(player)
+    if player == Nexus.Player then return end
+    
+    Visual.CreateDrawingESP(player)
+end
+
+function Visual.CleanupPlayerDrawingESP(player)
+    local espData = Visual.ESP.espObjects[player]
+    if espData then
+        if espData.Updater then
+            espData.Updater:Disconnect()
+        end
+        
+        espData.Box.Visible = false
+        espData.BoxOutline.Visible = false
+        espData.Name.Visible = false
+        espData.HealthBar.Visible = false
+        espData.HealthBarOutline.Visible = false
+        
+        pcall(function() espData.Box:Remove() end)
+        pcall(function() espData.BoxOutline:Remove() end)
+        pcall(function() espData.Name:Remove() end)
+        pcall(function() espData.HealthBar:Remove() end)
+        pcall(function() espData.HealthBarOutline:Remove() end)
+        
+        Visual.ESP.espObjects[player] = nil
     end
 end
 
-function Visual.RemoveNameESP(character)
-    if character and Visual.ESP.nameLabels[character] then
-        local label = Visual.ESP.nameLabels[character]
-        pcall(function() label:Destroy() end)
-        Visual.ESP.nameLabels[character] = nil
+function Visual.StartDrawingESP()
+    for _, player in pairs(Nexus.Services.Players:GetPlayers()) do
+        if player ~= Nexus.Player then
+            Visual.SetupPlayerDrawingESP(player)
+        end
     end
+    
+    Visual.ESP.drawingConnections.playerAdded = Nexus.Services.Players.PlayerAdded:Connect(function(player)
+        if player ~= Nexus.Player then
+            Visual.SetupPlayerDrawingESP(player)
+        end
+    end)
+    
+    Visual.ESP.drawingConnections.playerRemoving = Nexus.Services.Players.PlayerRemoving:Connect(function(player)
+        Visual.CleanupPlayerDrawingESP(player)
+    end)
+end
+
+function Visual.StopDrawingESP()
+    for player, _ in pairs(Visual.ESP.espObjects) do
+        Visual.CleanupPlayerDrawingESP(player)
+    end
+    
+    for _, connection in pairs(Visual.ESP.drawingConnections) do
+        Nexus.safeDisconnect(connection)
+    end
+    Visual.ESP.drawingConnections = {}
+end
+
+function Visual.CheckIfDrawingESPNeeded()
+    local anyEnabled = Visual.ESP.boxESP.enabled or Visual.ESP.namesESP.enabled or Visual.ESP.healthBar.enabled
+    
+    if anyEnabled then
+        Visual.StartDrawingESP()
+    else
+        Visual.StopDrawingESP()
+    end
+    
+    return anyEnabled
 end
 
 function Visual.TrackObjects()
@@ -404,21 +533,6 @@ function Visual.UpdateESP()
                     Visual.ClearHighlight(targetPlayer.Character)
                     Visual.ClearLabel(targetPlayer.Character)
                 end
-                
-                if Visual.ESP.boxESP.enabled then
-                    Visual.UpdateBoxESP(targetPlayer.Character)
-                else
-                    Visual.RemoveBoxESP(targetPlayer.Character)
-                end
-                
-                if Visual.ESP.namesESP.enabled then
-                    Visual.UpdateNameESP(targetPlayer.Character)
-                else
-                    Visual.RemoveNameESP(targetPlayer.Character)
-                end
-            else
-                Visual.RemoveBoxESP(targetPlayer.Character)
-                Visual.RemoveNameESP(targetPlayer.Character)
             end
         end
     end
@@ -476,24 +590,8 @@ function Visual.ClearAllESP()
         if targetPlayer.Character then
             Visual.ClearHighlight(targetPlayer.Character)
             Visual.ClearLabel(targetPlayer.Character)
-            Visual.RemoveBoxESP(targetPlayer.Character)
-            Visual.RemoveNameESP(targetPlayer.Character)
         end
     end
-    
-    for character, box in pairs(Visual.ESP.boxObjects) do
-        if box then
-            pcall(function() box:Destroy() end)
-        end
-    end
-    Visual.ESP.boxObjects = {}
-    
-    for character, label in pairs(Visual.ESP.nameLabels) do
-        if label then
-            pcall(function() label:Destroy() end)
-        end
-    end
-    Visual.ESP.nameLabels = {}
     
     for obj, _ in pairs(Visual.ESP.trackedObjects) do
         if obj and obj.Parent then
@@ -515,9 +613,9 @@ function Visual.ToggleESPSetting(settingName, enabled)
             end
         end
         
-        if (anyEnabled or Visual.ESP.boxESP.enabled or Visual.ESP.namesESP.enabled) and not Visual.ESP.espLoopRunning then
+        if (anyEnabled) and not Visual.ESP.espLoopRunning then
             Visual.StartESP()
-        elseif not anyEnabled and not Visual.ESP.boxESP.enabled and not Visual.ESP.namesESP.enabled and Visual.ESP.espLoopRunning then
+        elseif not anyEnabled and Visual.ESP.espLoopRunning then
             Visual.StopESP()
         end
     end
@@ -525,47 +623,37 @@ end
 
 function Visual.ToggleBoxESP(enabled)
     Visual.ESP.boxESP.enabled = enabled
-    
-    local anyEnabled = false
-    for _, setting in pairs(Visual.ESP.settings) do
-        if setting.Enabled then
-            anyEnabled = true
-            break
-        end
-    end
-    
-    if (anyEnabled or Visual.ESP.boxESP.enabled or Visual.ESP.namesESP.enabled) and not Visual.ESP.espLoopRunning then
-        Visual.StartESP()
-    elseif not anyEnabled and not Visual.ESP.boxESP.enabled and not Visual.ESP.namesESP.enabled and Visual.ESP.espLoopRunning then
-        Visual.StopESP()
-    else
-        Visual.UpdateESP()
-    end
+    Visual.CheckIfDrawingESPNeeded()
+end
+
+function Visual.ToggleBoxOutline(enabled)
+    Visual.ESP.boxESP.outline = enabled
+    Visual.CheckIfDrawingESPNeeded()
 end
 
 function Visual.ToggleNamesESP(enabled)
     Visual.ESP.namesESP.enabled = enabled
-    
-    local anyEnabled = false
-    for _, setting in pairs(Visual.ESP.settings) do
-        if setting.Enabled then
-            anyEnabled = true
-            break
-        end
-    end
-    
-    if (anyEnabled or Visual.ESP.boxESP.enabled or Visual.ESP.namesESP.enabled) and not Visual.ESP.espLoopRunning then
-        Visual.StartESP()
-    elseif not anyEnabled and not Visual.ESP.boxESP.enabled and not Visual.ESP.namesESP.enabled and Visual.ESP.espLoopRunning then
-        Visual.StopESP()
-    else
-        Visual.UpdateESP()
-    end
+    Visual.CheckIfDrawingESPNeeded()
+end
+
+function Visual.ToggleNamesOutline(enabled)
+    Visual.ESP.namesESP.outline = enabled
+    Visual.CheckIfDrawingESPNeeded()
+end
+
+function Visual.ToggleHealthBar(enabled)
+    Visual.ESP.healthBar.enabled = enabled
+    Visual.CheckIfDrawingESPNeeded()
 end
 
 function Visual.ToggleTeamCheck(enabled)
     Visual.ESP.boxESP.teamCheck = enabled
-    Visual.UpdateESP()
+    Visual.CheckIfDrawingESPNeeded()
+end
+
+function Visual.ToggleShowDistance(enabled)
+    Visual.ESP.namesESP.showDistance = enabled
+    Visual.CheckIfDrawingESPNeeded()
 end
 
 function Visual.UpdateESPColors()
@@ -949,7 +1037,7 @@ function Visual.Init(nxs)
     Visual.ESP.settings.ExitGates.Colorpicker = GateColorpicker
     Visual.ESP.settings.Windows.Colorpicker = WindowColorpicker
 
-    Tabs.Visual:AddSection("Player ESP")
+    Tabs.Visual:AddSection("Drawing ESP")
 
     local BoxESPToggle = Tabs.Visual:AddToggle("BoxESP", {
         Title = "Box ESP", 
@@ -958,16 +1046,32 @@ function Visual.Init(nxs)
     })
     BoxESPToggle:OnChanged(function(v) Visual.ToggleBoxESP(v) end)
 
+    local BoxOutlineToggle = Tabs.Visual:AddToggle("BoxOutline", {
+        Title = "Box Outline", 
+        Description = "Show/hide box outline", 
+        Default = false
+    })
+    BoxOutlineToggle:OnChanged(function(v) Visual.ToggleBoxOutline(v) end)
+
     local BoxColorpicker = Tabs.Visual:AddColorpicker("BoxColorpicker", {
         Title = "Box Color",
         Default = Color3.fromRGB(255, 255, 255)
     })
     BoxColorpicker:OnChanged(function()
         Visual.ESP.boxESP.color = BoxColorpicker.Value
-        Visual.UpdateESP()
     end)
     BoxColorpicker:SetValueRGB(Color3.fromRGB(255, 255, 255))
     Visual.ESP.boxESP.colorpicker = BoxColorpicker
+
+    local BoxOutlineColorpicker = Tabs.Visual:AddColorpicker("BoxOutlineColorpicker", {
+        Title = "Box Outline Color",
+        Default = Color3.fromRGB(0, 0, 0)
+    })
+    BoxOutlineColorpicker:OnChanged(function()
+        Visual.ESP.boxESP.outlineColor = BoxOutlineColorpicker.Value
+    end)
+    BoxOutlineColorpicker:SetValueRGB(Color3.fromRGB(0, 0, 0))
+    Visual.ESP.boxESP.outlineColorpicker = BoxOutlineColorpicker
 
     local NamesESPToggle = Tabs.Visual:AddToggle("NamesESP", {
         Title = "Names ESP", 
@@ -976,16 +1080,46 @@ function Visual.Init(nxs)
     })
     NamesESPToggle:OnChanged(function(v) Visual.ToggleNamesESP(v) end)
 
+    local NamesOutlineToggle = Tabs.Visual:AddToggle("NamesOutline", {
+        Title = "Names Outline", 
+        Description = "Show/hide names outline", 
+        Default = false
+    })
+    NamesOutlineToggle:OnChanged(function(v) Visual.ToggleNamesOutline(v) end)
+
     local NamesColorpicker = Tabs.Visual:AddColorpicker("NamesColorpicker", {
         Title = "Names Color",
         Default = Color3.fromRGB(255, 255, 255)
     })
     NamesColorpicker:OnChanged(function()
         Visual.ESP.namesESP.color = NamesColorpicker.Value
-        Visual.UpdateESP()
     end)
     NamesColorpicker:SetValueRGB(Color3.fromRGB(255, 255, 255))
     Visual.ESP.namesESP.colorpicker = NamesColorpicker
+
+    local NamesOutlineColorpicker = Tabs.Visual:AddColorpicker("NamesOutlineColorpicker", {
+        Title = "Names Outline Color",
+        Default = Color3.fromRGB(0, 0, 0)
+    })
+    NamesOutlineColorpicker:OnChanged(function()
+        Visual.ESP.namesESP.outlineColor = NamesOutlineColorpicker.Value
+    end)
+    NamesOutlineColorpicker:SetValueRGB(Color3.fromRGB(0, 0, 0))
+    Visual.ESP.namesESP.outlineColorpicker = NamesOutlineColorpicker
+
+    local ShowDistanceToggle = Tabs.Visual:AddToggle("ShowDistance", {
+        Title = "Show Distance", 
+        Description = "Show distance in names", 
+        Default = false
+    })
+    ShowDistanceToggle:OnChanged(function(v) Visual.ToggleShowDistance(v) end)
+
+    local HealthBarToggle = Tabs.Visual:AddToggle("HealthBar", {
+        Title = "Health Bar", 
+        Description = "Show/hide health bar", 
+        Default = false
+    })
+    HealthBarToggle:OnChanged(function(v) Visual.ToggleHealthBar(v) end)
 
     local TeamCheckToggle = Tabs.Visual:AddToggle("TeamCheck", {
         Title = "Team Check", 
@@ -993,6 +1127,8 @@ function Visual.Init(nxs)
         Default = false
     })
     TeamCheckToggle:OnChanged(function(v) Visual.ToggleTeamCheck(v) end)
+
+    Visual.CheckIfDrawingESPNeeded()
 
     task.spawn(function()
         task.wait(2)
@@ -1012,6 +1148,7 @@ end
 
 function Visual.Cleanup()
     Visual.StopESP()
+    Visual.StopDrawingESP()
     
     Visual.ToggleNoShadow(false)
     Visual.ToggleNoFog(false)
