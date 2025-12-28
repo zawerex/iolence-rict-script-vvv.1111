@@ -21,6 +21,15 @@ local Visual = {
     },
     PlayerESP = {
         enabled = false,
+        settings = {
+            Box_Color = Color3.fromRGB(255, 0, 0),
+            Box_Thickness = 2,
+            Team_Check = false,
+            Team_Color = false,
+            Autothickness = true,
+            Show_Names = true,
+            Show_HealthBar = true
+        },
         colorMap = {
             DarkGreen = Color3.fromRGB(0,80,0),
             DarkOrange = Color3.fromRGB(140,70,0),
@@ -42,6 +51,30 @@ local Visual = {
         originalClockTime = nil        
     }
 }
+
+-- Вспомогательные функции для боксов
+function Visual.NewLine(color, thickness)
+    local line = Drawing.new("Line")
+    line.Visible = false
+    line.From = Vector2.new(0, 0)
+    line.To = Vector2.new(0, 0)
+    line.Color = color
+    line.Thickness = thickness
+    line.Transparency = 1
+    return line
+end
+
+function Visual.Vis(lib, state)
+    for i, v in pairs(lib) do
+        v.Visible = state
+    end
+end
+
+function Visual.Colorize(lib, color)
+    for i, v in pairs(lib) do
+        v.Color = color
+    end
+end
 
 function Visual.GetGeneratorProgress(gen)
     local progress = 0
@@ -407,6 +440,19 @@ function Visual.ClearPlayerESP(plr)
             end
         end
         
+        -- Удаляем линии бокса
+        if d.BoxLines then
+            for _, line in pairs(d.BoxLines) do
+                safeRemove(line)
+            end
+        end
+        
+        -- Удаляем часть для расчета
+        if d.BoxPart and d.BoxPart.Parent then
+            safeRemove(d.BoxPart)
+        end
+        
+        -- Удаляем имя и хилтбар
         safeRemove(d.Name)
         safeRemove(d.HealthBg)
         safeRemove(d.HealthBar)
@@ -456,6 +502,20 @@ function Visual.ForceCleanupDrawings()
                 end
             end
             
+            -- Удаляем линии бокса
+            if d.BoxLines then
+                for _, line in pairs(d.BoxLines) do
+                    if line and typeof(line) == "userdata" then
+                        pcall(function() 
+                            line.Visible = false
+                            if line.Remove then
+                                line:Remove()
+                            end
+                        end)
+                    end
+                end
+            end
+            
             for i = 1, 24 do
                 local stripe = d["HealthStripe"..i]
                 if stripe and typeof(stripe) == "userdata" then
@@ -466,6 +526,11 @@ function Visual.ForceCleanupDrawings()
                         end
                     end)
                 end
+            end
+            
+            -- Удаляем часть
+            if d.BoxPart and d.BoxPart.Parent then
+                pcall(function() d.BoxPart:Destroy() end)
             end
         end
     end
@@ -479,6 +544,7 @@ function Visual.CreatePlayerESP(plr)
         task.wait(0.05)
     end
     
+    local settings = Visual.PlayerESP.settings
     local colorMap = Visual.PlayerESP.colorMap
     
     local function create(tp, props)
@@ -492,13 +558,42 @@ function Visual.CreatePlayerESP(plr)
         HealthBg = nil,
         HealthBar = nil,
         HealthMask = nil,
-        HealthText = nil
+        HealthText = nil,
+        BoxLines = {},
+        BoxPart = nil
     }
     
+    -- Создаем линии для бокса
+    local boxColor = settings.Box_Color
+    local boxThickness = settings.Box_Thickness
+    
+    d.BoxLines = {
+        TL1 = Visual.NewLine(boxColor, boxThickness),
+        TL2 = Visual.NewLine(boxColor, boxThickness),
+        TR1 = Visual.NewLine(boxColor, boxThickness),
+        TR2 = Visual.NewLine(boxColor, boxThickness),
+        BL1 = Visual.NewLine(boxColor, boxThickness),
+        BL2 = Visual.NewLine(boxColor, boxThickness),
+        BR1 = Visual.NewLine(boxColor, boxThickness),
+        BR2 = Visual.NewLine(boxColor, boxThickness)
+    }
+    
+    -- Создаем часть для расчета
+    d.BoxPart = Instance.new("Part")
+    d.BoxPart.Parent = Nexus.Services.Workspace
+    d.BoxPart.Transparency = 1
+    d.BoxPart.CanCollide = false
+    d.BoxPart.Size = Vector3.new(1, 1, 1)
+    d.BoxPart.Position = Vector3.new(0, 0, 0)
+    
+    -- Создаем полоски для хилтбара
     for i=1,24 do
-        d["HealthStripe"..i] = nil
+        d["HealthStripe"..i] = Drawing.new("Square")
+        d["HealthStripe"..i].Filled = true
+        d["HealthStripe"..i].Visible = false
     end
     
+    -- Создаем имя
     d.Name = create("Text",{
         Size = 20,
         Center = true,
@@ -507,6 +602,7 @@ function Visual.CreatePlayerESP(plr)
         Visible = false
     })
     
+    -- Создаем хилтбар
     d.HealthBg = Drawing.new("Square")
     d.HealthBg.Visible = false
     d.HealthBg.Filled = true
@@ -531,12 +627,6 @@ function Visual.CreatePlayerESP(plr)
         Color = Color3.new(1,1,1),
         Visible = false
     })
-
-    for i=1,24 do
-        d["HealthStripe"..i] = Drawing.new("Square")
-        d["HealthStripe"..i].Filled = true
-        d["HealthStripe"..i].Visible = false
-    end
     
     Visual.PlayerESP.espObjects[plr] = d
     
@@ -637,6 +727,8 @@ function Visual.UpdatePlayerESP()
             local hum = char:FindFirstChildOfClass("Humanoid")
             
             if hum and hum.Health <= 0 then
+                -- Скрываем все элементы
+                Visual.Vis(d.BoxLines, false)
                 if d.Name then d.Name.Visible = false end
                 if d.HealthBg then d.HealthBg.Visible = false end
                 if d.HealthText then d.HealthText.Visible = false end
@@ -657,48 +749,144 @@ function Visual.UpdatePlayerESP()
                 local height = rawHeight
                 local x = headPos.X
                 local y = headPos.Y
-
-                if d.Name then
-                    d.Name.Text = plr.Name
-                    d.Name.Size = 20
-                    d.Name.Position = Vector2.new(headPos.X, y - 22)
-                    d.Name.Visible = true
-                end
-
-                if d.HealthBg and d.HealthBar and d.HealthText then
-                    local barX = x - 20
-                    local barY = y
-                    local barWidth = 6
-                    local barHeight = rawHeight
+                
+                -- Обновляем бокс
+                if d.BoxPart and d.BoxLines then
+                    -- Обновляем размер и позицию части для расчета
+                    d.BoxPart.Size = Vector3.new(root.Size.X, root.Size.Y * 1.5, root.Size.Z)
+                    d.BoxPart.CFrame = CFrame.new(root.CFrame.Position, Camera.CFrame.Position)
                     
-                    d.HealthBg.Position = Vector2.new(barX, barY)
-                    d.HealthBg.Size = Vector2.new(barWidth, barHeight)
-                    d.HealthBg.Visible = true
+                    local SizeX = d.BoxPart.Size.X
+                    local SizeY = d.BoxPart.Size.Y
                     
-                    local HEALTH_STRIPES = 24
-                    local hpPerc = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-                    for i = 1, HEALTH_STRIPES do
-                        local stripeY = barY + barHeight * (i - 1) / HEALTH_STRIPES
-                        local stripeH = barHeight / HEALTH_STRIPES
-                        local stripeColor = Visual.GetHealthGradientColor(stripeY - barY, barHeight)
-                        if not d["HealthStripe"..i] then
-                            d["HealthStripe"..i] = Drawing.new("Square")
-                            d["HealthStripe"..i].Filled = true
+                    -- Рассчитываем углы бокса
+                    local TL = Camera:WorldToViewportPoint((d.BoxPart.CFrame * CFrame.new(SizeX, SizeY, 0)).p)
+                    local TR = Camera:WorldToViewportPoint((d.BoxPart.CFrame * CFrame.new(-SizeX, SizeY, 0)).p)
+                    local BL = Camera:WorldToViewportPoint((d.BoxPart.CFrame * CFrame.new(SizeX, -SizeY, 0)).p)
+                    local BR = Camera:WorldToViewportPoint((d.BoxPart.CFrame * CFrame.new(-SizeX, -SizeY, 0)).p)
+                    
+                    -- Определяем цвет бокса в зависимости от команды
+                    local boxColor = Visual.PlayerESP.settings.Box_Color
+                    if Visual.PlayerESP.settings.Team_Check then
+                        if plr.TeamColor == Nexus.Player.TeamColor then
+                            boxColor = Color3.fromRGB(0, 255, 0)
+                        else 
+                            boxColor = Color3.fromRGB(255, 0, 0)
                         end
-                        local stripe = d["HealthStripe"..i]
-                        stripe.Color = stripeColor
-                        stripe.Position = Vector2.new(barX, stripeY)
-                        stripe.Size = Vector2.new(barWidth, stripeH)
-                        stripe.Visible = (i - 1) / HEALTH_STRIPES < hpPerc
-                        stripe.Transparency = 1
                     end
                     
-                    d.HealthText.Text = tostring(math.floor(hum.Health))
-                    d.HealthText.Size = 14
-                    d.HealthText.Position = Vector2.new(barX - 14, barY + barHeight / 2)
-                    d.HealthText.Visible = true
+                    if Visual.PlayerESP.settings.Team_Color then
+                        boxColor = plr.TeamColor.Color
+                    end
+                    
+                    -- Обновляем цвет линий
+                    Visual.Colorize(d.BoxLines, boxColor)
+                    
+                    local ratio = (Camera.CFrame.p - root.Position).magnitude
+                    local offset = math.clamp(1/ratio*750, 2, 300)
+                    
+                    -- Обновляем позиции линий
+                    d.BoxLines.TL1.From = Vector2.new(TL.X, TL.Y)
+                    d.BoxLines.TL1.To = Vector2.new(TL.X + offset, TL.Y)
+                    d.BoxLines.TL2.From = Vector2.new(TL.X, TL.Y)
+                    d.BoxLines.TL2.To = Vector2.new(TL.X, TL.Y + offset)
+
+                    d.BoxLines.TR1.From = Vector2.new(TR.X, TR.Y)
+                    d.BoxLines.TR1.To = Vector2.new(TR.X - offset, TR.Y)
+                    d.BoxLines.TR2.From = Vector2.new(TR.X, TR.Y)
+                    d.BoxLines.TR2.To = Vector2.new(TR.X, TR.Y + offset)
+
+                    d.BoxLines.BL1.From = Vector2.new(BL.X, BL.Y)
+                    d.BoxLines.BL1.To = Vector2.new(BL.X + offset, BL.Y)
+                    d.BoxLines.BL2.From = Vector2.new(BL.X, BL.Y)
+                    d.BoxLines.BL2.To = Vector2.new(BL.X, BL.Y - offset)
+
+                    d.BoxLines.BR1.From = Vector2.new(BR.X, BR.Y)
+                    d.BoxLines.BR1.To = Vector2.new(BR.X - offset, BR.Y)
+                    d.BoxLines.BR2.From = Vector2.new(BR.X, BR.Y)
+                    d.BoxLines.BR2.To = Vector2.new(BR.X, BR.Y - offset)
+                    
+                    -- Показываем линии
+                    Visual.Vis(d.BoxLines, true)
+                    
+                    -- Обновляем толщину
+                    if Visual.PlayerESP.settings.Autothickness then
+                        local distance = (Nexus.Player.Character.HumanoidRootPart.Position - d.BoxPart.Position).magnitude
+                        local value = math.clamp(1/distance*100, 1, 4)
+                        for _, line in pairs(d.BoxLines) do
+                            line.Thickness = value
+                        end
+                    else 
+                        for _, line in pairs(d.BoxLines) do
+                            line.Thickness = Visual.PlayerESP.settings.Box_Thickness
+                        end
+                    end
+                    
+                    -- Позиция для имени (вверху по центру бокса)
+                    local nameY = math.min(TL.Y, TR.Y) - 25
+                    local nameX = (TL.X + TR.X) / 2
+                    
+                    if d.Name and Visual.PlayerESP.settings.Show_Names then
+                        d.Name.Text = plr.Name
+                        d.Name.Size = 20
+                        d.Name.Position = Vector2.new(nameX, nameY)
+                        d.Name.Visible = true
+                    elseif d.Name then
+                        d.Name.Visible = false
+                    end
+                    
+                    -- Хилтбар (слева от бокса, той же высоты)
+                    if Visual.PlayerESP.settings.Show_HealthBar then
+                        local leftmostX = math.min(TL.X, BL.X) - 20  -- Левее левой стороны бокса
+                        local barY = math.min(TL.Y, TR.Y)
+                        local barHeight = math.max(BL.Y, BR.Y) - barY
+                        
+                        local HEALTH_STRIPES = 24
+                        local hpPerc = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                        
+                        -- Обновляем полоски хилтбара
+                        for i = 1, HEALTH_STRIPES do
+                            local stripeY = barY + barHeight * (i - 1) / HEALTH_STRIPES
+                            local stripeH = barHeight / HEALTH_STRIPES
+                            local stripeColor = Visual.GetHealthGradientColor(stripeY - barY, barHeight)
+                            
+                            if not d["HealthStripe"..i] then
+                                d["HealthStripe"..i] = Drawing.new("Square")
+                                d["HealthStripe"..i].Filled = true
+                            end
+                            
+                            local stripe = d["HealthStripe"..i]
+                            stripe.Color = stripeColor
+                            stripe.Position = Vector2.new(leftmostX, stripeY)
+                            stripe.Size = Vector2.new(10, stripeH)  -- Ширина хилтбара 10 пикселей
+                            stripe.Visible = (i - 1) / HEALTH_STRIPES < hpPerc
+                            stripe.Transparency = 1
+                        end
+                        
+                        -- Текст здоровья
+                        if d.HealthText then
+                            d.HealthText.Text = tostring(math.floor(hum.Health))
+                            d.HealthText.Size = 14
+                            d.HealthText.Position = Vector2.new(leftmostX - 20, barY + barHeight / 2)
+                            d.HealthText.Visible = true
+                        end
+                    else
+                        -- Скрываем хилтбар, если выключен
+                        for i = 1, 24 do
+                            if d["HealthStripe"..i] then
+                                d["HealthStripe"..i].Visible = false
+                            end
+                        end
+                        if d.HealthText then
+                            d.HealthText.Visible = false
+                        end
+                    end
                 end
             else
+                -- Игрок не на экране - скрываем все
+                if d.BoxLines then
+                    Visual.Vis(d.BoxLines, false)
+                end
                 if d.Name then d.Name.Visible = false end
                 if d.HealthBg then d.HealthBg.Visible = false end
                 if d.HealthText then d.HealthText.Visible = false end
@@ -1073,15 +1261,81 @@ function Visual.Init(nxs)
     Visual.ESP.settings.ExitGates.Colorpicker = GateColorpicker
     Visual.ESP.settings.Windows.Colorpicker = WindowColorpicker
 
-    Tabs.Visual:AddSection("Player ESP")
+    Tabs.Visual:AddSection("Player ESP Settings")
 
     local PlayerESPToggle = Tabs.Visual:AddToggle("PlayerESP", {
         Title = "Player ESP", 
-        Description = "Enable player ESP with names and healthbar", 
+        Description = "Enable player ESP with boxes, names and healthbar", 
         Default = false
     })
     PlayerESPToggle:OnChanged(function(v)
         Visual.TogglePlayerESP(v)
+    end)
+
+    local ShowNamesToggle = Tabs.Visual:AddToggle("ESPShowNames", {
+        Title = "Show Player Names", 
+        Description = "Show/hide player names above boxes", 
+        Default = true
+    })
+    ShowNamesToggle:OnChanged(function(v)
+        Visual.PlayerESP.settings.Show_Names = v
+    end)
+
+    local ShowHealthBarToggle = Tabs.Visual:AddToggle("ESPShowHealthBar", {
+        Title = "Show Health Bar", 
+        Description = "Show/hide health bar on the left side of boxes", 
+        Default = true
+    })
+    ShowHealthBarToggle:OnChanged(function(v)
+        Visual.PlayerESP.settings.Show_HealthBar = v
+    end)
+
+    local BoxColorpicker = Tabs.Visual:AddColorpicker("BoxColorpicker", {
+        Title = "Box Color",
+        Default = Color3.fromRGB(255, 0, 0)
+    })
+    BoxColorpicker:OnChanged(function()
+        Visual.PlayerESP.settings.Box_Color = BoxColorpicker.Value
+    end)
+    BoxColorpicker:SetValueRGB(Color3.fromRGB(255, 0, 0))
+
+    local BoxThicknessSlider = Tabs.Visual:AddSlider("BoxThickness", {
+        Title = "Box Thickness", 
+        Description = "Thickness of box lines",
+        Default = 2,
+        Min = 1,
+        Max = 5,
+        Rounding = 1,
+        Callback = function(value)
+            Visual.PlayerESP.settings.Box_Thickness = value
+        end
+    })
+
+    local TeamCheckToggle = Tabs.Visual:AddToggle("TeamCheck", {
+        Title = "Team Check", 
+        Description = "Green for teammates, red for enemies", 
+        Default = false
+    })
+    TeamCheckToggle:OnChanged(function(v)
+        Visual.PlayerESP.settings.Team_Check = v
+    end)
+
+    local TeamColorToggle = Tabs.Visual:AddToggle("TeamColor", {
+        Title = "Team Color", 
+        Description = "Use team color for boxes", 
+        Default = false
+    })
+    TeamColorToggle:OnChanged(function(v)
+        Visual.PlayerESP.settings.Team_Color = v
+    end)
+
+    local AutoThicknessToggle = Tabs.Visual:AddToggle("AutoThickness", {
+        Title = "Auto Thickness", 
+        Description = "Automatically adjust box thickness based on distance", 
+        Default = true
+    })
+    AutoThicknessToggle:OnChanged(function(v)
+        Visual.PlayerESP.settings.Autothickness = v
     end)
 
     task.spawn(function()
