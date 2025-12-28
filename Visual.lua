@@ -61,8 +61,9 @@ local Visual = {
         espObjects = {},
         playerConnections = {},
         advancedESPRunning = false,
-        cleanupQueue = {}, -- Добавлена очередь для очистки
-        cleanupScheduled = false
+        cleanupQueue = {},
+        cleanupScheduled = false,
+        playersInitialized = false
     },
     Effects = {
         noShadowEnabled = false,
@@ -74,10 +75,10 @@ local Visual = {
         originalFogColor = nil,
         fogCache = {},
         originalClockTime = nil        
-    }
+    },
+    Options = {}
 }
 
--- Функция для безопасной очистки Drawing объектов
 function Visual.SafeRemoveDrawing(drawingObj)
     if drawingObj and typeof(drawingObj) == "userdata" then
         pcall(function()
@@ -328,7 +329,6 @@ function Visual.UpdateESP()
     local camPos = Camera.CFrame.Position
     local maxDistance = Visual.ESP.maxRenderDistance
     
-    -- Обновляем ESP для игроков
     for _, targetPlayer in ipairs(Nexus.Services.Players:GetPlayers()) do
         if targetPlayer ~= Nexus.Player and targetPlayer.Character then
             local hrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -356,7 +356,6 @@ function Visual.UpdateESP()
         end
     end
     
-    -- Обновляем ESP для объектов
     local objectsToRemove = {}
     for obj, typeName in pairs(Visual.ESP.trackedObjects) do
         if obj and obj.Parent then
@@ -386,7 +385,6 @@ function Visual.UpdateESP()
         end
     end
     
-    -- Удаляем несуществующие объекты
     for obj in pairs(objectsToRemove) do
         Visual.ESP.trackedObjects[obj] = nil
     end
@@ -407,7 +405,6 @@ end
 function Visual.StartESP()
     if Visual.ESP.espLoopRunning then return end
     
-    -- Проверяем, есть ли активные настройки
     local anyEnabled = false
     for _, setting in pairs(Visual.ESP.settings) do
         if setting.Enabled then
@@ -465,7 +462,6 @@ function Visual.ToggleESPSetting(settingName, enabled)
     
     Visual.ESP.settings[settingName].Enabled = enabled
     
-    -- Проверяем, нужно ли запускать или останавливать ESP
     local anyEnabled = false
     for _, setting in pairs(Visual.ESP.settings) do
         if setting.Enabled then
@@ -479,7 +475,6 @@ function Visual.ToggleESPSetting(settingName, enabled)
     elseif not anyEnabled and Visual.ESP.espLoopRunning then
         Visual.StopESP()
     else
-        -- Принудительное обновление для немедленного применения изменений
         Visual.UpdateESP()
     end
 end
@@ -500,14 +495,12 @@ function Visual.ClearAdvancedESP(plr)
     local d = Visual.AdvancedESP.espObjects[plr]
     if not d then return end
     
-    -- Добавляем объекты в очередь для очистки
     table.insert(Visual.AdvancedESP.cleanupQueue, d)
     
-    -- Запускаем очистку, если она еще не запланирована
     if not Visual.AdvancedESP.cleanupScheduled then
         Visual.AdvancedESP.cleanupScheduled = true
         task.spawn(function()
-            task.wait(0.1) -- Даем время для завершения текущего кадра
+            task.wait(0.1)
             for _, drawingData in ipairs(Visual.AdvancedESP.cleanupQueue) do
                 if drawingData then
                     local drawingObjects = {
@@ -549,22 +542,19 @@ function Visual.ClearAdvancedESP(plr)
 end
 
 function Visual.ForceCleanupDrawings()
-    -- Очищаем все ESP объекты
     for plr, d in pairs(Visual.AdvancedESP.espObjects) do
         Visual.ClearAdvancedESP(plr)
     end
     
     Visual.AdvancedESP.espObjects = {}
     
-    -- Даем время для завершения очистки
     task.wait(0.1)
 end
 
 function Visual.CreateAdvancedESP(plr)
-    -- Сначала очищаем старые объекты, если они есть
     if Visual.AdvancedESP.espObjects[plr] then
         Visual.ClearAdvancedESP(plr)
-        task.wait(0.05) -- Небольшая задержка для очистки
+        task.wait(0.05)
     end
     
     local settings = Visual.AdvancedESP.settings
@@ -594,7 +584,6 @@ function Visual.CreateAdvancedESP(plr)
         Box = nil
     }
     
-    -- Создаем все Drawing объекты
     d.BoxFill = create("Square",{
         Thickness = 0,
         Color = boxFillColor,
@@ -668,7 +657,6 @@ function Visual.CreateAdvancedESP(plr)
         })
     end
     
-    -- Создаем полоски здоровья
     for i=1,24 do
         d["HealthStripe"..i] = create("Square", {
             Filled = true,
@@ -689,8 +677,10 @@ end
 function Visual.SetupPlayerAdvancedESP(plr)
     if plr == Nexus.Player then return end
     
-    -- Если ESP не запущен, выходим
-    if not Visual.AdvancedESP.advancedESPRunning then return end
+    if not Visual.AdvancedESP.advancedESPRunning then 
+        Visual.ClearAdvancedESP(plr)
+        return 
+    end
     
     Visual.CreateAdvancedESP(plr)
     
@@ -799,7 +789,6 @@ function Visual.UpdateAdvancedESP()
         return 
     end
     
-    -- Проверяем, есть ли активные компоненты
     local anyComponentEnabled = false
     for _, component in pairs(Visual.AdvancedESP.settings) do
         if type(component) == "table" and component.Enabled then
@@ -818,7 +807,6 @@ function Visual.UpdateAdvancedESP()
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
     local maxDistance = Visual.AdvancedESP.settings.maxRenderDistance
     
-    -- Убираем неактивных игроков
     local activePlayers = {}
     for _, plr in pairs(Nexus.Services.Players:GetPlayers()) do
         if plr ~= Nexus.Player then
@@ -832,7 +820,6 @@ function Visual.UpdateAdvancedESP()
         end
     end
     
-    -- Обновляем ESP для активных игроков
     for plr, d in pairs(Visual.AdvancedESP.espObjects) do
         if not plr or not plr.Parent then
             Visual.ClearAdvancedESP(plr)
@@ -842,7 +829,6 @@ function Visual.UpdateAdvancedESP()
                 local hum = char:FindFirstChildOfClass("Humanoid")
                 
                 if hum and hum.Health <= 0 then
-                    -- Скрываем все, если игрок мертв
                     if d.BoxFill then d.BoxFill.Visible = false end
                     if d.Box then d.Box.Visible = false end
                     if d.Name then d.Name.Visible = false end
@@ -875,7 +861,6 @@ function Visual.UpdateAdvancedESP()
                         local x = headPos.X - width / 2
                         local y = headPos.Y - (height - rawHeight) / 2
 
-                        -- Box Fill
                         if d.BoxFill then
                             d.BoxFill.Position = Vector2.new(x, y)
                             d.BoxFill.Size = Vector2.new(width, height)
@@ -883,7 +868,6 @@ function Visual.UpdateAdvancedESP()
                             d.BoxFill.Visible = Visual.AdvancedESP.settings.boxFill.Enabled
                         end
 
-                        -- Box Outline
                         if d.Box then
                             d.Box.Position = Vector2.new(x, y)
                             d.Box.Size = Vector2.new(width, height)
@@ -891,14 +875,12 @@ function Visual.UpdateAdvancedESP()
                             d.Box.Visible = Visual.AdvancedESP.settings.box.Enabled
                         end
 
-                        -- Name
                         if d.Name then
                             d.Name.Text = plr.Name
                             d.Name.Position = Vector2.new(headPos.X, y - 22)
                             d.Name.Visible = Visual.AdvancedESP.settings.name.Enabled
                         end
 
-                        -- Distance
                         if d.Distance then
                             local dist = math.floor(playerDistance)
                             d.Distance.Text = dist .. "m"
@@ -906,21 +888,18 @@ function Visual.UpdateAdvancedESP()
                             d.Distance.Visible = Visual.AdvancedESP.settings.distance.Enabled
                         end
 
-                        -- Health Bar
                         if Visual.AdvancedESP.settings.healthbar.Enabled then
                             local barX = x - (Visual.AdvancedESP.settings.healthBarLeftOffset or 10)
                             local barY = y
                             local barWidth = 6
                             local barHeight = height
                             
-                            -- Health Bar Background
                             if d.HealthBg then
                                 d.HealthBg.Position = Vector2.new(barX, barY)
                                 d.HealthBg.Size = Vector2.new(barWidth, barHeight)
                                 d.HealthBg.Visible = true
                             end
                             
-                            -- Health Stripes
                             local hpPerc = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
                             for i = 1, 24 do
                                 local stripe = d["HealthStripe"..i]
@@ -935,14 +914,12 @@ function Visual.UpdateAdvancedESP()
                                 end
                             end
                             
-                            -- Health Text
                             if d.HealthText then
                                 d.HealthText.Text = tostring(math.floor(hum.Health))
                                 d.HealthText.Position = Vector2.new(barX - 14, y + height / 2)
                                 d.HealthText.Visible = true
                             end
                         else
-                            -- Скрываем health bar если отключен
                             if d.HealthBg then d.HealthBg.Visible = false end
                             for i = 1, 24 do
                                 if d["HealthStripe"..i] then
@@ -952,7 +929,6 @@ function Visual.UpdateAdvancedESP()
                             if d.HealthText then d.HealthText.Visible = false end
                         end
 
-                        -- Bones
                         if d.Bones and Visual.AdvancedESP.settings.bones.Enabled then
                             local bones
                             
@@ -1008,7 +984,6 @@ function Visual.UpdateAdvancedESP()
                             end
                         end
 
-                        -- Tracer
                         if d.Tracer then
                             d.Tracer.From = screenCenter
                             d.Tracer.To = Vector2.new(headPos.X, headPos.Y)
@@ -1016,7 +991,6 @@ function Visual.UpdateAdvancedESP()
                             d.Tracer.Visible = Visual.AdvancedESP.settings.tracers.Enabled
                         end
                     else
-                        -- Скрываем все, если игрок не на экране
                         if d.BoxFill then d.BoxFill.Visible = false end
                         if d.Box then d.Box.Visible = false end
                         if d.Name then d.Name.Visible = false end
@@ -1044,7 +1018,6 @@ end
 function Visual.StartAdvancedESP()
     if Visual.AdvancedESP.advancedESPRunning then return end
     
-    -- Проверяем, есть ли активные компоненты
     local anyComponentEnabled = false
     for _, component in pairs(Visual.AdvancedESP.settings) do
         if type(component) == "table" and component.Enabled then
@@ -1057,7 +1030,6 @@ function Visual.StartAdvancedESP()
     
     Visual.AdvancedESP.advancedESPRunning = true
     
-    -- Очищаем старые соединения
     if Visual.AdvancedESP.connections.playerAdded then
         Visual.AdvancedESP.connections.playerAdded:Disconnect()
     end
@@ -1068,7 +1040,6 @@ function Visual.StartAdvancedESP()
         Visual.AdvancedESP.connections.renderStepped:Disconnect()
     end
     
-    -- Настраиваем отслеживание новых игроков
     Visual.AdvancedESP.connections.playerAdded = Nexus.Services.Players.PlayerAdded:Connect(function(plr)
         Visual.SetupPlayerAdvancedESP(plr)
     end)
@@ -1077,14 +1048,14 @@ function Visual.StartAdvancedESP()
         Visual.CleanupPlayerAdvancedESP(plr)
     end)
     
-    -- Настраиваем ESP для существующих игроков
     for _, plr in pairs(Nexus.Services.Players:GetPlayers()) do
         if plr ~= Nexus.Player then
             Visual.SetupPlayerAdvancedESP(plr)
         end
     end
     
-    -- Запускаем цикл обновления
+    Visual.AdvancedESP.playersInitialized = true
+    
     Visual.AdvancedESP.connections.renderStepped = Nexus.Services.RunService.RenderStepped:Connect(function()
         Visual.UpdateAdvancedESP()
     end)
@@ -1094,7 +1065,6 @@ function Visual.StopAdvancedESP()
     if not Visual.AdvancedESP.advancedESPRunning then return end
     Visual.AdvancedESP.advancedESPRunning = false
     
-    -- Отключаем все соединения
     if Visual.AdvancedESP.connections.renderStepped then
         Visual.AdvancedESP.connections.renderStepped:Disconnect()
         Visual.AdvancedESP.connections.renderStepped = nil
@@ -1110,7 +1080,6 @@ function Visual.StopAdvancedESP()
         Visual.AdvancedESP.connections.playerRemoving = nil
     end
     
-    -- Очищаем ESP для всех игроков
     local playersToClear = {}
     for plr, _ in pairs(Visual.AdvancedESP.espObjects) do
         table.insert(playersToClear, plr)
@@ -1120,7 +1089,6 @@ function Visual.StopAdvancedESP()
         Visual.ClearAdvancedESP(plr)
     end
     
-    -- Очищаем соединения игроков
     for plr, connections in pairs(Visual.AdvancedESP.playerConnections) do
         for name, connection in pairs(connections) do
             if connection and typeof(connection) == "RBXScriptConnection" then
@@ -1132,17 +1100,14 @@ function Visual.StopAdvancedESP()
     Visual.AdvancedESP.espObjects = {}
     Visual.AdvancedESP.playerConnections = {}
     Visual.AdvancedESP.connections = {}
+    Visual.AdvancedESP.playersInitialized = false
 end
-
--- Остальные функции (ToggleNoShadow, ToggleNoFog и т.д.) остаются без изменений
--- ...
 
 function Visual.ToggleAdvancedESPComponent(componentName, enabled)
     if not Visual.AdvancedESP.settings[componentName] then return end
     
     Visual.AdvancedESP.settings[componentName].Enabled = enabled
     
-    -- Проверяем, нужно ли запускать или останавливать Advanced ESP
     local anyComponentEnabled = false
     for _, component in pairs(Visual.AdvancedESP.settings) do
         if type(component) == "table" and component.Enabled then
@@ -1158,25 +1123,483 @@ function Visual.ToggleAdvancedESPComponent(componentName, enabled)
     end
 end
 
+function Visual.ToggleNoShadow(enabled)
+    Visual.Effects.noShadowEnabled = enabled
+    if enabled then
+        for _, light in ipairs(Nexus.Services.Lighting:GetDescendants()) do 
+            if light:IsA("Light") then 
+                light.Shadows = false 
+            end 
+        end
+        Nexus.Services.Lighting.GlobalShadows = false
+    else
+        for _, light in ipairs(Nexus.Services.Lighting:GetDescendants()) do 
+            if light:IsA("Light") then 
+                light.Shadows = true 
+            end 
+        end
+        Nexus.Services.Lighting.GlobalShadows = true
+    end
+end
+
+function Visual.ToggleNoFog(enabled)
+    Visual.Effects.noFogEnabled = enabled
+    
+    if enabled then
+        local lighting = Nexus.Services.Lighting
+        
+        Visual.Effects.fogCache = {
+            FogEnd = lighting.FogEnd,
+            FogStart = lighting.FogStart,
+            FogColor = lighting.FogColor,
+            FogDensity = lighting.FogDensity
+        }
+        
+        local originalAtmospheres = {}
+        for _, obj in ipairs(lighting:GetChildren()) do
+            if obj:IsA("Atmosphere") then
+                table.insert(originalAtmospheres, obj:Clone())
+                obj:Destroy()
+            end
+        end
+        
+        Visual.Effects.atmosphereCache = originalAtmospheres
+        
+        lighting.FogEnd = 10000000
+        lighting.FogStart = 0
+        lighting.FogColor = Color3.new(1,1,1)
+        lighting.FogDensity = 0
+        
+        local workspaceAtmospheres = {}
+        local map = Nexus.Services.Workspace:FindFirstChild("Map")
+        if map then
+            for _, obj in ipairs(map:GetDescendants()) do
+                if obj:IsA("Atmosphere") then
+                    table.insert(workspaceAtmospheres, {Object = obj, Parent = obj.Parent})
+                    obj:Destroy()
+                end
+            end
+        end
+        Visual.Effects.workspaceAtmosphereCache = workspaceAtmospheres
+        
+        if Visual.ESP.espConnections.noFog then
+            Visual.ESP.espConnections.noFog:Disconnect()
+        end
+        
+        Visual.ESP.espConnections.noFog = Nexus.Services.RunService.Heartbeat:Connect(function()
+            if Visual.Effects.noFogEnabled then
+                lighting.FogEnd = 10000000
+                lighting.FogStart = 0
+                lighting.FogDensity = 0
+            end
+        end)
+    else
+        if Visual.ESP.espConnections.noFog then
+            Visual.ESP.espConnections.noFog:Disconnect()
+            Visual.ESP.espConnections.noFog = nil
+        end
+        
+        if Visual.Effects.fogCache then
+            local lighting = Nexus.Services.Lighting
+            lighting.FogEnd = Visual.Effects.fogCache.FogEnd or 1000
+            lighting.FogStart = Visual.Effects.fogCache.FogStart or 0
+            lighting.FogColor = Visual.Effects.fogCache.FogColor or Color3.new(0.5,0.5,0.5)
+            lighting.FogDensity = Visual.Effects.fogCache.FogDensity or 0.1
+        end
+        
+        if Visual.Effects.atmosphereCache then
+            local lighting = Nexus.Services.Lighting
+            for _, atmosphere in ipairs(Visual.Effects.atmosphereCache) do
+                if atmosphere then
+                    local newAtmosphere = atmosphere:Clone()
+                    newAtmosphere.Parent = lighting
+                end
+            end
+        end
+        
+        if Visual.Effects.workspaceAtmosphereCache then
+            for _, data in ipairs(Visual.Effects.workspaceAtmosphereCache) do
+                if data.Object and data.Parent then
+                    local newAtmosphere = data.Object:Clone()
+                    newAtmosphere.Parent = data.Parent
+                end
+            end
+        end
+        
+        Visual.Effects.fogCache = {}
+        Visual.Effects.atmosphereCache = nil
+        Visual.Effects.workspaceAtmosphereCache = nil
+    end
+end
+
+function Visual.ToggleFullBright(enabled)
+    Visual.Effects.fullbrightEnabled = enabled
+    Nexus.States.fullbrightEnabled = enabled
+    
+    if enabled then
+        Nexus.Services.Lighting.GlobalShadows = false
+        Nexus.Services.Lighting.FogEnd = 100000
+        Nexus.Services.Lighting.Brightness = 2
+        Nexus.Services.Lighting.ClockTime = 14
+    else
+        Nexus.Services.Lighting.GlobalShadows = true
+        Nexus.Services.Lighting.FogEnd = 1000
+        Nexus.Services.Lighting.Brightness = 1
+    end
+end
+
+function Visual.ToggleTimeChanger(enabled)
+    Visual.Effects.timeChangerEnabled = enabled
+    
+    if enabled then
+        if not Visual.Effects.originalClockTime then
+            Visual.Effects.originalClockTime = Nexus.Services.Lighting.ClockTime
+        end
+        
+        local currentTime = Visual.Options.TimeValue and Visual.Options.TimeValue.Value or 14
+        Nexus.Services.Lighting.ClockTime = currentTime
+    else
+        if Visual.Effects.originalClockTime then
+            Nexus.Services.Lighting.ClockTime = Visual.Effects.originalClockTime
+        end
+    end
+end
+
+function Visual.SetTime(time)
+    Nexus.Services.Lighting.ClockTime = time
+end
+
 function Visual.Init(nxs)
     Nexus = nxs
     
     local Tabs = Nexus.Tabs
     local Options = Nexus.Options
     
-    -- ... (остальной код инициализации без изменений)
-    -- При создании тогглов для Advanced ESP используйте ToggleAdvancedESPComponent:
+    Visual.Options = Options
     
+    local NoShadowToggle = Tabs.Visual:AddToggle("NoShadow", {
+        Title = "No Shadow", 
+        Description = "", 
+        Default = false
+    })
+    Visual.Options.NoShadow = NoShadowToggle
+    NoShadowToggle:OnChanged(function(v) 
+        Visual.ToggleNoShadow(v) 
+    end)
+
+    local NoFogToggle = Tabs.Visual:AddToggle("NoFog", {
+        Title = "No Fog", 
+        Description = "", 
+        Default = false
+    })
+    Visual.Options.NoFog = NoFogToggle
+    NoFogToggle:OnChanged(function(v) 
+        Visual.ToggleNoFog(v)
+    end)
+
+    local FullBrightToggle = Tabs.Visual:AddToggle("FullBright", {
+        Title = "FullBright", 
+        Description = "", 
+        Default = false
+    })
+    Visual.Options.FullBright = FullBrightToggle
+    FullBrightToggle:OnChanged(function(v) 
+        Visual.ToggleFullBright(v) 
+    end)
+
+    local TimeChangerToggle = Tabs.Visual:AddToggle("TimeChanger", {
+        Title = "Time Changer", 
+        Description = "", 
+        Default = false
+    })
+    Visual.Options.TimeChanger = TimeChangerToggle
+
+    local TimeSlider = Tabs.Visual:AddSlider("TimeValue", {
+        Title = "Time of Day", 
+        Description = "",
+        Default = 14,
+        Min = 0,
+        Max = 24,
+        Rounding = 1,
+        Callback = function(value)
+            if Visual.Options.TimeChanger and Visual.Options.TimeChanger.Value then
+                Visual.SetTime(value)
+            end
+        end
+    })
+    Visual.Options.TimeValue = TimeSlider
+
+    TimeChangerToggle:OnChanged(function(v)
+        Visual.ToggleTimeChanger(v)
+    end)
+
+    task.spawn(function()
+        while true do
+            task.wait(1)
+            if Visual.Options.TimeChanger and Visual.Options.TimeChanger.Value then
+                local currentTime = Visual.Options.TimeValue and Visual.Options.TimeValue.Value or 14
+                Visual.SetTime(currentTime)
+            end
+        end
+    end)
+
+    Tabs.Visual:AddSection("ESP Settings")
+
+    local ShowGeneratorPercentToggle = Tabs.Visual:AddToggle("ESPShowGenPercent", {
+        Title = "Show Generator %", 
+        Description = "Toggle display of generator percentages", 
+        Default = true
+    })
+    Visual.Options.ESPShowGenPercent = ShowGeneratorPercentToggle
+    ShowGeneratorPercentToggle:OnChanged(function(v)
+        Visual.ESP.showGeneratorPercent = v
+        Visual.UpdateESPDisplay()
+    end)
+
+    local ESPMaxDistanceSlider = Tabs.Visual:AddSlider("ESPMaxDistance", {
+        Title = "ESP Max Distance", 
+        Description = "Maximum distance to show ESP (0-700)",
+        Default = 700,
+        Min = 0,
+        Max = 700,
+        Rounding = 0,
+        Callback = function(value)
+            Visual.ESP.maxRenderDistance = value
+            Visual.AdvancedESP.settings.maxRenderDistance = value
+        end
+    })
+    Visual.Options.ESPMaxDistance = ESPMaxDistanceSlider
+
+    local ESPSurvivorsToggle = Tabs.Visual:AddToggle("ESPSurvivors", {
+        Title = "Survivors ESP", 
+        Description = "", 
+        Default = false
+    })
+    Visual.Options.ESPSurvivors = ESPSurvivorsToggle
+    ESPSurvivorsToggle:OnChanged(function(v)
+        Visual.ToggleESPSetting("Survivors", v)
+    end)
+
+    local SurvivorColorpicker = Tabs.Visual:AddColorpicker("SurvivorColorpicker", {
+        Title = "Survivor Color",
+        Default = Color3.fromRGB(100, 255, 100)
+    })
+    Visual.Options.SurvivorColorpicker = SurvivorColorpicker
+    SurvivorColorpicker:OnChanged(function()
+        Visual.ESP.settings.Survivors.Color = SurvivorColorpicker.Value
+        Visual.UpdateESPColors()
+    end)
+    SurvivorColorpicker:SetValueRGB(Color3.fromRGB(100, 255, 100))
+    Visual.ESP.settings.Survivors.Colorpicker = SurvivorColorpicker
+
+    local ESPKillersToggle = Tabs.Visual:AddToggle("ESPKillers", {
+        Title = "Killers ESP", 
+        Description = "", 
+        Default = false
+    })
+    Visual.Options.ESPKillers = ESPKillersToggle
+    ESPKillersToggle:OnChanged(function(v)
+        Visual.ToggleESPSetting("Killers", v)
+    end)
+
+    local KillerColorpicker = Tabs.Visual:AddColorpicker("KillerColorpicker", {
+        Title = "Killer Color",
+        Default = Color3.fromRGB(255, 100, 100)
+    })
+    Visual.Options.KillerColorpicker = KillerColorpicker
+    KillerColorpicker:OnChanged(function()
+        Visual.ESP.settings.Killers.Color = KillerColorpicker.Value
+        Visual.UpdateESPColors()
+    end)
+    KillerColorpicker:SetValueRGB(Color3.fromRGB(255, 100, 100))
+    Visual.ESP.settings.Killers.Colorpicker = KillerColorpicker
+
+    local ESPHooksToggle = Tabs.Visual:AddToggle("ESPHooks", {
+        Title = "Hooks ESP", 
+        Description = "", 
+        Default = false
+    })
+    Visual.Options.ESPHooks = ESPHooksToggle
+    ESPHooksToggle:OnChanged(function(v)
+        Visual.ToggleESPSetting("Hooks", v)
+    end)
+
+    local HookColorpicker = Tabs.Visual:AddColorpicker("HookColorpicker", {
+        Title = "Hook Color",
+        Default = Color3.fromRGB(100, 50, 150)
+    })
+    Visual.Options.HookColorpicker = HookColorpicker
+    HookColorpicker:OnChanged(function()
+        Visual.ESP.settings.Hooks.Color = HookColorpicker.Value
+        Visual.UpdateESPColors()
+    end)
+    HookColorpicker:SetValueRGB(Color3.fromRGB(100, 50, 150))
+    Visual.ESP.settings.Hooks.Colorpicker = HookColorpicker
+
+    local ESPGeneratorsToggle = Tabs.Visual:AddToggle("ESPGenerators", {
+        Title = "Generators ESP", 
+        Description = "", 
+        Default = false
+    })
+    Visual.Options.ESPGenerators = ESPGeneratorsToggle
+    ESPGeneratorsToggle:OnChanged(function(v)
+        Visual.ToggleESPSetting("Generators", v)
+    end)
+
+    local ESPPalletsToggle = Tabs.Visual:AddToggle("ESPPallets", {
+        Title = "Pallets ESP", 
+        Description = "", 
+        Default = false
+    })
+    Visual.Options.ESPPallets = ESPPalletsToggle
+    ESPPalletsToggle:OnChanged(function(v)
+        Visual.ToggleESPSetting("Pallets", v)
+    end)
+
+    local PalletColorpicker = Tabs.Visual:AddColorpicker("PalletColorpicker", {
+        Title = "Pallet Color",
+        Default = Color3.fromRGB(120, 80, 40)
+    })
+    Visual.Options.PalletColorpicker = PalletColorpicker
+    PalletColorpicker:OnChanged(function()
+        Visual.ESP.settings.Pallets.Color = PalletColorpicker.Value
+        Visual.UpdateESPColors()
+    end)
+    PalletColorpicker:SetValueRGB(Color3.fromRGB(120, 80, 40))
+    Visual.ESP.settings.Pallets.Colorpicker = PalletColorpicker
+
+    local ESPGatesToggle = Tabs.Visual:AddToggle("ESPGates", {
+        Title = "Exit Gates ESP", 
+        Description = "", 
+        Default = false
+    })
+    Visual.Options.ESPGates = ESPGatesToggle
+    ESPGatesToggle:OnChanged(function(v)
+        Visual.ToggleESPSetting("ExitGates", v)
+    end)
+
+    local GateColorpicker = Tabs.Visual:AddColorpicker("GateColorpicker", {
+        Title = "Gate Color",
+        Default = Color3.fromRGB(200, 200, 100)
+    })
+    Visual.Options.GateColorpicker = GateColorpicker
+    GateColorpicker:OnChanged(function()
+        Visual.ESP.settings.ExitGates.Color = GateColorpicker.Value
+        Visual.UpdateESPColors()
+    end)
+    GateColorpicker:SetValueRGB(Color3.fromRGB(200, 200, 100))
+    Visual.ESP.settings.ExitGates.Colorpicker = GateColorpicker
+
+    local ESPWindowsToggle = Tabs.Visual:AddToggle("ESPWindows", {
+        Title = "Windows ESP", 
+        Description = "", 
+        Default = false
+    })
+    Visual.Options.ESPWindows = ESPWindowsToggle
+    ESPWindowsToggle:OnChanged(function(v)
+        Visual.ToggleESPSetting("Windows", v)
+    end)
+
+    local WindowColorpicker = Tabs.Visual:AddColorpicker("WindowColorpicker", {
+        Title = "Window Color",
+        Default = Color3.fromRGB(100, 200, 200)
+    })
+    Visual.Options.WindowColorpicker = WindowColorpicker
+    WindowColorpicker:OnChanged(function()
+        Visual.ESP.settings.Windows.Color = WindowColorpicker.Value
+        Visual.UpdateESPColors()
+    end)
+    WindowColorpicker:SetValueRGB(Color3.fromRGB(100, 200, 200))
+    Visual.ESP.settings.Windows.Colorpicker = WindowColorpicker
+
+    Tabs.Visual:AddSection("Advanced ESP Settings")
+
+    Tabs.Visual:AddSection("ESP Components")
+
     local ESPBoxToggle = Tabs.Visual:AddToggle("ESPBox", {
         Title = "Player Boxes", 
         Description = "Show/hide player boxes", 
         Default = true
     })
+    Visual.Options.ESPBox = ESPBoxToggle
     ESPBoxToggle:OnChanged(function(v)
         Visual.ToggleAdvancedESPComponent("box", v)
     end)
-    
-    -- Аналогично для других компонентов...
+
+    local ESPNamesToggle = Tabs.Visual:AddToggle("ESPNames", {
+        Title = "Player Names", 
+        Description = "Show/hide player names", 
+        Default = true
+    })
+    Visual.Options.ESPNames = ESPNamesToggle
+    ESPNamesToggle:OnChanged(function(v)
+        Visual.ToggleAdvancedESPComponent("name", v)
+    end)
+
+    local ESPHealthBarToggle = Tabs.Visual:AddToggle("ESPHealthBar", {
+        Title = "Health Bar", 
+        Description = "Show/hide health bar", 
+        Default = true
+    })
+    Visual.Options.ESPHealthBar = ESPHealthBarToggle
+    ESPHealthBarToggle:OnChanged(function(v)
+        Visual.ToggleAdvancedESPComponent("healthbar", v)
+    end)
+
+    local ESPDistanceToggle = Tabs.Visual:AddToggle("ESPDistance", {
+        Title = "Distance", 
+        Description = "Show/hide distance to players", 
+        Default = true
+    })
+    Visual.Options.ESPDistance = ESPDistanceToggle
+    ESPDistanceToggle:OnChanged(function(v)
+        Visual.ToggleAdvancedESPComponent("distance", v)
+    end)
+
+    local ESPBoxFillToggle = Tabs.Visual:AddToggle("ESPBoxFill", {
+        Title = "Filled Box", 
+        Description = "Show/hide filled boxes", 
+        Default = true
+    })
+    Visual.Options.ESPBoxFill = ESPBoxFillToggle
+    ESPBoxFillToggle:OnChanged(function(v)
+        Visual.ToggleAdvancedESPComponent("boxFill", v)
+    end)
+
+    local ESPTracersToggle = Tabs.Visual:AddToggle("ESPTracers", {
+        Title = "Tracers", 
+        Description = "Show/hide tracers to players", 
+        Default = true
+    })
+    Visual.Options.ESPTracers = ESPTracersToggle
+    ESPTracersToggle:OnChanged(function(v)
+        Visual.ToggleAdvancedESPComponent("tracers", v)
+    end)
+
+    local ESPBonesToggle = Tabs.Visual:AddToggle("ESPBones", {
+        Title = "Player Bones", 
+        Description = "Show/hide player bones", 
+        Default = true
+    })
+    Visual.Options.ESPBones = ESPBonesToggle
+    ESPBonesToggle:OnChanged(function(v)
+        Visual.ToggleAdvancedESPComponent("bones", v)
+    end)
+
+    task.spawn(function()
+        task.wait(2)
+        for _, obj in ipairs(Nexus.Services.Workspace:GetDescendants()) do
+            if obj:IsA("Model") then
+                Visual.AddObjectToTrack(obj)
+            end
+        end
+        
+        Nexus.Services.Workspace.DescendantAdded:Connect(function(obj)
+            if obj:IsA("Model") then
+                Visual.AddObjectToTrack(obj)
+            end
+        end)
+    end)
 end
 
 function Visual.Cleanup()
@@ -1221,6 +1644,8 @@ function Visual.Cleanup()
     Visual.AdvancedESP.playerConnections = {}
     
     Visual.AdvancedESP.espObjects = {}
+    
+    Visual.Options = {}
     
     task.wait(0.1)
     collectgarbage()
