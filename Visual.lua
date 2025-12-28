@@ -36,8 +36,6 @@ local Visual = {
             healthBarMidColorName = "DarkOrange",
             healthBarBottomColorName = "DarkRed",
             stateColorName = "Orange",
-            boxOutline = {Enabled = true, Thickness = 0.4},
-            boxOutlineColorName = "Black",
             boxColorName = "White",
             boxFill = {Enabled = true},
             boxFillColorName = "White",
@@ -435,6 +433,8 @@ function Visual.ToggleESPSetting(settingName, enabled)
             Visual.StartESP()
         elseif not anyEnabled and Visual.ESP.espLoopRunning then
             Visual.StopESP()
+        else
+            Visual.UpdateESP()
         end
     end
 end
@@ -475,7 +475,6 @@ function Visual.ClearAdvancedESP(plr)
         safeRemove(d.HealthMask)
         safeRemove(d.HealthText)
         safeRemove(d.Box)
-        safeRemove(d.BoxOutline)
         
         for i = 1, 24 do
             safeRemove(d["HealthStripe"..i])
@@ -511,7 +510,7 @@ function Visual.ForceCleanupDrawings()
         if d then
             local drawingObjects = {
                 d.BoxFill, d.Name, d.Distance, d.Tracer, d.HealthBg, 
-                d.HealthBar, d.HealthMask, d.HealthText, d.Box, d.BoxOutline
+                d.HealthBar, d.HealthMask, d.HealthText, d.Box
             }
             
             for _, obj in ipairs(drawingObjects) do
@@ -566,7 +565,6 @@ function Visual.CreateAdvancedESP(plr)
     local boneColor = colorMap[settings.boneColorName] or colorMap.White
     local tracerColor = colorMap[settings.tracerColorName] or colorMap.White
     local boxColor = colorMap[settings.boxColorName] or colorMap.White
-    local boxOutlineColor = colorMap[settings.boxOutlineColorName] or colorMap.Black
     local boxFillColor = colorMap[settings.boxFillColorName] or colorMap.White
     
     local function create(tp, props)
@@ -585,8 +583,7 @@ function Visual.CreateAdvancedESP(plr)
         HealthBar = nil,
         HealthMask = nil,
         HealthText = nil,
-        Box = nil,
-        BoxOutline = nil
+        Box = nil
     }
     
     d.BoxFill = create("Square",{
@@ -647,13 +644,6 @@ function Visual.CreateAdvancedESP(plr)
     d.Box = create("Square", {
         Thickness = 1.7,
         Color = boxColor,
-        Visible = false,
-        Filled = false
-    })
-    
-    d.BoxOutline = create("Square", {
-        Thickness = 1.7 + (settings.boxOutline.Thickness or 0.4) * 2,
-        Color = boxOutlineColor,
         Visible = false,
         Filled = false
     })
@@ -818,7 +808,6 @@ function Visual.UpdateAdvancedESP()
                 if hum and hum.Health <= 0 then
                     if d.BoxFill then d.BoxFill.Visible = false end
                     if d.Box then d.Box.Visible = false end
-                    if d.BoxOutline then d.BoxOutline.Visible = false end
                     if d.Name then d.Name.Visible = false end
                     if d.Distance then d.Distance.Visible = false end
                     if d.HealthBg then d.HealthBg.Visible = false end
@@ -874,15 +863,6 @@ function Visual.UpdateAdvancedESP()
                             d.Box.Color = Visual.AdvancedESP.colorMap[Visual.AdvancedESP.settings.boxColorName] or Visual.AdvancedESP.colorMap.White
                             d.Box.Thickness = 1.7
                             d.Box.Visible = Visual.AdvancedESP.settings.box.Enabled and withinDistance
-                        end
-                        
-                        if d.BoxOutline then
-                            local thickness = Visual.AdvancedESP.settings.boxOutline.Thickness or 0.4
-                            d.BoxOutline.Position = Vector2.new(x - thickness, y - thickness)
-                            d.BoxOutline.Size = Vector2.new(width + thickness * 2, height + thickness * 2)
-                            d.BoxOutline.Color = Visual.AdvancedESP.colorMap[Visual.AdvancedESP.settings.boxOutlineColorName] or Visual.AdvancedESP.colorMap.Black
-                            d.BoxOutline.Thickness = thickness
-                            d.BoxOutline.Visible = Visual.AdvancedESP.settings.box.Enabled and Visual.AdvancedESP.settings.boxOutline.Enabled and withinDistance
                         end
 
                         if d.Name then
@@ -1005,7 +985,6 @@ function Visual.UpdateAdvancedESP()
                     else
                         if d.BoxFill then d.BoxFill.Visible = false end
                         if d.Box then d.Box.Visible = false end
-                        if d.BoxOutline then d.BoxOutline.Visible = false end
                         if d.Name then d.Name.Visible = false end
                         if d.Distance then d.Distance.Visible = false end
                         if d.HealthBg then d.HealthBg.Visible = false end
@@ -1481,7 +1460,7 @@ function Visual.Init(nxs)
     })
     ESPBoxToggle:OnChanged(function(v)
         Visual.AdvancedESP.settings.box.Enabled = v
-        if not Visual.AdvancedESP.advancedESPRunning then
+        if v and not Visual.AdvancedESP.advancedESPRunning then
             Visual.StartAdvancedESP()
         end
     end)
@@ -1493,7 +1472,7 @@ function Visual.Init(nxs)
     })
     ESPNamesToggle:OnChanged(function(v)
         Visual.AdvancedESP.settings.name.Enabled = v
-        if not Visual.AdvancedESP.advancedESPRunning then
+        if v and not Visual.AdvancedESP.advancedESPRunning then
             Visual.StartAdvancedESP()
         end
     end)
@@ -1505,7 +1484,7 @@ function Visual.Init(nxs)
     })
     ESPHealthBarToggle:OnChanged(function(v)
         Visual.AdvancedESP.settings.healthbar.Enabled = v
-        if not Visual.AdvancedESP.advancedESPRunning then
+        if v and not Visual.AdvancedESP.advancedESPRunning then
             Visual.StartAdvancedESP()
         end
     end)
@@ -1517,7 +1496,7 @@ function Visual.Init(nxs)
     })
     ESPDistanceToggle:OnChanged(function(v)
         Visual.AdvancedESP.settings.distance.Enabled = v
-        if not Visual.AdvancedESP.advancedESPRunning then
+        if v and not Visual.AdvancedESP.advancedESPRunning then
             Visual.StartAdvancedESP()
         end
     end)
@@ -1529,7 +1508,7 @@ function Visual.Init(nxs)
     })
     ESPBoxFillToggle:OnChanged(function(v)
         Visual.AdvancedESP.settings.boxFill.Enabled = v
-        if not Visual.AdvancedESP.advancedESPRunning then
+        if v and not Visual.AdvancedESP.advancedESPRunning then
             Visual.StartAdvancedESP()
         end
     end)
@@ -1541,7 +1520,7 @@ function Visual.Init(nxs)
     })
     ESPTracersToggle:OnChanged(function(v)
         Visual.AdvancedESP.settings.tracers.Enabled = v
-        if not Visual.AdvancedESP.advancedESPRunning then
+        if v and not Visual.AdvancedESP.advancedESPRunning then
             Visual.StartAdvancedESP()
         end
     end)
@@ -1553,19 +1532,7 @@ function Visual.Init(nxs)
     })
     ESPBonesToggle:OnChanged(function(v)
         Visual.AdvancedESP.settings.bones.Enabled = v
-        if not Visual.AdvancedESP.advancedESPRunning then
-            Visual.StartAdvancedESP()
-        end
-    end)
-
-    local ESPBoxOutlineToggle = Tabs.Visual:AddToggle("ESPBoxOutline", {
-        Title = "Box Outline", 
-        Description = "Show/hide box outline", 
-        Default = true
-    })
-    ESPBoxOutlineToggle:OnChanged(function(v)
-        Visual.AdvancedESP.settings.boxOutline.Enabled = v
-        if not Visual.AdvancedESP.advancedESPRunning then
+        if v and not Visual.AdvancedESP.advancedESPRunning then
             Visual.StartAdvancedESP()
         end
     end)
