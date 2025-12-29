@@ -206,6 +206,176 @@ function Binds.HandleKeybindChange(funcName, displayName, newKey)
     
     Binds.UpdateKeybindDisplay(funcName, displayName, newKey)
 end
+
+-- ========== CURSOR UNLOCK (ENHANCED) ==========
+
+function Binds.ToggleCursorUnlock()
+    if Binds.CursorUnlock.enabled then
+        Binds.DisableCursorUnlock()
+        Binds.KeyStates["CursorToggle"] = false
+    else
+        Binds.EnableCursorUnlock()
+        Binds.KeyStates["CursorToggle"] = true
+    end
+    
+    Binds.UpdateKeyState("CursorToggle")
+end
+
+function Binds.EnableCursorUnlock()
+    if Binds.CursorUnlock.enabled then return end
+    Binds.CursorUnlock.enabled = true
+    
+    -- Сохраняем оригинальные настройки
+    local originalMouseBehavior = Nexus.Services.UserInputService.MouseBehavior
+    local originalMouseIconEnabled = Nexus.Services.UserInputService.MouseIconEnabled
+    local originalInputProcessing = Nexus.Player.PlayerScripts:FindFirstChild("PlayerModule")
+    
+    -- Полностью разблокируем курсор
+    Nexus.Services.UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+    Nexus.Services.UserInputService.MouseIconEnabled = true
+    
+    -- Отключаем стандартную обработку ввода
+    if originalInputProcessing then
+        originalInputProcessing.Disabled = true
+    end
+    
+    -- Сохраняем состояние камеры
+    local camera = Nexus.Services.Workspace.CurrentCamera
+    local originalCameraType = camera.CameraType
+    
+    -- Устанавливаем камеру в режим скрипта для полного контроля
+    camera.CameraType = Enum.CameraType.Scriptable
+    
+    -- Переменные для управления камерой
+    local cameraRotation = Vector2.new(0, 0)
+    local mouseLocked = false
+    
+    -- Функция для блокировки мыши
+    local function lockMouse()
+        mouseLocked = true
+        Nexus.Services.UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+        Nexus.Services.UserInputService.MouseIconEnabled = false
+    end
+    
+    -- Функция для разблокировки мыши
+    local function unlockMouse()
+        mouseLocked = false
+        Nexus.Services.UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+        Nexus.Services.UserInputService.MouseIconEnabled = true
+    end
+    
+    -- Основной цикл управления
+    Binds.CursorUnlock.connection = Nexus.Services.RunService.RenderStepped:Connect(function(delta)
+        if not Binds.CursorUnlock.enabled then return end
+        
+        -- Обработка переключения блокировки мыши по нажатию правой кнопки
+        if Nexus.Services.UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+            if not mouseLocked then
+                lockMouse()
+            end
+        elseif mouseLocked then
+            unlockMouse()
+        end
+        
+        -- Управление камерой при заблокированной мыши
+        if mouseLocked then
+            local mouseDelta = Nexus.Services.UserInputService:GetMouseDelta()
+            cameraRotation = cameraRotation + Vector2.new(-mouseDelta.X * 0.003, -mouseDelta.Y * 0.003)
+            cameraRotation = Vector2.new(cameraRotation.X, 
+                math.clamp(cameraRotation.Y, -math.pi/2 + 0.1, math.pi/2 - 0.1))
+            
+            local rotationCFrame = CFrame.Angles(0, cameraRotation.X, 0) * CFrame.Angles(cameraRotation.Y, 0, 0)
+            camera.CFrame = CFrame.new(camera.CFrame.Position) * rotationCFrame
+        end
+    end)
+    
+    -- Обработчик изменения камеры
+    Nexus.Services.Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+        if Binds.CursorUnlock.enabled then
+            camera = Nexus.Services.Workspace.CurrentCamera
+            camera.CameraType = Enum.CameraType.Scriptable
+        end
+    end)
+    
+    print("Cursor Unlock: ON - Full control enabled")
+end
+
+function Binds.DisableCursorUnlock()
+    if not Binds.CursorUnlock.enabled then return end
+    Binds.CursorUnlock.enabled = false
+    
+    if Binds.CursorUnlock.connection then
+        Binds.CursorUnlock.connection:Disconnect()
+        Binds.CursorUnlock.connection = nil
+    end
+    
+    -- Восстанавливаем оригинальные настройки
+    local originalInputProcessing = Nexus.Player.PlayerScripts:FindFirstChild("PlayerModule")
+    if originalInputProcessing then
+        originalInputProcessing.Disabled = false
+    end
+    
+    local camera = Nexus.Services.Workspace.CurrentCamera
+    if camera then
+        camera.CameraType = Enum.CameraType.Custom
+    end
+    
+    Nexus.Services.UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+    Nexus.Services.UserInputService.MouseIconEnabled = true
+    
+    print("Cursor Unlock: OFF")
+end
+
+function Binds.ResetCursorState()
+    if Binds.CursorUnlock.connection then
+        Binds.CursorUnlock.connection:Disconnect()
+        Binds.CursorUnlock.connection = nil
+    end
+    Binds.CursorUnlock.enabled = false
+    
+    local originalInputProcessing = Nexus.Player.PlayerScripts:FindFirstChild("PlayerModule")
+    if originalInputProcessing then
+        originalInputProcessing.Disabled = false
+    end
+    
+    pcall(function()
+        Nexus.Services.UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+        Nexus.Services.UserInputService.MouseIconEnabled = true
+    end)
+    print("Cursor state reset to default")
+end
+
+-- ========== MODULE INITIALIZATION ==========
+
+function Binds.Init(nxs)
+    Nexus = nxs
+    
+    if not Nexus.IS_DESKTOP then return end
+    
+    local Tabs = Nexus.Tabs
+    if not Tabs.Binds then return end
+    
+    -- Создаем GUI для отображения биндов
+    Binds.CreateDisplayGUI()
+    
+    -- ========== CURSOR UNLOCK ==========
+    Tabs.Binds:AddSection("Cursor Unlock")
+    
+    local CursorToggleKeybind = Tabs.Binds:AddKeybind("CursorToggleKeybind", {
+        Title = "Cursor Toggle Keybind",
+        Description = "Press to toggle cursor lock/unlock with full control",
+        Default = "",
+        Callback = function()
+            Nexus.SafeCallback(function()
+                Binds.ToggleCursorUnlock()
+            end)
+        end,
+        ChangedCallback = function(newKey)
+            Binds.UpdateKeybindDisplay("CursorToggle", "Cursor Toggle", newKey)
+        end
+    })
+    
+    Binds.Keybinds.CursorToggle = CursorToggleKeybind
     
     -- ========== SURVIVOR BINDS ==========
     Tabs.Binds:AddSection("Survivor Binds")
