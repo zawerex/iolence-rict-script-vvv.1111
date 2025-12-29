@@ -1519,123 +1519,6 @@ local NoPalletStun = (function()
     }
 end)()
 
--- ========== NO FALL ==========
-
-local NoFall = (function()
-    local enabled = false
-    local hooked = false
-    local originalNamecall = nil
-    local mt = nil
-    
-    local function getFallRemote()
-        local success, remote = pcall(function()
-            return Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Mechanics"):WaitForChild("Fall")
-        end)
-        return success and remote or nil
-    end
-    
-    local function setupHook()
-        if hooked then return end
-        
-        local fallRemote = getFallRemote()
-        if not fallRemote then
-            print("NoFall: Fall remote not found")
-            return false
-        end
-        
-        -- Получаем метатаблицу
-        mt = getrawmetatable(fallRemote)
-        if not mt then
-            print("NoFall: Could not get metatable")
-            return false
-        end
-        
-        originalNamecall = mt.__namecall
-        
-        -- Временно снимаем защиту
-        local wasReadonly = isreadonly and isreadonly(mt)
-        if setreadonly then
-            setreadonly(mt, false)
-        end
-        
-        mt.__namecall = newcclosure(function(self, ...)
-            local method = getnamecallmethod()
-            
-            if self == fallRemote and method == "FireServer" and enabled then
-                print("NoFall: Blocked fall damage")
-                return nil -- Блокируем вызов
-            end
-            
-            return originalNamecall(self, ...)
-        end)
-        
-        -- Возвращаем защиту если была
-        if setreadonly and wasReadonly then
-            setreadonly(mt, true)
-        end
-        
-        hooked = true
-        print("NoFall: Hook установлен")
-        return true
-    end
-    
-    local function removeHook()
-        if not hooked or not mt or not originalNamecall then return end
-        
-        -- Временно снимаем защиту
-        local wasReadonly = isreadonly and isreadonly(mt)
-        if setreadonly then
-            setreadonly(mt, false)
-        end
-        
-        mt.__namecall = originalNamecall
-        
-        -- Возвращаем защиту если была
-        if setreadonly and wasReadonly then
-            setreadonly(mt, true)
-        end
-        
-        hooked = false
-        originalNamecall = nil
-        mt = nil
-        print("NoFall: Hook удален")
-    end
-    
-    local function Enable()
-        if enabled then return end
-        enabled = true
-        Nexus.States.NoFallEnabled = true
-        
-        if not setupHook() then
-            -- Пробуем найти Remote позже
-            task.spawn(function()
-                for i = 1, 5 do
-                    task.wait(1)
-                    if enabled and not hooked then
-                        if setupHook() then break end
-                    end
-                end
-            end)
-        end
-        
-        print("NoFall: ON")
-    end
-    
-    local function Disable()
-        if not enabled then return end
-        enabled = false
-        Nexus.States.NoFallEnabled = false
-        
-        removeHook()
-        print("NoFall: OFF")
-    end
-    
-    return {
-        Enable = Enable,
-        Disable = Disable,
-        IsEnabled = function() return enabled end
-    }
-end)()
 
 -- ========== MASK POWERS ==========
 
@@ -1790,22 +1673,6 @@ function Killer.Init(nxs)
         end)
     end)
 
-    -- ========== NO FALL ==========
-    local NoFallToggle = Tabs.Killer:AddToggle("NoFall", {
-        Title = "No Fall", 
-        Description = "Disables the penalty when falling", 
-        Default = false
-    })
-
-    NoFallToggle:OnChanged(function(v)
-        Nexus.SafeCallback(function()
-            if v then 
-                NoFall.Enable() 
-            else 
-                NoFall.Disable() 
-            end
-        end)
-    end)
 
  -- ========== DOUBLE TAP ==========
     local DoubleTapToggle = Tabs.Killer:AddToggle("DoubleTap", {
@@ -1940,15 +1807,14 @@ end
 -- ========== CLEANUP ==========
 
 function Killer.Cleanup()
-    -- Отключаем все функции
+
     SpearCrosshair.Disable()
     NoSlowdown.Disable()
     Hitbox.Disable()
     DoubleTap.Disable()      
     SpamHook.Disable()  
     ThirdPerson.Disable()
-    NoPalletStun.Disable()  
-    NoFall.Disable()   
+    NoPalletStun.Disable()   
     BeatGameKiller.Disable()
     AntiBlind.Disable()
     
@@ -1964,4 +1830,4 @@ function Killer.Cleanup()
     print("Killer module cleaned up")
 end
 
-return Killer --  Дай полный модульный код с добавленными новыми функциями , сохрани весь функционал
+return Killer 
