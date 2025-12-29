@@ -25,7 +25,10 @@ local Visual = {
         healthBarEnabled = false,
         boxColor = Color3.fromRGB(255, 255, 255),
         namesColor = Color3.fromRGB(255, 255, 255),
-        boxESPObjects = {}
+        boxESPObjects = {},
+        autoFarmGiftEnabled = false,
+        autoFarmRunning = false,
+        autoFarmConnection = nil
     },
     Effects = {
         noShadowEnabled = false,
@@ -256,6 +259,153 @@ function Visual.IsValidGift(obj)
         end
     end
     return false
+end
+
+function Visual.GetAllGifts()
+    local gifts = {}
+    for obj, typeName in pairs(Visual.ESP.trackedObjects) do
+        if obj and obj.Parent and typeName == "Gifts" then
+            table.insert(gifts, obj)
+        end
+    end
+    return gifts
+end
+
+function Visual.GetNearestGift()
+    local localPlayer = Nexus.Player
+    if not localPlayer or not localPlayer.Character then
+        return nil
+    end
+    
+    local localRoot = localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not localRoot then
+        return nil
+    end
+    
+    local gifts = Visual.GetAllGifts()
+    if #gifts == 0 then
+        return nil
+    end
+    
+    local nearestGift = nil
+    local nearestDistance = math.huge
+    
+    for _, gift in ipairs(gifts) do
+        if gift and gift.Parent and gift:FindFirstChild("PrimaryPart") then
+            local giftPosition = gift.PrimaryPart.Position
+            local distance = (localRoot.Position - giftPosition).Magnitude
+            
+            if distance < nearestDistance then
+                nearestDistance = distance
+                nearestGift = gift
+            end
+        end
+    end
+    
+    return nearestGift, nearestDistance
+end
+
+function Visual.FindChristmasTree()
+    local map = Nexus.Services.Workspace:FindFirstChild("Map")
+    if not map then return nil end
+    
+    local christmasTree = map:FindFirstChild("chris")
+    if christmasTree then
+        christmasTree = christmasTree:FindFirstChild("chrismta tute")
+        if christmasTree then
+            christmasTree = christmasTree:FindFirstChild("Model")
+            if christmasTree then
+                christmasTree = christmasTree:FindFirstChild("ChristmasTree")
+                if christmasTree then
+                    return christmasTree:FindFirstChild("TreePine")
+                end
+            end
+        end
+    end
+    
+    for _, obj in ipairs(Nexus.Services.Workspace:GetDescendants()) do
+        if obj.Name == "TreePine" then
+            return obj
+        end
+    end
+    
+    return nil
+end
+
+function Visual.TeleportToObject(obj)
+    local localPlayer = Nexus.Player
+    if not localPlayer or not localPlayer.Character then
+        return false
+    end
+    
+    local humanoid = localPlayer.Character:FindFirstChild("Humanoid")
+    local rootPart = localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    
+    if not humanoid or not rootPart then
+        return false
+    end
+    
+    if obj and obj:FindFirstChild("PrimaryPart") then
+        local targetPosition = obj.PrimaryPart.Position + Vector3.new(0, 3, 0)
+        rootPart.CFrame = CFrame.new(targetPosition)
+        return true
+    end
+    
+    return false
+end
+
+function Visual.SimulateMouseClick()
+    local mouse = Nexus.Player:GetMouse()
+    if mouse then
+        pcall(function()
+            mouse.Button1Down:Wait()
+            mouse.Button1Up:Wait()
+        end)
+    end
+end
+
+function Visual.AutoFarmGiftLoop()
+    if Visual.ESP.autoFarmRunning then
+        return
+    end
+    
+    Visual.ESP.autoFarmRunning = true
+    
+    task.spawn(function()
+        while Visual.ESP.autoFarmGiftEnabled do
+            local nearestGift, distance = Visual.GetNearestGift()
+            
+            if nearestGift and distance then
+                if distance > 10 then
+                    Visual.TeleportToObject(nearestGift)
+                    task.wait(0.5)
+                else
+                    Visual.SimulateMouseClick()
+                    task.wait(3)
+                    
+                    local christmasTree = Visual.FindChristmasTree()
+                    if christmasTree then
+                        Visual.TeleportToObject(christmasTree)
+                        task.wait(2)
+                    end
+                end
+            else
+                task.wait(2)
+            end
+        end
+        
+        Visual.ESP.autoFarmRunning = false
+    end)
+end
+
+function Visual.ToggleAutoFarmGift(enabled)
+    Visual.ESP.autoFarmGiftEnabled = enabled
+    
+    if enabled then
+        Visual.AutoFarmGiftLoop()
+    else
+        Visual.ESP.autoFarmRunning = false
+    end
 end
 
 function Visual.TrackObjects()
@@ -1162,6 +1312,17 @@ function Visual.Init(nxs)
         Visual.ToggleHealthBar(v)
     end)
 
+    Tabs.Visual:AddSection("Auto Farm Settings")
+
+    local AutoFarmGiftToggle = Tabs.Visual:AddToggle("AutoFarmGift", {
+        Title = "AutoFarm Gift",
+        Description = "Automatically collects Christmas gifts",
+        Default = false
+    })
+    AutoFarmGiftToggle:OnChanged(function(v)
+        Visual.ToggleAutoFarmGift(v)
+    end)
+
     task.spawn(function()
         task.wait(2)
         for _, obj in ipairs(Nexus.Services.Workspace:GetDescendants()) do
@@ -1180,6 +1341,8 @@ end
 
 function Visual.Cleanup()
     Visual.StopESP()
+    
+    Visual.ToggleAutoFarmGift(false)
     
     for _, espData in pairs(Visual.ESP.boxESPObjects) do
         if espData.Updater then
