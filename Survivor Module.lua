@@ -1920,7 +1920,7 @@ function Survivor.Init(nxs)
 
     -- ========== NO SLOWDOWN (только для выживших) ==========
     local NoSlowdownToggle = Tabs.Main:AddToggle("NoSlowdown", {
-        Title = "No Slowdown + Fast DropPallet", 
+        Title = "No Slowdown&NoStun + FastDropPallet", 
         Description = "Prevents all slowdown effects", 
         Default = false
     })
