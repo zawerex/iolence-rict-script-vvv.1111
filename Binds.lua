@@ -709,7 +709,6 @@ function Binds.Init(nxs)
         end
     })
     
-    print("✓ Binds module initialized with all keybinds")
 end
 
 -- ========== CLEANUP ==========
