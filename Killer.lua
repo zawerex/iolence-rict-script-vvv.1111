@@ -39,6 +39,36 @@ local function setupTeamListener(callback)
     return {teamChangedConn, charAddedConn}
 end
 
+-- Определяем недостающие функции если их нет
+if not Nexus.getCharacter then
+    Nexus.getCharacter = function()
+        if Nexus.Player then
+            return Nexus.Player.Character
+        end
+        return nil
+    end
+end
+
+if not Nexus.getHumanoid then
+    Nexus.getHumanoid = function()
+        local char = Nexus.getCharacter()
+        if char then
+            return char:FindFirstChildOfClass("Humanoid")
+        end
+        return nil
+    end
+end
+
+if not Nexus.getRootPart then
+    Nexus.getRootPart = function()
+        local char = Nexus.getCharacter()
+        if char then
+            return char:FindFirstChild("HumanoidRootPart")
+        end
+        return nil
+    end
+end
+
 -- ========== USE FAKE SAW ==========
 
 local UseFakeSaw = (function()
@@ -48,7 +78,10 @@ local UseFakeSaw = (function()
     
     local function getMaskedAlexAttackRemote()
         local success, result = pcall(function()
-            return Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Killers"):WaitForChild("Masked"):WaitForChild("alexattack")
+            local remotes = Nexus.Services.ReplicatedStorage:WaitForChild("Remotes")
+            local killers = remotes:WaitForChild("Killers")
+            local masked = killers:WaitForChild("Masked")
+            return masked:WaitForChild("alexattack")
         end)
         return success and result or nil
     end
@@ -106,17 +139,25 @@ local UseFakeSaw = (function()
     local function Enable()
         if enabled then return end
         enabled = true
-        Nexus.States.UseFakeSawEnabled = true
+        if Nexus.States then Nexus.States.UseFakeSawEnabled = true end
         print("Use Fake Saw: ON")
         
         -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         
@@ -132,7 +173,7 @@ local UseFakeSaw = (function()
     local function Disable()
         if not enabled then return end
         enabled = false
-        Nexus.States.UseFakeSawEnabled = false
+        if Nexus.States then Nexus.States.UseFakeSawEnabled = false end
         print("Use Fake Saw: OFF")
         
         if connection then
@@ -144,10 +185,18 @@ local UseFakeSaw = (function()
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         teamListeners = {}
@@ -265,17 +314,25 @@ local SpearCrosshair = (function()
     local function Enable()
         if enabled then return end
         enabled = true
-        Nexus.States.SpearCrosshairEnabled = true
+        if Nexus.States then Nexus.States.SpearCrosshairEnabled = true end
         print("Spear Crosshair: ON")
         
         -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         
@@ -291,7 +348,7 @@ local SpearCrosshair = (function()
     local function Disable()
         if not enabled then return end
         enabled = false
-        Nexus.States.SpearCrosshairEnabled = false
+        if Nexus.States then Nexus.States.SpearCrosshairEnabled = false end
         print("Spear Crosshair: OFF")
         
         -- Удаляем прицел
@@ -307,10 +364,18 @@ local SpearCrosshair = (function()
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         teamListeners = {}
@@ -334,7 +399,9 @@ local DoubleTap = (function()
     
     local function GetBasicAttackRemote()
         local success, result = pcall(function()
-            return Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Attacks"):WaitForChild("BasicAttack")
+            local remotes = Nexus.Services.ReplicatedStorage:WaitForChild("Remotes")
+            local attacks = remotes:WaitForChild("Attacks")
+            return attacks:WaitForChild("BasicAttack")
         end)
         return success and result or nil
     end
@@ -437,17 +504,25 @@ local DoubleTap = (function()
     local function Enable()
         if enabled then return end
         enabled = true
-        Nexus.States.DoubleTapEnabled = true
+        if Nexus.States then Nexus.States.DoubleTapEnabled = true end
         print("DoubleTap: ON")
         
         -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         
@@ -463,7 +538,7 @@ local DoubleTap = (function()
     local function Disable()
         if not enabled then return end
         enabled = false
-        Nexus.States.DoubleTapEnabled = false
+        if Nexus.States then Nexus.States.DoubleTapEnabled = false end
         print("DoubleTap: OFF")
         
         removeHook()
@@ -472,10 +547,18 @@ local DoubleTap = (function()
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         teamListeners = {}
@@ -501,7 +584,9 @@ local SpamHook = (function()
     
     local function GetHookEventRemote()
         local success, result = pcall(function()
-            return Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Carry"):WaitForChild("HookEvent")
+            local remotes = Nexus.Services.ReplicatedStorage:WaitForChild("Remotes")
+            local carry = remotes:WaitForChild("Carry")
+            return carry:WaitForChild("HookEvent")
         end)
         return success and result or nil
     end
@@ -665,17 +750,25 @@ local SpamHook = (function()
     local function Enable()
         if enabled then return end
         enabled = true
-        Nexus.States.SpamHookEnabled = true
+        if Nexus.States then Nexus.States.SpamHookEnabled = true end
         print("SpamHook: ON")
         
         -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         
@@ -691,7 +784,7 @@ local SpamHook = (function()
     local function Disable()
         if not enabled then return end
         enabled = false
-        Nexus.States.SpamHookEnabled = false
+        if Nexus.States then Nexus.States.SpamHookEnabled = false end
         print("SpamHook: OFF")
         
         spamCount = 0
@@ -701,10 +794,18 @@ local SpamHook = (function()
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         teamListeners = {}
@@ -760,12 +861,10 @@ local DestroyPallets = (function()
     
     local function resetPalletsState()
         destroyed = false
-            
     end
     
     local function checkForNewMap()
         resetPalletsState()
-            
     end
     
     local function updateDestroyPallets()
@@ -808,15 +907,23 @@ local DestroyPallets = (function()
     local function Enable()
         if enabled then return end
         enabled = true
-        Nexus.States.DestroyPalletsEnabled = true
+        if Nexus.States then Nexus.States.DestroyPalletsEnabled = true end
         
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         
@@ -828,7 +935,7 @@ local DestroyPallets = (function()
     local function Disable()
         if not enabled then return end
         enabled = false
-        Nexus.States.DestroyPalletsEnabled = false
+        if Nexus.States then Nexus.States.DestroyPalletsEnabled = false end
         
         if connection then
             connection:Disconnect()
@@ -845,10 +952,18 @@ local DestroyPallets = (function()
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         teamListeners = {}
@@ -875,7 +990,7 @@ local NoSlowdown = (function()
         if humanoid then
             originalSpeed = humanoid.WalkSpeed
             speedLocked = false
-            print("NoSlowdown: Saved original speed: " .. originalSpeed)
+            print("NoSlowdown: Saved original speed: " .. tostring(originalSpeed))
         end
     end
     
@@ -883,7 +998,7 @@ local NoSlowdown = (function()
         local humanoid = Nexus.getHumanoid()
         if humanoid and originalSpeed then
             humanoid.WalkSpeed = originalSpeed
-            print("NoSlowdown: Restored original speed: " .. originalSpeed)
+            print("NoSlowdown: Restored original speed: " .. tostring(originalSpeed))
         end
         speedLocked = false
     end
@@ -962,17 +1077,25 @@ local NoSlowdown = (function()
     local function Enable()
         if enabled then return end
         enabled = true
-        Nexus.States.NoSlowdownEnabled = true
+        if Nexus.States then Nexus.States.NoSlowdownEnabled = true end
         print("NoSlowdown: ON")
         
         -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         
@@ -988,11 +1111,15 @@ local NoSlowdown = (function()
     local function Disable()
         if not enabled then return end
         enabled = false
-        Nexus.States.NoSlowdownEnabled = false
+        if Nexus.States then Nexus.States.NoSlowdownEnabled = false end
         print("NoSlowdown: OFF")
         
         if slowdownConnection then
-            Nexus.safeDisconnect(slowdownConnection)
+            if Nexus.safeDisconnect then
+                Nexus.safeDisconnect(slowdownConnection)
+            else
+                pcall(function() slowdownConnection:Disconnect() end)
+            end
             slowdownConnection = nil
         end
         
@@ -1003,10 +1130,18 @@ local NoSlowdown = (function()
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         teamListeners = {}
@@ -1112,17 +1247,25 @@ local Hitbox = (function()
     local function Enable()
         if enabled then return end
         enabled = true
-        Nexus.States.HitboxEnabled = true
+        if Nexus.States then Nexus.States.HitboxEnabled = true end
         print("Hitbox: ON")
         
         -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         
@@ -1138,7 +1281,7 @@ local Hitbox = (function()
     local function Disable()
         if not enabled then return end
         enabled = false
-        Nexus.States.HitboxEnabled = false
+        if Nexus.States then Nexus.States.HitboxEnabled = false end
         print("Hitbox: OFF")
         
         if Killer.Connections.Hitbox then
@@ -1153,10 +1296,18 @@ local Hitbox = (function()
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         teamListeners = {}
@@ -1338,17 +1489,25 @@ local BreakGenerator = (function()
     local function Enable()
         if enabled then return end
         enabled = true
-        Nexus.States.BreakGeneratorEnabled = true
+        if Nexus.States then Nexus.States.BreakGeneratorEnabled = true end
         print("Break Generator: ON")
         
         -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         
@@ -1364,7 +1523,7 @@ local BreakGenerator = (function()
     local function Disable()
         if not enabled then return end
         enabled = false
-        Nexus.States.BreakGeneratorEnabled = false
+        if Nexus.States then Nexus.States.BreakGeneratorEnabled = false end
         print("Break Generator: OFF")
         
         spamInProgress = false
@@ -1373,10 +1532,18 @@ local BreakGenerator = (function()
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         teamListeners = {}
@@ -1486,17 +1653,25 @@ local ThirdPerson = (function()
     local function Enable()
         if enabled then return end
         enabled = true
-        Nexus.States.ThirdPersonEnabled = true
+        if Nexus.States then Nexus.States.ThirdPersonEnabled = true end
         print("Third Person: ON")
         
         -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         
@@ -1512,7 +1687,7 @@ local ThirdPerson = (function()
     local function Disable()
         if not enabled then return end
         enabled = false
-        Nexus.States.ThirdPersonEnabled = false
+        if Nexus.States then Nexus.States.ThirdPersonEnabled = false end
         print("Third Person: OFF")
         
         if Killer.Connections.ThirdPerson then
@@ -1542,10 +1717,18 @@ local ThirdPerson = (function()
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         teamListeners = {}
@@ -1772,17 +1955,25 @@ local BeatGameKiller = (function()
     local function Enable()
         if enabled then return end
         enabled = true
-        Nexus.States.BeatGameKillerEnabled = true
+        if Nexus.States then Nexus.States.BeatGameKillerEnabled = true end
         print("Beat Game: ON")
         
         -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         
@@ -1798,7 +1989,7 @@ local BeatGameKiller = (function()
     local function Disable()
         if not enabled then return end
         enabled = false
-        Nexus.States.BeatGameKillerEnabled = false
+        if Nexus.States then Nexus.States.BeatGameKillerEnabled = false end
         print("Beat Game: OFF")
         
         if Killer.Connections.BeatGame then
@@ -1812,10 +2003,18 @@ local BeatGameKiller = (function()
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         teamListeners = {}
@@ -1900,17 +2099,25 @@ local AbysswalkerCorrupt = (function()
     local function Enable()
         if enabled then return end
         enabled = true
-        Nexus.States.AbysswalkerCorruptEnabled = true
+        if Nexus.States then Nexus.States.AbysswalkerCorruptEnabled = true end
         print("Abysswalker Corrupt: Toggle ON (Press Q to activate)")
         
         -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         
@@ -1927,7 +2134,7 @@ local AbysswalkerCorrupt = (function()
         if not enabled then return end
         enabled = false
         keybindEnabled = false
-        Nexus.States.AbysswalkerCorruptEnabled = false
+        if Nexus.States then Nexus.States.AbysswalkerCorruptEnabled = false end
         print("Abysswalker Corrupt: Toggle OFF")
         
         if inputConnection then
@@ -1939,10 +2146,18 @@ local AbysswalkerCorrupt = (function()
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         teamListeners = {}
@@ -2106,7 +2321,7 @@ local AntiBlind = (function()
     local function updateAntiBlind()
         if enabled and isKillerTeam() then
             isAntiBlindEnabled = true
-            Nexus.States.KillerAntiBlindEnabled = true
+            if Nexus.States then Nexus.States.KillerAntiBlindEnabled = true end
             
             setupAntiBlind()
             setupMetaTableHook()
@@ -2124,11 +2339,11 @@ local AntiBlind = (function()
         elseif enabled then
             print("AntiBlind: Waiting for Killer team...")
             isAntiBlindEnabled = false
-            Nexus.States.KillerAntiBlindEnabled = false
+            if Nexus.States then Nexus.States.KillerAntiBlindEnabled = false end
             restoreHooks()
         else
             isAntiBlindEnabled = false
-            Nexus.States.KillerAntiBlindEnabled = false
+            if Nexus.States then Nexus.States.KillerAntiBlindEnabled = false end
             restoreHooks()
         end
     end
@@ -2142,10 +2357,18 @@ local AntiBlind = (function()
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         
@@ -2164,7 +2387,7 @@ local AntiBlind = (function()
         print("AntiBlind: OFF")
         
         isAntiBlindEnabled = false
-        Nexus.States.KillerAntiBlindEnabled = false
+        if Nexus.States then Nexus.States.KillerAntiBlindEnabled = false end
         
         restoreHooks()
         
@@ -2172,10 +2395,18 @@ local AntiBlind = (function()
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         teamListeners = {}
@@ -2313,17 +2544,25 @@ local NoPalletStun = (function()
     local function Enable()
         if enabled then return end
         enabled = true
-        Nexus.States.NoPalletStunEnabled = true
+        if Nexus.States then Nexus.States.NoPalletStunEnabled = true end
         print("NoPalletStun: ON")
         
         -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         
@@ -2339,7 +2578,7 @@ local NoPalletStun = (function()
     local function Disable()
         if not enabled then return end
         enabled = false
-        Nexus.States.NoPalletStunEnabled = false
+        if Nexus.States then Nexus.States.NoPalletStunEnabled = false end
         print("NoPalletStun: OFF")
         
         removeHook()
@@ -2348,10 +2587,18 @@ local NoPalletStun = (function()
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
+                    if Nexus.safeDisconnect then
+                        Nexus.safeDisconnect(conn)
+                    else
+                        pcall(function() conn:Disconnect() end)
+                    end
                 end
             else
-                Nexus.safeDisconnect(listener)
+                if Nexus.safeDisconnect then
+                    Nexus.safeDisconnect(listener)
+                else
+                    pcall(function() listener:Disconnect() end)
+                end
             end
         end
         teamListeners = {}
@@ -2386,14 +2633,18 @@ local function activateMaskPower(maskName)
     return success and result
 end
 
-
-Tabs.Killer:AddSection("Killer", "snowflake")
+-- ========== ИНИЦИАЛИЗАЦИЯ ==========
 
 function Killer.Init(nxs)
     Nexus = nxs
     
     local Tabs = Nexus.Tabs
     local Options = Nexus.Options
+    
+    -- Сначала создаем секцию
+    if Tabs and Tabs.Killer then
+        Tabs.Killer:AddSection("Killer", "snowflake")
+    end
     
     -- ========== SPEAR CROSSHAIR ==========
     local SpearCrosshairToggle = Tabs.Killer:AddToggle("SpearCrosshair", {
@@ -2403,13 +2654,23 @@ function Killer.Init(nxs)
     })
 
     SpearCrosshairToggle:OnChanged(function(v)
-        Nexus.SafeCallback(function()
-            if v then 
-                SpearCrosshair.Enable() 
-            else 
-                SpearCrosshair.Disable() 
-            end
-        end)
+        if Nexus.SafeCallback then
+            Nexus.SafeCallback(function()
+                if v then 
+                    SpearCrosshair.Enable() 
+                else 
+                    SpearCrosshair.Disable() 
+                end
+            end)
+        else
+            pcall(function()
+                if v then 
+                    SpearCrosshair.Enable() 
+                else 
+                    SpearCrosshair.Disable() 
+                end
+            end)
+        end
     end)
 
 -- ========== DESTROY PALLETS ==========
@@ -2420,13 +2681,23 @@ local DestroyPalletsToggle = Tabs.Killer:AddToggle("DestroyPallets", {
 })
 
 DestroyPalletsToggle:OnChanged(function(v)
-    Nexus.SafeCallback(function()
-        if v then 
-            DestroyPallets.Enable() 
-        else 
-            DestroyPallets.Disable() 
-        end
-    end)
+    if Nexus.SafeCallback then
+        Nexus.SafeCallback(function()
+            if v then 
+                DestroyPallets.Enable() 
+            else 
+                DestroyPallets.Disable() 
+            end
+        end)
+    else
+        pcall(function()
+            if v then 
+                DestroyPallets.Enable() 
+            else 
+                DestroyPallets.Disable() 
+            end
+        end)
+    end
 end)
 
 
@@ -2438,13 +2709,23 @@ end)
     })
 
     NoSlowdownToggle:OnChanged(function(v)
-        Nexus.SafeCallback(function()
-            if v then 
-                NoSlowdown.Enable() 
-            else 
-                NoSlowdown.Disable() 
-            end
-        end)
+        if Nexus.SafeCallback then
+            Nexus.SafeCallback(function()
+                if v then 
+                    NoSlowdown.Enable() 
+                else 
+                    NoSlowdown.Disable() 
+                end
+            end)
+        else
+            pcall(function()
+                if v then 
+                    NoSlowdown.Enable() 
+                else 
+                    NoSlowdown.Disable() 
+                end
+            end)
+        end
     end)
 
     -- ========== HITBOX EXPAND ==========
@@ -2455,13 +2736,22 @@ end)
     })
 
     HitboxToggle:OnChanged(function(v)
-        Nexus.SafeCallback(function()
-            if v then 
-                Hitbox.Enable() 
-            else 
-                Hitbox.Disable() 
-            end
-        end)
+        if Nexus.SafeCallback then
+            Nexus.SafeCallback(function()
+                if v then 
+                    Hitbox.Enable() 
+                else 
+                    Hitbox.Disable() 
+            end)
+        else
+            pcall(function()
+                if v then 
+                    Hitbox.Enable() 
+                else 
+                    Hitbox.Disable() 
+                end
+            end)
+        end
     end)
 
     local HitboxSlider = Tabs.Killer:AddSlider("HitboxSize", {
@@ -2472,9 +2762,15 @@ end)
         Max = 500,
         Rounding = 1,
         Callback = function(value)
-            Nexus.SafeCallback(function()
-                Hitbox.SetSize(value)
-            end)
+            if Nexus.SafeCallback then
+                Nexus.SafeCallback(function()
+                    Hitbox.SetSize(value)
+                end)
+            else
+                pcall(function()
+                    Hitbox.SetSize(value)
+                end)
+            end
         end
     })
 
@@ -2486,13 +2782,23 @@ end)
     })
 
     BreakGeneratorToggle:OnChanged(function(v)
-        Nexus.SafeCallback(function()
-            if v then 
-                BreakGenerator.Enable() 
-            else 
-                BreakGenerator.Disable() 
-            end
-        end)
+        if Nexus.SafeCallback then
+            Nexus.SafeCallback(function()
+                if v then 
+                    BreakGenerator.Enable() 
+                else 
+                    BreakGenerator.Disable() 
+                end
+            end)
+        else
+            pcall(function()
+                if v then 
+                    BreakGenerator.Enable() 
+                else 
+                    BreakGenerator.Disable() 
+                end
+            end)
+        end
     end)
 
     -- ========== THIRD PERSON ==========
@@ -2503,13 +2809,23 @@ end)
     })
 
     ThirdPersonToggle:OnChanged(function(v)
-        Nexus.SafeCallback(function()
-            if v then 
-                ThirdPerson.Enable() 
-            else 
-                ThirdPerson.Disable() 
-            end
-        end)
+        if Nexus.SafeCallback then
+            Nexus.SafeCallback(function()
+                if v then 
+                    ThirdPerson.Enable() 
+                else 
+                    ThirdPerson.Disable() 
+                end
+            end)
+        else
+            pcall(function()
+                if v then 
+                    ThirdPerson.Enable() 
+                else 
+                    ThirdPerson.Disable() 
+                end
+            end)
+        end
     end)
 
     -- ========== NO PALLET STUN ==========
@@ -2520,13 +2836,23 @@ end)
     })
 
     NoPalletStunToggle:OnChanged(function(v)
-        Nexus.SafeCallback(function()
-            if v then 
-                NoPalletStun.Enable() 
-            else 
-                NoPalletStun.Disable() 
-            end
-        end)
+        if Nexus.SafeCallback then
+            Nexus.SafeCallback(function()
+                if v then 
+                    NoPalletStun.Enable() 
+                else 
+                    NoPalletStun.Disable() 
+                end
+            end)
+        else
+            pcall(function()
+                if v then 
+                    NoPalletStun.Enable() 
+                else 
+                    NoPalletStun.Disable() 
+                end
+            end)
+        end
     end)
 
     -- ========== DOUBLE TAP ==========
@@ -2537,13 +2863,23 @@ end)
     })
 
     DoubleTapToggle:OnChanged(function(v)
-        Nexus.SafeCallback(function()
-            if v then 
-                DoubleTap.Enable() 
-            else 
-                DoubleTap.Disable() 
-            end
-        end)
+        if Nexus.SafeCallback then
+            Nexus.SafeCallback(function()
+                if v then 
+                    DoubleTap.Enable() 
+                else 
+                    DoubleTap.Disable() 
+                end
+            end)
+        else
+            pcall(function()
+                if v then 
+                    DoubleTap.Enable() 
+                else 
+                    DoubleTap.Disable() 
+                end
+            end)
+        end
     end)
 
     -- ========== SPAM HOOK ==========
@@ -2554,13 +2890,23 @@ end)
     })
 
     SpamHookToggle:OnChanged(function(v)
-        Nexus.SafeCallback(function()
-            if v then 
-                SpamHook.Enable() 
-            else 
-                SpamHook.Disable() 
-            end
-        end)
+        if Nexus.SafeCallback then
+            Nexus.SafeCallback(function()
+                if v then 
+                    SpamHook.Enable() 
+                else 
+                    SpamHook.Disable() 
+                end
+            end)
+        else
+            pcall(function()
+                if v then 
+                    SpamHook.Enable() 
+                else 
+                    SpamHook.Disable() 
+                end
+            end)
+        end
     end)
     
     -- ========== BEAT GAME (KILLER) ==========
@@ -2571,13 +2917,23 @@ end)
     })
 
     BeatGameToggle:OnChanged(function(v)
-        Nexus.SafeCallback(function()
-            if v then 
-                BeatGameKiller.Enable() 
-            else 
-                BeatGameKiller.Disable() 
-            end
-        end)
+        if Nexus.SafeCallback then
+            Nexus.SafeCallback(function()
+                if v then 
+                    BeatGameKiller.Enable() 
+                else 
+                    BeatGameKiller.Disable() 
+                end
+            end)
+        else
+            pcall(function()
+                if v then 
+                    BeatGameKiller.Enable() 
+                else 
+                    BeatGameKiller.Disable() 
+                end
+            end)
+        end
     end)
 
         -- ========== USE FAKE SAW ==========
@@ -2588,13 +2944,23 @@ end)
     })
 
     UseFakeSawToggle:OnChanged(function(v)
-        Nexus.SafeCallback(function()
-            if v then 
-                UseFakeSaw.Enable() 
-            else 
-                UseFakeSaw.Disable() 
-            end
-        end)
+        if Nexus.SafeCallback then
+            Nexus.SafeCallback(function()
+                if v then 
+                    UseFakeSaw.Enable() 
+                else 
+                    UseFakeSaw.Disable() 
+                end
+            end)
+        else
+            pcall(function()
+                if v then 
+                    UseFakeSaw.Enable() 
+                else 
+                    UseFakeSaw.Disable() 
+                end
+            end)
+        end
     end)
 
     -- ========== ABYSSWALKER CORRUPT ==========
@@ -2606,13 +2972,23 @@ end)
     })
 
     AbysswalkerCorruptToggle:OnChanged(function(v)
-        Nexus.SafeCallback(function()
-            if v then 
-                AbysswalkerCorrupt.Enable() 
-            else 
-                AbysswalkerCorrupt.Disable() 
-            end
-        end)
+        if Nexus.SafeCallback then
+            Nexus.SafeCallback(function()
+                if v then 
+                    AbysswalkerCorrupt.Enable() 
+                else 
+                    AbysswalkerCorrupt.Disable() 
+                end
+            end)
+        else
+            pcall(function()
+                if v then 
+                    AbysswalkerCorrupt.Enable() 
+                else 
+                    AbysswalkerCorrupt.Disable() 
+                end
+            end)
+        end
     end)
 
     -- ========== ANTI BLIND ==========
@@ -2623,13 +2999,23 @@ end)
     })
 
     AntiBlindToggle:OnChanged(function(v)
-        Nexus.SafeCallback(function()
-            if v then 
-                AntiBlind.Enable() 
-            else 
-                AntiBlind.Disable() 
-            end
-        end)
+        if Nexus.SafeCallback then
+            Nexus.SafeCallback(function()
+                if v then 
+                    AntiBlind.Enable() 
+                else 
+                    AntiBlind.Disable() 
+                end
+            end)
+        else
+            pcall(function()
+                if v then 
+                    AntiBlind.Enable() 
+                else 
+                    AntiBlind.Disable() 
+                end
+            end)
+        end
     end)
 
     -- ========== MASK POWERS ==========
@@ -2642,11 +3028,19 @@ end)
     })
 
     MaskPowers:OnChanged(function(value)
-        Nexus.SafeCallback(function()
-            if value and value ~= "" then
-                activateMaskPower(value)
-            end
-        end)
+        if Nexus.SafeCallback then
+            Nexus.SafeCallback(function()
+                if value and value ~= "" then
+                    activateMaskPower(value)
+                end
+            end)
+        else
+            pcall(function()
+                if value and value ~= "" then
+                    activateMaskPower(value)
+                end
+            end)
+        end
     end)
 
     -- ========== INFORMATION ==========
@@ -2658,7 +3052,7 @@ end)
     -- ========== ОБРАБОТКА ВВОДА ДЛЯ BREAK GENERATOR ==========
     Nexus.Services.UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if not gameProcessed and input.KeyCode == Enum.KeyCode.Space then
-            if Nexus.States.BreakGeneratorEnabled then
+            if Nexus.States and Nexus.States.BreakGeneratorEnabled then
                 BreakGenerator.SpamGeneratorBreak()
             end
         end
@@ -2669,7 +3063,6 @@ end
 -- ========== CLEANUP ==========
 
 function Killer.Cleanup()
-
     SpearCrosshair.Disable()
     DestroyPallets.Disable()
     NoSlowdown.Disable()
@@ -2686,13 +3079,16 @@ function Killer.Cleanup()
     
     -- Очищаем все соединения
     for key, connection in pairs(Killer.Connections) do
-        Nexus.safeDisconnect(connection)
+        if Nexus.safeDisconnect then
+            Nexus.safeDisconnect(connection)
+        else
+            pcall(function() connection:Disconnect() end)
+        end
     end
     Killer.Connections = {}
     
     -- Очищаем кэш хитбоксов
     Killer.HitboxCache = {}
-    
 end
 
 return Killer
