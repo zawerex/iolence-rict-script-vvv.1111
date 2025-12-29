@@ -6,56 +6,26 @@ local Visual = {
         lastUpdate = 0,
         UPDATE_INTERVAL = 0.10,
         settings = {
-            Survivors  = {Enabled=false, Color=Color3.fromRGB(100,255,100), Colorpicker = nil},
-            Killers    = {Enabled=false, Color=Color3.fromRGB(255,100,100), Colorpicker = nil},
-            Generators = {Enabled=false, Color=Color3.fromRGB(100,170,255)},
-            Pallets    = {Enabled=false, Color=Color3.fromRGB(120,80,40), Colorpicker = nil},
-            ExitGates  = {Enabled=false, Color=Color3.fromRGB(200,200,100), Colorpicker = nil},
-            Windows    = {Enabled=false, Color=Color3.fromRGB(100,200,200), Colorpicker = nil},
-            Hooks      = {Enabled=false, Color=Color3.fromRGB(100, 50, 150), Colorpicker = nil}
-        },
-        boxESP = {
-            enabled = false,
-            teamCheck = false,
-            color = Color3.fromRGB(255,255,255),
-            colorpicker = nil,
-            outline = false,
-            outlineColor = Color3.fromRGB(0,0,0),
-            outlineColorpicker = nil,
-            boxOutlineToggle = nil
-        },
-        namesESP = {
-            enabled = false,
-            color = Color3.fromRGB(255,255,255),
-            colorpicker = nil,
-            outline = false,
-            outlineColor = Color3.fromRGB(0,0,0),
-            outlineColorpicker = nil,
-            font = 2,
-            size = 15,
-            showDistance = false,
-            namesOutlineToggle = nil,
-            namesColorpicker = nil,
-            namesOutlineColorpicker = nil,
-            showDistanceToggle = nil
-        },
-        healthBar = {
-            enabled = false,
-            side = "Left",
-            offset = 8,
-            healthBarToggle = nil
-        },
-        teamCheck = {
-            enabled = false,
-            teamCheckToggle = nil
+            Survivors = {Enabled = false, Color = Color3.fromRGB(100, 255, 100), Colorpicker = nil},
+            Killers = {Enabled = false, Color = Color3.fromRGB(255, 100, 100), Colorpicker = nil},
+            Generators = {Enabled = false, Color = Color3.fromRGB(100, 170, 255)},
+            Pallets = {Enabled = false, Color = Color3.fromRGB(120, 80, 40), Colorpicker = nil},
+            ExitGates = {Enabled = false, Color = Color3.fromRGB(200, 200, 100), Colorpicker = nil},
+            Windows = {Enabled = false, Color = Color3.fromRGB(100, 200, 200), Colorpicker = nil},
+            Hooks = {Enabled = false, Color = Color3.fromRGB(100, 50, 150), Colorpicker = nil}
         },
         trackedObjects = {},
         espConnections = {},
         espLoopRunning = false,
         showGeneratorPercent = true,
-        espObjects = {},
-        drawingConnections = {},
-        uiElements = {}
+        boxESPEnabled = false,
+        namesESPEnabled = false,
+        teamCheckEnabled = false,
+        healthBarEnabled = false,
+        boxColor = Color3.fromRGB(255, 255, 255),
+        namesColor = Color3.fromRGB(255, 255, 255),
+        boxESPObjects = {},
+        drawings = {}
     },
     Effects = {
         noShadowEnabled = false,
@@ -66,9 +36,7 @@ local Visual = {
         originalFogStart = nil,
         originalFogColor = nil,
         fogCache = nil,
-        originalClockTime = nil,
-        originalAtmosphere = {},
-        originalPostEffects = {}
+        originalClockTime = nil
     }
 }
 
@@ -102,18 +70,18 @@ function Visual.EnsureHighlight(model, color, isObject)
         hl.Adornee = model
         hl.FillColor = color
         hl.FillTransparency = 0.8
-        hl.OutlineColor = Color3.fromRGB(0,0,0)
+        hl.OutlineColor = Color3.fromRGB(0, 0, 0)
         hl.OutlineTransparency = 0.1
         hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
         hl.Parent = model
     else
         hl.FillColor = color
         if isObject then
-            hl.OutlineColor = Color3.fromRGB(0,0,0)
+            hl.OutlineColor = Color3.fromRGB(0, 0, 0)
             hl.FillTransparency = 0.7
             hl.OutlineTransparency = 0.1
         else
-            hl.OutlineColor = Color3.fromRGB(0,0,0)
+            hl.OutlineColor = Color3.fromRGB(0, 0, 0)
             hl.FillTransparency = 0.7
             hl.OutlineTransparency = 0.1
         end
@@ -133,11 +101,11 @@ function Visual.EnsureLabel(model, text, isGenerator, textColor)
         lbl = Instance.new("BillboardGui")
         lbl.Name = "VD_Label"
         if isGenerator then
-            lbl.Size = UDim2.new(0,100,0,25)
-            lbl.StudsOffset = Vector3.new(0,2.5,0)
+            lbl.Size = UDim2.new(0, 100, 0, 25)
+            lbl.StudsOffset = Vector3.new(0, 2.5, 0)
         else
-            lbl.Size = UDim2.new(0,120,0,20)
-            lbl.StudsOffset = Vector3.new(0,3,0)
+            lbl.Size = UDim2.new(0, 120, 0, 20)
+            lbl.StudsOffset = Vector3.new(0, 3, 0)
         end
         lbl.AlwaysOnTop = true
         lbl.MaxDistance = 1000
@@ -145,7 +113,7 @@ function Visual.EnsureLabel(model, text, isGenerator, textColor)
         
         local textLabel = Instance.new("TextLabel")
         textLabel.Name = "TextLabel"
-        textLabel.Size = UDim2.new(1,0,1,0)
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
         textLabel.BackgroundTransparency = 1
         textLabel.TextScaled = false
         if isGenerator then
@@ -156,8 +124,8 @@ function Visual.EnsureLabel(model, text, isGenerator, textColor)
         textLabel.Font = Enum.Font.SourceSansBold
         textLabel.RichText = true
         textLabel.TextStrokeTransparency = 0.1
-        textLabel.TextStrokeColor3 = Color3.fromRGB(0,0,0)
-        textLabel.TextColor3 = textColor or Color3.fromRGB(255,255,255)
+        textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        textLabel.TextColor3 = textColor or Color3.fromRGB(255, 255, 255)
         textLabel.Text = text
         textLabel.Parent = lbl
     else
@@ -167,13 +135,13 @@ function Visual.EnsureLabel(model, text, isGenerator, textColor)
             textLabel.Text = text
             if isGenerator then
                 textLabel.TextSize = 14
-                lbl.StudsOffset = Vector3.new(0,2.5,0)
+                lbl.StudsOffset = Vector3.new(0, 2.5, 0)
             else
                 textLabel.TextSize = 12
-                lbl.StudsOffset = Vector3.new(0,3,0)
+                lbl.StudsOffset = Vector3.new(0, 3, 0)
             end
             textLabel.TextStrokeTransparency = 0.1
-            textLabel.TextColor3 = textColor or Color3.fromRGB(255,255,255)
+            textLabel.TextColor3 = textColor or Color3.fromRGB(255, 255, 255)
         end
     end
 end
@@ -209,13 +177,13 @@ function Visual.EnsureGeneratorESP(generator, progress)
         hl.Adornee = generator
         hl.FillColor = color
         hl.FillTransparency = 0.7
-        hl.OutlineColor = Color3.fromRGB(0,0,0)
+        hl.OutlineColor = Color3.fromRGB(0, 0, 0)
         hl.OutlineTransparency = 0.1
         hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
         hl.Parent = generator
     else
         hl.FillColor = color
-        hl.OutlineColor = Color3.fromRGB(0,0,0)
+        hl.OutlineColor = Color3.fromRGB(0, 0, 0)
         hl.FillTransparency = 0.7
         hl.OutlineTransparency = 0.1
     end
@@ -234,21 +202,6 @@ function Visual.GetRole(targetPlayer)
         if n:find("survivor") then return "Survivor" end
     end
     return "Survivor"
-end
-
-function Visual.GetTeamColor(targetPlayer)
-    if not Visual.ESP.teamCheck.enabled then
-        return Visual.ESP.boxESP.color
-    end
-    
-    local myRole = Visual.GetRole(Nexus.Player)
-    local targetRole = Visual.GetRole(targetPlayer)
-    
-    if myRole == targetRole then
-        return Color3.fromRGB(0, 0, 255)
-    else
-        return Color3.fromRGB(255, 0, 0)
-    end
 end
 
 function Visual.AddObjectToTrack(obj)
@@ -288,225 +241,6 @@ function Visual.IsValidPallet(obj)
     end
     
     return false
-end
-
-function Visual.CreateDrawingESP(player)
-    local espData = {}
-    espData.Box = Drawing.new("Square")
-    espData.BoxOutline = Drawing.new("Square")
-    espData.Name = Drawing.new("Text")
-    espData.HealthBar = Drawing.new("Square")
-    espData.HealthBarOutline = Drawing.new("Square")
-    espData.Updater = nil
-    
-    Visual.ESP.espObjects[player] = espData
-    
-    local function UpdateDrawingESP()
-        local espData = Visual.ESP.espObjects[player]
-        if not espData then return end
-        
-        if player.Character ~= nil and player.Character:FindFirstChild("Humanoid") ~= nil and 
-           player.Character:FindFirstChild("HumanoidRootPart") ~= nil and 
-           player.Character.Humanoid.Health > 0 and player.Character:FindFirstChild("Head") ~= nil then
-            
-            local target2dPosition, isVisible = Nexus.Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
-            local scale_factor = 1 / (target2dPosition.Z * math.tan(math.rad(Nexus.Camera.FieldOfView * 0.5)) * 2) * 100
-            local width, height = math.floor(40 * scale_factor), math.floor(60 * scale_factor)
-            
-            if Visual.ESP.boxESP.enabled then
-                espData.Box.Visible = isVisible
-                espData.Box.Color = Visual.GetTeamColor(player)
-                espData.Box.Size = Vector2.new(width,height)
-                espData.Box.Position = Vector2.new(target2dPosition.X - espData.Box.Size.X / 2, target2dPosition.Y - espData.Box.Size.Y / 2)
-                espData.Box.Thickness = 1
-                espData.Box.ZIndex = 69
-                
-                if Visual.ESP.boxESP.outline then
-                    espData.BoxOutline.Visible = isVisible
-                    espData.BoxOutline.Color = Visual.ESP.boxESP.outlineColor
-                    espData.BoxOutline.Size = Vector2.new(width,height)
-                    espData.BoxOutline.Position = Vector2.new(target2dPosition.X - espData.Box.Size.X / 2, target2dPosition.Y - espData.Box.Size.Y / 2)
-                    espData.BoxOutline.Thickness = 3
-                    espData.BoxOutline.ZIndex = 1
-                else
-                    espData.BoxOutline.Visible = false
-                end
-            else
-                espData.Box.Visible = false
-                espData.BoxOutline.Visible = false
-            end
-            
-            if Visual.ESP.namesESP.enabled then
-                espData.Name.Visible = isVisible
-                espData.Name.Color = Visual.ESP.namesESP.color
-                local nameText = player.Name
-                if Visual.ESP.namesESP.showDistance then
-                    local distance = math.floor((Nexus.Camera.CFrame.p - player.Character.HumanoidRootPart.Position).magnitude)
-                    nameText = nameText .. " " .. distance .. "m"
-                end
-                espData.Name.Text = nameText
-                espData.Name.Center = true
-                espData.Name.Outline = Visual.ESP.namesESP.outline
-                espData.Name.OutlineColor = Visual.ESP.namesESP.outlineColor
-                espData.Name.Position = Vector2.new(target2dPosition.X, target2dPosition.Y - height * 0.5 + -15)
-                espData.Name.Font = Visual.ESP.namesESP.font
-                espData.Name.Size = Visual.ESP.namesESP.size
-            else
-                espData.Name.Visible = false
-            end
-            
-            if Visual.ESP.healthBar.enabled then
-                espData.HealthBarOutline.Visible = isVisible
-                espData.HealthBarOutline.Color = Color3.fromRGB(0,0,0)
-                espData.HealthBarOutline.Filled = true
-                espData.HealthBarOutline.ZIndex = 1
-    
-                espData.HealthBar.Visible = isVisible
-                espData.HealthBar.Color = Color3.fromRGB(255,0,0):lerp(Color3.fromRGB(0,255,0), player.Character:FindFirstChild("Humanoid").Health/player.Character:FindFirstChild("Humanoid").MaxHealth)
-                espData.HealthBar.Thickness = 1
-                espData.HealthBar.Filled = true
-                espData.HealthBar.ZIndex = 69
-                
-                local boxPosition = Vector2.new(target2dPosition.X - width / 2, target2dPosition.Y - height / 2)
-                
-                if Visual.ESP.healthBar.side == "Left" then
-                    espData.HealthBarOutline.Size = Vector2.new(2,height)
-                    espData.HealthBarOutline.Position = boxPosition + Vector2.new(-Visual.ESP.healthBar.offset,0)
-                    
-                    espData.HealthBar.Size = Vector2.new(1,-(espData.HealthBarOutline.Size.Y - 2) * (player.Character:FindFirstChild("Humanoid").Health/player.Character:FindFirstChild("Humanoid").MaxHealth))
-                    espData.HealthBar.Position = espData.HealthBarOutline.Position + Vector2.new(1,-1 + espData.HealthBarOutline.Size.Y)
-                    
-                elseif Visual.ESP.healthBar.side == "Bottom" then
-                    espData.HealthBarOutline.Size = Vector2.new(width,3)
-                    espData.HealthBarOutline.Position = boxPosition + Vector2.new(0,height + Visual.ESP.healthBar.offset)
-
-                    espData.HealthBar.Size = Vector2.new((espData.HealthBarOutline.Size.X - 2) * (player.Character:FindFirstChild("Humanoid").Health/player.Character:FindFirstChild("Humanoid").MaxHealth),1)
-                    espData.HealthBar.Position = espData.HealthBarOutline.Position + Vector2.new(1,-1 + espData.HealthBarOutline.Size.Y)
-                    
-                elseif Visual.ESP.healthBar.side == "Right" then
-                    espData.HealthBarOutline.Size = Vector2.new(2,height)
-                    espData.HealthBarOutline.Position = boxPosition + Vector2.new(width + Visual.ESP.healthBar.offset - 1,0)
-                    
-                    espData.HealthBar.Size = Vector2.new(1,-(espData.HealthBarOutline.Size.Y - 2) * (player.Character:FindFirstChild("Humanoid").Health/player.Character:FindFirstChild("Humanoid").MaxHealth))
-                    espData.HealthBar.Position = espData.HealthBarOutline.Position + Vector2.new(1,-1 + espData.HealthBarOutline.Size.Y)
-                end
-            else
-                espData.HealthBar.Visible = false
-                espData.HealthBarOutline.Visible = false
-            end
-        else
-            espData.Box.Visible = false
-            espData.BoxOutline.Visible = false
-            espData.Name.Visible = false
-            espData.HealthBar.Visible = false
-            espData.HealthBarOutline.Visible = false
-        end
-    end
-    
-    espData.Updater = Nexus.Services.RunService.RenderStepped:Connect(UpdateDrawingESP)
-    
-    local function CleanupDrawingESP()
-        local espData = Visual.ESP.espObjects[player]
-        if espData then
-            if espData.Updater then
-                espData.Updater:Disconnect()
-            end
-
-            espData.Box.Visible = false
-            espData.BoxOutline.Visible = false
-            espData.Name.Visible = false
-            espData.HealthBar.Visible = false
-            espData.HealthBarOutline.Visible = false
-            
-            pcall(function() espData.Box:Remove() end)
-            pcall(function() espData.BoxOutline:Remove() end)
-            pcall(function() espData.Name:Remove() end)
-            pcall(function() espData.HealthBar:Remove() end)
-            pcall(function() espData.HealthBarOutline:Remove() end)
-            
-            Visual.ESP.espObjects[player] = nil
-        end
-    end
-    
-    if player.CharacterRemoving then
-        player.CharacterRemoving:Connect(CleanupDrawingESP)
-    end
-    
-    player.AncestryChanged:Connect(function()
-        if not player.Parent then
-            CleanupDrawingESP()
-        end
-    end)
-end
-
-function Visual.SetupPlayerDrawingESP(player)
-    if player == Nexus.Player then return end
-    
-    Visual.CreateDrawingESP(player)
-end
-
-function Visual.CleanupPlayerDrawingESP(player)
-    local espData = Visual.ESP.espObjects[player]
-    if espData then
-        if espData.Updater then
-            espData.Updater:Disconnect()
-        end
-        
-        espData.Box.Visible = false
-        espData.BoxOutline.Visible = false
-        espData.Name.Visible = false
-        espData.HealthBar.Visible = false
-        espData.HealthBarOutline.Visible = false
-        
-        pcall(function() espData.Box:Remove() end)
-        pcall(function() espData.BoxOutline:Remove() end)
-        pcall(function() espData.Name:Remove() end)
-        pcall(function() espData.HealthBar:Remove() end)
-        pcall(function() espData.HealthBarOutline:Remove() end)
-        
-        Visual.ESP.espObjects[player] = nil
-    end
-end
-
-function Visual.StartDrawingESP()
-    for _, player in pairs(Nexus.Services.Players:GetPlayers()) do
-        if player ~= Nexus.Player then
-            Visual.SetupPlayerDrawingESP(player)
-        end
-    end
-    
-    Visual.ESP.drawingConnections.playerAdded = Nexus.Services.Players.PlayerAdded:Connect(function(player)
-        if player ~= Nexus.Player then
-            Visual.SetupPlayerDrawingESP(player)
-        end
-    end)
-    
-    Visual.ESP.drawingConnections.playerRemoving = Nexus.Services.Players.PlayerRemoving:Connect(function(player)
-        Visual.CleanupPlayerDrawingESP(player)
-    end)
-end
-
-function Visual.StopDrawingESP()
-    for player, _ in pairs(Visual.ESP.espObjects) do
-        Visual.CleanupPlayerDrawingESP(player)
-    end
-    
-    for _, connection in pairs(Visual.ESP.drawingConnections) do
-        Nexus.safeDisconnect(connection)
-    end
-    Visual.ESP.drawingConnections = {}
-end
-
-function Visual.CheckIfDrawingESPNeeded()
-    local anyEnabled = Visual.ESP.boxESP.enabled or Visual.ESP.namesESP.enabled or Visual.ESP.healthBar.enabled
-    
-    if anyEnabled then
-        Visual.StartDrawingESP()
-    else
-        Visual.StopDrawingESP()
-    end
-    
-    return anyEnabled
 end
 
 function Visual.TrackObjects()
@@ -624,87 +358,12 @@ function Visual.ToggleESPSetting(settingName, enabled)
             end
         end
         
-        if (anyEnabled) and not Visual.ESP.espLoopRunning then
+        if anyEnabled and not Visual.ESP.espLoopRunning then
             Visual.StartESP()
         elseif not anyEnabled and Visual.ESP.espLoopRunning then
             Visual.StopESP()
         end
     end
-end
-
-function Visual.UpdateUIElements()
-    if Visual.ESP.uiElements.BoxOutlineToggle then
-        Visual.ESP.uiElements.BoxOutlineToggle.Visible = Visual.ESP.boxESP.enabled
-    end
-    if Visual.ESP.uiElements.BoxOutlineColorpicker then
-        Visual.ESP.uiElements.BoxOutlineColorpicker.Visible = Visual.ESP.boxESP.enabled and Visual.ESP.boxESP.outline
-    end
-    
-    if Visual.ESP.uiElements.NamesESP then
-        Visual.ESP.uiElements.NamesESP.Visible = Visual.ESP.boxESP.enabled
-    end
-    if Visual.ESP.uiElements.NamesOutlineToggle then
-        Visual.ESP.uiElements.NamesOutlineToggle.Visible = Visual.ESP.boxESP.enabled and Visual.ESP.namesESP.enabled
-    end
-    if Visual.ESP.uiElements.NamesColorpicker then
-        Visual.ESP.uiElements.NamesColorpicker.Visible = Visual.ESP.boxESP.enabled and Visual.ESP.namesESP.enabled
-    end
-    if Visual.ESP.uiElements.NamesOutlineColorpicker then
-        Visual.ESP.uiElements.NamesOutlineColorpicker.Visible = Visual.ESP.boxESP.enabled and Visual.ESP.namesESP.enabled and Visual.ESP.namesESP.outline
-    end
-    if Visual.ESP.uiElements.ShowDistanceToggle then
-        Visual.ESP.uiElements.ShowDistanceToggle.Visible = Visual.ESP.boxESP.enabled and Visual.ESP.namesESP.enabled
-    end
-    
-    if Visual.ESP.uiElements.HealthBarToggle then
-        Visual.ESP.uiElements.HealthBarToggle.Visible = Visual.ESP.boxESP.enabled
-    end
-    
-    if Visual.ESP.uiElements.TeamCheckToggle then
-        Visual.ESP.uiElements.TeamCheckToggle.Visible = Visual.ESP.boxESP.enabled
-    end
-end
-
-function Visual.ToggleBoxESP(enabled)
-    Visual.ESP.boxESP.enabled = enabled
-    Visual.CheckIfDrawingESPNeeded()
-    Visual.UpdateUIElements()
-end
-
-function Visual.ToggleBoxOutline(enabled)
-    Visual.ESP.boxESP.outline = enabled
-    Visual.CheckIfDrawingESPNeeded()
-    Visual.UpdateUIElements()
-end
-
-function Visual.ToggleNamesESP(enabled)
-    Visual.ESP.namesESP.enabled = enabled
-    Visual.CheckIfDrawingESPNeeded()
-    Visual.UpdateUIElements()
-end
-
-function Visual.ToggleNamesOutline(enabled)
-    Visual.ESP.namesESP.outline = enabled
-    Visual.CheckIfDrawingESPNeeded()
-    Visual.UpdateUIElements()
-end
-
-function Visual.ToggleHealthBar(enabled)
-    Visual.ESP.healthBar.enabled = enabled
-    Visual.CheckIfDrawingESPNeeded()
-    Visual.UpdateUIElements()
-end
-
-function Visual.ToggleTeamCheck(enabled)
-    Visual.ESP.teamCheck.enabled = enabled
-    Visual.CheckIfDrawingESPNeeded()
-    Visual.UpdateUIElements()
-end
-
-function Visual.ToggleShowDistance(enabled)
-    Visual.ESP.namesESP.showDistance = enabled
-    Visual.CheckIfDrawingESPNeeded()
-    Visual.UpdateUIElements()
 end
 
 function Visual.UpdateESPColors()
@@ -716,6 +375,202 @@ end
 function Visual.UpdateESPDisplay()
     if Visual.ESP.espLoopRunning then
         Visual.UpdateESP()
+    end
+end
+
+function Visual.GetTeamCheckColor(player)
+    if Visual.ESP.teamCheckEnabled then
+        local localTeam = Visual.GetRole(Nexus.Player)
+        local playerTeam = Visual.GetRole(player)
+        
+        if localTeam == playerTeam then
+            return Color3.fromRGB(0, 0, 255)
+        else
+            return Color3.fromRGB(255, 0, 0)
+        end
+    else
+        return Visual.ESP.boxColor
+    end
+end
+
+function Visual.CreateBoxESP(player)
+    local espData = {}
+    espData.Box = Drawing.new("Square")
+    espData.BoxOutline = Drawing.new("Square")
+    espData.Name = Drawing.new("Text")
+    espData.HealthBar = Drawing.new("Square")
+    espData.HealthBarOutline = Drawing.new("Square")
+    espData.Updater = nil
+    
+    Visual.ESP.boxESPObjects[player] = espData
+    
+    local function UpdateBoxESP()
+        if player.Character ~= nil and player.Character:FindFirstChild("Humanoid") ~= nil and player.Character:FindFirstChild("HumanoidRootPart") ~= nil and player.Character.Humanoid.Health > 0 and player.Character:FindFirstChild("Head") ~= nil then
+            local Target2dPosition, IsVisible = workspace.CurrentCamera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+            local scale_factor = 1 / (Target2dPosition.Z * math.tan(math.rad(workspace.CurrentCamera.FieldOfView * 0.5)) * 2) * 100
+            local width, height = math.floor(40 * scale_factor), math.floor(60 * scale_factor)
+            
+            if Visual.ESP.boxESPEnabled then
+                espData.Box.Visible = IsVisible
+                espData.Box.Color = Visual.GetTeamCheckColor(player)
+                espData.Box.Size = Vector2.new(width, height)
+                espData.Box.Position = Vector2.new(Target2dPosition.X - espData.Box.Size.X / 2, Target2dPosition.Y - espData.Box.Size.Y / 2)
+                espData.Box.Thickness = 1
+                espData.Box.ZIndex = 69
+                
+                espData.BoxOutline.Visible = IsVisible
+                espData.BoxOutline.Color = Color3.fromRGB(0, 0, 0)
+                espData.BoxOutline.Size = Vector2.new(width, height)
+                espData.BoxOutline.Position = Vector2.new(Target2dPosition.X - espData.Box.Size.X / 2, Target2dPosition.Y - espData.Box.Size.Y / 2)
+                espData.BoxOutline.Thickness = 3
+                espData.BoxOutline.ZIndex = 1
+            else
+                espData.Box.Visible = false
+                espData.BoxOutline.Visible = false
+            end
+            
+            if Visual.ESP.namesESPEnabled then
+                espData.Name.Visible = IsVisible
+                espData.Name.Color = Visual.ESP.namesColor
+                espData.Name.Text = player.Name .. " " .. math.floor((workspace.CurrentCamera.CFrame.p - player.Character.HumanoidRootPart.Position).magnitude) .. "m"
+                espData.Name.Center = true
+                espData.Name.Outline = true
+                espData.Name.OutlineColor = Color3.fromRGB(0, 0, 0)
+                espData.Name.Position = Vector2.new(Target2dPosition.X, Target2dPosition.Y - height * 0.5 + -15)
+                espData.Name.Font = 2
+                espData.Name.Size = 13
+            else
+                espData.Name.Visible = false
+            end
+            
+            if Visual.ESP.healthBarEnabled then
+                espData.HealthBarOutline.Visible = IsVisible
+                espData.HealthBarOutline.Color = Color3.fromRGB(0, 0, 0)
+                espData.HealthBarOutline.Filled = true
+                espData.HealthBarOutline.ZIndex = 1
+
+                espData.HealthBar.Visible = IsVisible
+                espData.HealthBar.Color = Color3.fromRGB(255, 0, 0):lerp(Color3.fromRGB(0, 255, 0), player.Character:FindFirstChild("Humanoid").Health / player.Character:FindFirstChild("Humanoid").MaxHealth)
+                espData.HealthBar.Thickness = 1
+                espData.HealthBar.Filled = true
+                espData.HealthBar.ZIndex = 69
+                
+                local boxPosition = Vector2.new(Target2dPosition.X - width / 2, Target2dPosition.Y - height / 2)
+                
+                espData.HealthBarOutline.Size = Vector2.new(2, height)
+                espData.HealthBarOutline.Position = boxPosition + Vector2.new(-4, 0)
+                
+                espData.HealthBar.Size = Vector2.new(1, -(espData.HealthBarOutline.Size.Y - 2) * (player.Character:FindFirstChild("Humanoid").Health / player.Character:FindFirstChild("Humanoid").MaxHealth))
+                espData.HealthBar.Position = espData.HealthBarOutline.Position + Vector2.new(1, -1 + espData.HealthBarOutline.Size.Y)
+            else
+                espData.HealthBar.Visible = false
+                espData.HealthBarOutline.Visible = false
+            end
+        else
+            espData.Box.Visible = false
+            espData.BoxOutline.Visible = false
+            espData.Name.Visible = false
+            espData.HealthBar.Visible = false
+            espData.HealthBarOutline.Visible = false
+        end
+    end
+    
+    espData.Updater = game:GetService("RunService").RenderStepped:Connect(UpdateBoxESP)
+    
+    local function CleanupBoxESP()
+        if espData.Updater then
+            espData.Updater:Disconnect()
+        end
+        espData.Box.Visible = false
+        espData.BoxOutline.Visible = false
+        espData.Name.Visible = false
+        espData.HealthBar.Visible = false
+        espData.HealthBarOutline.Visible = false
+        Visual.ESP.boxESPObjects[player] = nil
+    end
+    
+    player.CharacterRemoving:Connect(CleanupBoxESP)
+    
+    player.AncestryChanged:Connect(function()
+        if not player.Parent then
+            CleanupBoxESP()
+        end
+    end)
+end
+
+function Visual.InitializeBoxESP()
+    for _, player in ipairs(Nexus.Services.Players:GetPlayers()) do
+        if player ~= Nexus.Player then
+            Visual.CreateBoxESP(player)
+        end
+    end
+end
+
+function Visual.UpdateAllBoxESP()
+    for _, espData in pairs(Visual.ESP.boxESPObjects) do
+        if espData.Updater then
+            local success = pcall(function()
+                espData.Updater:Disconnect()
+            end)
+        end
+    end
+    
+    Visual.ESP.boxESPObjects = {}
+    Visual.InitializeBoxESP()
+end
+
+function Visual.ToggleBoxESP(enabled)
+    Visual.ESP.boxESPEnabled = enabled
+    
+    if enabled then
+        Visual.InitializeBoxESP()
+        if not Visual.ESP.espConnections.boxESPPlayerAdded then
+            Visual.ESP.espConnections.boxESPPlayerAdded = Nexus.Services.Players.PlayerAdded:Connect(function(player)
+                if player ~= Nexus.Player then
+                    Visual.CreateBoxESP(player)
+                end
+            end)
+        end
+    else
+        for _, espData in pairs(Visual.ESP.boxESPObjects) do
+            espData.Box.Visible = false
+            espData.BoxOutline.Visible = false
+        end
+    end
+end
+
+function Visual.ToggleNamesESP(enabled)
+    Visual.ESP.namesESPEnabled = enabled
+    
+    if enabled and Visual.ESP.boxESPEnabled then
+        for _, espData in pairs(Visual.ESP.boxESPObjects) do
+            espData.Name.Visible = true
+        end
+    elseif not enabled then
+        for _, espData in pairs(Visual.ESP.boxESPObjects) do
+            espData.Name.Visible = false
+        end
+    end
+end
+
+function Visual.ToggleTeamCheck(enabled)
+    Visual.ESP.teamCheckEnabled = enabled
+    Visual.UpdateAllBoxESP()
+end
+
+function Visual.ToggleHealthBar(enabled)
+    Visual.ESP.healthBarEnabled = enabled
+    
+    if enabled and Visual.ESP.boxESPEnabled then
+        for _, espData in pairs(Visual.ESP.boxESPObjects) do
+            espData.HealthBar.Visible = true
+            espData.HealthBarOutline.Visible = true
+        end
+    elseif not enabled then
+        for _, espData in pairs(Visual.ESP.boxESPObjects) do
+            espData.HealthBar.Visible = false
+            espData.HealthBarOutline.Visible = false
+        end
     end
 end
 
@@ -738,88 +593,39 @@ function Visual.ToggleNoShadow(enabled)
     end
 end
 
-function Visual.SaveOriginalFogSettings()
-    local lighting = Nexus.Services.Lighting
-    
-    Visual.Effects.originalFogEnd = lighting.FogEnd
-    Visual.Effects.originalFogStart = lighting.FogStart
-    Visual.Effects.originalFogColor = lighting.FogColor
-    Visual.Effects.originalAtmosphere = {}
-    Visual.Effects.originalPostEffects = {}
-    
-    for _, effect in ipairs(lighting:GetChildren()) do
-        if effect:IsA("Atmosphere") then
-            table.insert(Visual.Effects.originalAtmosphere, effect:Clone())
-        elseif effect:IsA("BloomEffect") or effect:IsA("BlurEffect") or effect:IsA("ColorCorrectionEffect") then
-            table.insert(Visual.Effects.originalPostEffects, effect:Clone())
-        end
-    end
-end
-
-function Visual.RestoreOriginalFogSettings()
-    local lighting = Nexus.Services.Lighting
-    
-    if Visual.Effects.originalFogEnd then
-        lighting.FogEnd = Visual.Effects.originalFogEnd
-    end
-    
-    if Visual.Effects.originalFogStart then
-        lighting.FogStart = Visual.Effects.originalFogStart
-    end
-    
-    if Visual.Effects.originalFogColor then
-        lighting.FogColor = Visual.Effects.originalFogColor
-    end
-    
-    for _, effect in ipairs(Visual.Effects.originalAtmosphere) do
-        local newEffect = effect:Clone()
-        newEffect.Parent = lighting
-    end
-    
-    for _, effect in ipairs(Visual.Effects.originalPostEffects) do
-        local newEffect = effect:Clone()
-        newEffect.Parent = lighting
-    end
-end
-
 function Visual.ToggleNoFog(enabled)
     Visual.Effects.noFogEnabled = enabled
     
     if enabled then
-        if not Visual.Effects.originalFogEnd then
-            Visual.SaveOriginalFogSettings()
-        end
-        
         pcall(function()
             local lighting = Nexus.Services.Lighting
             
-            for _, effect in ipairs(lighting:GetChildren()) do
-                if effect:IsA("Atmosphere") or 
-                   effect.Name:lower():find("fog") or 
-                   effect.Name:lower():find("bloom") or
-                   effect.Name:lower():find("blur") or
-                   effect.Name:lower():find("color") then
-                    effect:Destroy()
+            if not Visual.Effects.fogCache then
+                Visual.Effects.fogCache = {
+                    FogEnd = lighting.FogEnd,
+                    FogStart = lighting.FogStart,
+                    FogColor = lighting.FogColor,
+                    FogDensity = lighting.FogDensity,
+                    GlobalShadows = lighting.GlobalShadows
+                }
+                
+                for _, effect in ipairs(lighting:GetChildren()) do
+                    if effect:IsA("Atmosphere") or effect.Name:lower():find("fog") then
+                        Visual.Effects.fogCache[effect.Name] = effect:Clone()
+                    end
                 end
             end
             
-            local map = Nexus.Services.Workspace:FindFirstChild("Map")
-            if map then
-                for _, obj in ipairs(map:GetDescendants()) do
-                    if obj:IsA("Atmosphere") or 
-                       obj:IsA("BloomEffect") or 
-                       obj:IsA("BlurEffect") or 
-                       obj:IsA("ColorCorrectionEffect") or
-                       obj.Name:lower():find("fog") then
-                        obj:Destroy()
-                    end
+            for _, effect in ipairs(lighting:GetChildren()) do
+                if effect:IsA("Atmosphere") or effect.Name:lower():find("fog") then
+                    effect:Destroy()
                 end
             end
             
             lighting.FogEnd = 10000000
             lighting.FogStart = 0
             lighting.FogDensity = 0
-            lighting.GlobalShadows = true
+            lighting.FogColor = Color3.fromRGB(255, 255, 255)
             
             if Visual.ESP.espConnections.noFog then
                 Visual.ESP.espConnections.noFog:Disconnect()
@@ -839,7 +645,25 @@ function Visual.ToggleNoFog(enabled)
             Visual.ESP.espConnections.noFog = nil
         end
         
-        Visual.RestoreOriginalFogSettings()
+        if Visual.Effects.fogCache then
+            local lighting = Nexus.Services.Lighting
+            lighting.FogEnd = Visual.Effects.fogCache.FogEnd
+            lighting.FogStart = Visual.Effects.fogCache.FogStart
+            lighting.FogColor = Visual.Effects.fogCache.FogColor
+            lighting.FogDensity = Visual.Effects.fogCache.FogDensity
+            lighting.GlobalShadows = Visual.Effects.fogCache.GlobalShadows
+            
+            for name, cachedEffect in pairs(Visual.Effects.fogCache) do
+                if typeof(cachedEffect) == "Instance" and cachedEffect:IsA("Atmosphere") then
+                    local existing = lighting:FindFirstChild(name)
+                    if not existing then
+                        cachedEffect:Clone().Parent = lighting
+                    end
+                end
+            end
+            
+            Visual.Effects.fogCache = nil
+        end
     end
 end
 
@@ -1088,110 +912,63 @@ function Visual.Init(nxs)
     Visual.ESP.settings.ExitGates.Colorpicker = GateColorpicker
     Visual.ESP.settings.Windows.Colorpicker = WindowColorpicker
 
-    Tabs.Visual:AddSection("Drawing ESP")
+    Tabs.Visual:AddSection("Box ESP Settings")
 
     local BoxESPToggle = Tabs.Visual:AddToggle("BoxESP", {
-        Title = "Box ESP", 
-        Description = "Show/hide player boxes", 
+        Title = "Box ESP",
+        Description = "",
         Default = false
     })
-    BoxESPToggle:OnChanged(function(v) Visual.ToggleBoxESP(v) end)
-
-    local BoxOutlineToggle = Tabs.Visual:AddToggle("BoxOutline", {
-        Title = "Box Outline", 
-        Description = "Show/hide box outline", 
-        Default = false
-    })
-    BoxOutlineToggle:OnChanged(function(v) Visual.ToggleBoxOutline(v) end)
+    BoxESPToggle:OnChanged(function(v)
+        Visual.ToggleBoxESP(v)
+    end)
 
     local BoxColorpicker = Tabs.Visual:AddColorpicker("BoxColorpicker", {
         Title = "Box Color",
         Default = Color3.fromRGB(255, 255, 255)
     })
     BoxColorpicker:OnChanged(function()
-        Visual.ESP.boxESP.color = BoxColorpicker.Value
+        Visual.ESP.boxColor = BoxColorpicker.Value
+        Visual.UpdateAllBoxESP()
     end)
     BoxColorpicker:SetValueRGB(Color3.fromRGB(255, 255, 255))
-    Visual.ESP.boxESP.colorpicker = BoxColorpicker
 
-    local BoxOutlineColorpicker = Tabs.Visual:AddColorpicker("BoxOutlineColorpicker", {
-        Title = "Box Outline Color",
-        Default = Color3.fromRGB(0, 0, 0)
+    local NamesESPToggle = Tabs.Visual:AddToggle("NamesESP", {
+        Title = "Names ESP",
+        Description = "",
+        Default = false
     })
-    BoxOutlineColorpicker:OnChanged(function()
-        Visual.ESP.boxESP.outlineColor = BoxOutlineColorpicker.Value
+    NamesESPToggle:OnChanged(function(v)
+        Visual.ToggleNamesESP(v)
     end)
-    BoxOutlineColorpicker:SetValueRGB(Color3.fromRGB(0, 0, 0))
-    Visual.ESP.boxESP.outlineColorpicker = BoxOutlineColorpicker
-
-    local NamesESP = Tabs.Visual:AddToggle("NamesESP", {
-        Title = "Names ESP", 
-        Description = "Show/hide player names", 
-        Default = false
-    })
-    NamesESP:OnChanged(function(v) Visual.ToggleNamesESP(v) end)
-
-    local NamesOutlineToggle = Tabs.Visual:AddToggle("NamesOutline", {
-        Title = "Names Outline", 
-        Description = "Show/hide names outline", 
-        Default = false
-    })
-    NamesOutlineToggle:OnChanged(function(v) Visual.ToggleNamesOutline(v) end)
 
     local NamesColorpicker = Tabs.Visual:AddColorpicker("NamesColorpicker", {
         Title = "Names Color",
         Default = Color3.fromRGB(255, 255, 255)
     })
     NamesColorpicker:OnChanged(function()
-        Visual.ESP.namesESP.color = NamesColorpicker.Value
+        Visual.ESP.namesColor = NamesColorpicker.Value
+        Visual.UpdateAllBoxESP()
     end)
     NamesColorpicker:SetValueRGB(Color3.fromRGB(255, 255, 255))
-    Visual.ESP.namesESP.colorpicker = NamesColorpicker
-
-    local NamesOutlineColorpicker = Tabs.Visual:AddColorpicker("NamesOutlineColorpicker", {
-        Title = "Names Outline Color",
-        Default = Color3.fromRGB(0, 0, 0)
-    })
-    NamesOutlineColorpicker:OnChanged(function()
-        Visual.ESP.namesESP.outlineColor = NamesOutlineColorpicker.Value
-    end)
-    NamesOutlineColorpicker:SetValueRGB(Color3.fromRGB(0, 0, 0))
-    Visual.ESP.namesESP.outlineColorpicker = NamesOutlineColorpicker
-
-    local ShowDistanceToggle = Tabs.Visual:AddToggle("ShowDistance", {
-        Title = "Show Distance", 
-        Description = "Show distance in names", 
-        Default = false
-    })
-    ShowDistanceToggle:OnChanged(function(v) Visual.ToggleShowDistance(v) end)
-
-    local HealthBarToggle = Tabs.Visual:AddToggle("HealthBar", {
-        Title = "Health Bar", 
-        Description = "Show/hide health bar", 
-        Default = false
-    })
-    HealthBarToggle:OnChanged(function(v) Visual.ToggleHealthBar(v) end)
 
     local TeamCheckToggle = Tabs.Visual:AddToggle("TeamCheck", {
-        Title = "Team Check", 
-        Description = "Red for enemies, blue for teammates", 
+        Title = "Team Check",
+        Description = "Show enemies in red, teammates in blue",
         Default = false
     })
-    TeamCheckToggle:OnChanged(function(v) Visual.ToggleTeamCheck(v) end)
+    TeamCheckToggle:OnChanged(function(v)
+        Visual.ToggleTeamCheck(v)
+    end)
 
-    Visual.ESP.uiElements.BoxOutlineToggle = BoxOutlineToggle
-    Visual.ESP.uiElements.BoxOutlineColorpicker = BoxOutlineColorpicker
-    Visual.ESP.uiElements.NamesESP = NamesESP
-    Visual.ESP.uiElements.NamesOutlineToggle = NamesOutlineToggle
-    Visual.ESP.uiElements.NamesColorpicker = NamesColorpicker
-    Visual.ESP.uiElements.NamesOutlineColorpicker = NamesOutlineColorpicker
-    Visual.ESP.uiElements.ShowDistanceToggle = ShowDistanceToggle
-    Visual.ESP.uiElements.HealthBarToggle = HealthBarToggle
-    Visual.ESP.uiElements.TeamCheckToggle = TeamCheckToggle
-
-    Visual.UpdateUIElements()
-
-    Visual.CheckIfDrawingESPNeeded()
+    local HealthBarToggle = Tabs.Visual:AddToggle("HealthBar", {
+        Title = "Health Bar",
+        Description = "",
+        Default = false
+    })
+    HealthBarToggle:OnChanged(function(v)
+        Visual.ToggleHealthBar(v)
+    end)
 
     task.spawn(function()
         task.wait(2)
@@ -1211,7 +988,18 @@ end
 
 function Visual.Cleanup()
     Visual.StopESP()
-    Visual.StopDrawingESP()
+    
+    for _, espData in pairs(Visual.ESP.boxESPObjects) do
+        if espData.Updater then
+            espData.Updater:Disconnect()
+        end
+        espData.Box:Remove()
+        espData.BoxOutline:Remove()
+        espData.Name:Remove()
+        espData.HealthBar:Remove()
+        espData.HealthBarOutline:Remove()
+    end
+    Visual.ESP.boxESPObjects = {}
     
     Visual.ToggleNoShadow(false)
     Visual.ToggleNoFog(false)
