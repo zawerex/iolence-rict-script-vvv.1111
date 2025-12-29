@@ -751,8 +751,6 @@ local DestroyPallets = (function()
             end
         end
         
-        print("DestroyPallets: Destroyed " .. palletsFound .. " pallets")
-        
         task.delay(3.2, function()
             if savedPosition and character and character:FindFirstChild("HumanoidRootPart") then
                 character.HumanoidRootPart.CFrame = savedPosition
@@ -762,12 +760,12 @@ local DestroyPallets = (function()
     
     local function resetPalletsState()
         destroyed = false
-        print("DestroyPallets: State reset")
+            
     end
     
     local function checkForNewMap()
         resetPalletsState()
-        print("DestroyPallets: Map changed, state reset")
+            
     end
     
     local function updateDestroyPallets()
@@ -786,7 +784,6 @@ local DestroyPallets = (function()
                 if obj.Name:find("PalletPoint") then
                     task.wait(0.1)
                     resetPalletsState()
-                    print("DestroyPallets: New pallet detected, state reset")
                 end
             end)
             
@@ -795,9 +792,7 @@ local DestroyPallets = (function()
                     destroyAllPallets()
                 end
             end)
-            print("DestroyPallets: Activated")
         else
-            print("DestroyPallets: Deactivated")
             if connection then
                 connection:Disconnect()
                 connection = nil
@@ -814,7 +809,6 @@ local DestroyPallets = (function()
         if enabled then return end
         enabled = true
         Nexus.States.DestroyPalletsEnabled = true
-        print("DestroyPallets: ON")
         
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
@@ -835,7 +829,6 @@ local DestroyPallets = (function()
         if not enabled then return end
         enabled = false
         Nexus.States.DestroyPalletsEnabled = false
-        print("DestroyPallets: OFF")
         
         if connection then
             connection:Disconnect()
@@ -867,6 +860,7 @@ local DestroyPallets = (function()
         IsEnabled = function() return enabled end
     }
 end)()
+
 -- ========== NO SLOWDOWN ==========
 
 local NoSlowdown = (function()
@@ -2286,10 +2280,6 @@ local NoPalletStun = (function()
                 if setreadonly then
                     setreadonly(mt, false)
                 end
-                
-                -- Нужно найти оригинальный namecall в замыкании
-                -- Для простоты перезагрузим игру или создадим новый экземпляр
-                -- В этом случае проще отключить функцию
             end
         end
         
@@ -2396,7 +2386,8 @@ local function activateMaskPower(maskName)
     return success and result
 end
 
--- ========== MODULE INITIALIZATION ==========
+
+Tabs.Killer:AddSection("Killer", "snowflake")
 
 function Killer.Init(nxs)
     Nexus = nxs
