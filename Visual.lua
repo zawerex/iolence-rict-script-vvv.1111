@@ -28,7 +28,8 @@ local Visual = {
         boxESPObjects = {},
         autoFarmGiftEnabled = false,
         autoFarmRunning = false,
-        autoFarmConnection = nil
+        autoFarmConnection = nil,
+        currentGiftIndex = 1
     },
     Effects = {
         noShadowEnabled = false,
@@ -264,45 +265,11 @@ end
 function Visual.GetAllGifts()
     local gifts = {}
     for obj, typeName in pairs(Visual.ESP.trackedObjects) do
-        if obj and obj.Parent and typeName == "Gifts" then
+        if obj and obj.Parent and typeName == "Gifts" and Visual.IsValidGift(obj) then
             table.insert(gifts, obj)
         end
     end
     return gifts
-end
-
-function Visual.GetNearestGift()
-    local localPlayer = Nexus.Player
-    if not localPlayer or not localPlayer.Character then
-        return nil
-    end
-    
-    local localRoot = localPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not localRoot then
-        return nil
-    end
-    
-    local gifts = Visual.GetAllGifts()
-    if #gifts == 0 then
-        return nil
-    end
-    
-    local nearestGift = nil
-    local nearestDistance = math.huge
-    
-    for _, gift in ipairs(gifts) do
-        if gift and gift.Parent and gift:FindFirstChild("PrimaryPart") then
-            local giftPosition = gift.PrimaryPart.Position
-            local distance = (localRoot.Position - giftPosition).Magnitude
-            
-            if distance < nearestDistance then
-                nearestDistance = distance
-                nearestGift = gift
-            end
-        end
-    end
-    
-    return nearestGift, nearestDistance
 end
 
 function Visual.FindChristmasTree()
@@ -317,7 +284,10 @@ function Visual.FindChristmasTree()
             if christmasTree then
                 christmasTree = christmasTree:FindFirstChild("ChristmasTree")
                 if christmasTree then
-                    return christmasTree:FindFirstChild("TreePine")
+                    local treePine = christmasTree:FindFirstChild("TreePine")
+                    if treePine then
+                        return treePine
+                    end
                 end
             end
         end
@@ -345,21 +315,33 @@ function Visual.TeleportToObject(obj)
         return false
     end
     
-    if obj and obj:FindFirstChild("PrimaryPart") then
-        local targetPosition = obj.PrimaryPart.Position + Vector3.new(0, 3, 0)
-        rootPart.CFrame = CFrame.new(targetPosition)
-        return true
+    if obj then
+        local targetPosition
+        if obj:IsA("BasePart") then
+            targetPosition = obj.Position + Vector3.new(0, 3, 0)
+        elseif obj:IsA("Model") and obj.PrimaryPart then
+            targetPosition = obj.PrimaryPart.Position + Vector3.new(0, 3, 0)
+        else
+            targetPosition = obj.Position + Vector3.new(0, 3, 0)
+        end
+        
+        local success = pcall(function()
+            rootPart.CFrame = CFrame.new(targetPosition)
+        end)
+        
+        return success
     end
     
     return false
 end
 
 function Visual.SimulateMouseClick()
-    local mouse = Nexus.Player:GetMouse()
-    if mouse then
+    local virtualInputManager = game:GetService("VirtualInputManager")
+    if virtualInputManager then
         pcall(function()
-            mouse.Button1Down:Wait()
-            mouse.Button1Up:Wait()
+            virtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+            task.wait(0.1)
+            virtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
         end)
     end
 end
@@ -370,28 +352,43 @@ function Visual.AutoFarmGiftLoop()
     end
     
     Visual.ESP.autoFarmRunning = true
+    Visual.ESP.currentGiftIndex = 1
     
     task.spawn(function()
         while Visual.ESP.autoFarmGiftEnabled do
-            local nearestGift, distance = Visual.GetNearestGift()
+            local gifts = Visual.GetAllGifts()
             
-            if nearestGift and distance then
-                if distance > 10 then
-                    Visual.TeleportToObject(nearestGift)
+            if #gifts > 0 then
+                if Visual.ESP.currentGiftIndex > #gifts then
+                    Visual.ESP.currentGiftIndex = 1
+                end
+                
+                local currentGift = gifts[Visual.ESP.currentGiftIndex]
+                
+                if currentGift and currentGift.Parent and Visual.IsValidGift(currentGift) then
+                    Visual.TeleportToObject(currentGift)
                     task.wait(0.5)
-                else
+                    
                     Visual.SimulateMouseClick()
                     task.wait(3)
                     
                     local christmasTree = Visual.FindChristmasTree()
                     if christmasTree then
                         Visual.TeleportToObject(christmasTree)
-                        task.wait(2)
+                        task.wait(3)
+                    else
+                        task.wait(3)
                     end
+                    
+                    Visual.ESP.currentGiftIndex = Visual.ESP.currentGiftIndex + 1
+                else
+                    Visual.ESP.currentGiftIndex = Visual.ESP.currentGiftIndex + 1
                 end
             else
                 task.wait(2)
             end
+            
+            task.wait(0.5)
         end
         
         Visual.ESP.autoFarmRunning = false
