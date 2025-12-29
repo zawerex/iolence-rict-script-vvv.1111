@@ -844,10 +844,11 @@ function Visual.Init(nxs)
         end
     end)
 
-        Tabs.VCisual:AddParagraph({
+        Tabs.Visual:AddParagraph({
         Title = "ESP Colors information",
         Content = "You can only change the ESP color in the lobby. You won't be able to change the ESP color in-game due to certain game mechanics. This is a temporary issue."
     })
+    
     local ShowGeneratorPercentToggle = Tabs.Visual:AddToggle("ESPShowGenPercent", {
         Title = "Show Generator %", 
         Description = "on / off", 
