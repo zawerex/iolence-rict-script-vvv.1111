@@ -1714,6 +1714,8 @@ function Survivor.Init(nxs)
     
     local Tabs = Nexus.Tabs
     local Options = Nexus.Options
+
+    Tabs.Main:AddSection("Survivor", "snowflake")
     
     local CrosshairToggle = Tabs.Main:AddToggle("Crosshair", {
         Title = "Crosshair", 
