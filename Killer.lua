@@ -2176,7 +2176,7 @@ function Killer.Init(nxs)
     
     local SpearCrosshairToggle = Tabs.Killer:AddToggle("SpearCrosshair", {
         Title = "Spear Crosshair (Veil)", 
-        Description = "Показывает прицел в режиме копья Veil", 
+        Description = "Shows the scope in Veil spear mode", 
         Default = false
     })
 
@@ -2302,7 +2302,7 @@ function Killer.Init(nxs)
 
     local DoubleTapToggle = Tabs.Killer:AddToggle("DoubleTap", {
         Title = "Double Tap", 
-        Description = "Атакует дважды при одной атаке", 
+        Description = "Attacks twice with one attack", 
         Default = false
     })
 
@@ -2429,6 +2429,7 @@ end
 -- ========== CLEANUP ==========
 
 function Killer.Cleanup()
+    
     SpearCrosshair.Disable()
     DestroyPallets.Disable()
     NoSlowdown.Disable()
