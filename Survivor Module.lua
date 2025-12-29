@@ -5,6 +5,37 @@ local Survivor = {
     States = {}
 }
 
+-- ========== UTILITY FUNCTIONS ==========
+
+local function isSurvivorTeam()
+    local player = Nexus.Player
+    if not player then return false end
+    
+    local team = player.Team
+    if not team then return false end
+    
+    return team.Name:lower():find("survivor") or team.Name == "Survivors" or team.Name == "Survivor"
+end
+
+local function setupTeamListener(callback)
+    -- Отслеживаем смену команды
+    local teamChangedConn = Nexus.Player:GetPropertyChangedSignal("Team"):Connect(callback)
+    
+    -- Отслеживаем вход в игру
+    local function onCharacterAdded(character)
+        task.wait(0.5) -- Ждем загрузку персонажа
+        callback()
+    end
+    
+    local charAddedConn = Nexus.Player.CharacterAdded:Connect(onCharacterAdded)
+    
+    -- Первоначальный вызов
+    task.spawn(callback)
+    
+    -- Возвращаем соединения для очистки
+    return {teamChangedConn, charAddedConn}
+end
+
 -- ========== CROSSHAIR SYSTEM ==========
 
 local Crosshair = (function()
@@ -14,6 +45,7 @@ local Crosshair = (function()
     local screenGui = nil
     local frame = nil
     local rainbowConnection = nil
+    local teamListeners = {}
     
     -- Настройки прицелов
     local crosshairTypes = {
@@ -183,52 +215,90 @@ local Crosshair = (function()
         end)
     end
     
+    local function updateCrosshairState()
+        -- Crosshair работает независимо от команды, всегда
+        if enabled then
+            createCrosshair()
+            updateRainbowEffect()
+        else
+            destroyCrosshair()
+        end
+    end
+    
     local function Enable()
         if enabled then return end
         enabled = true
         Nexus.States.CrosshairEnabled = true
         print("Crosshair: ON")
         
-        createCrosshair()
-        updateRainbowEffect()
+        -- Очищаем старые слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        
+        teamListeners = {}
+        
+        -- Создаем слушатель для обновления состояния
+        table.insert(teamListeners, setupTeamListener(updateCrosshairState))
+        
+        -- Инициализируем состояние
+        updateCrosshairState()
     end
     
     local function Disable()
-    if not enabled then return end
-    enabled = false
-    Nexus.States.CrosshairEnabled = false
-    Nexus.States.RainbowCrosshairEnabled = false
-    print("Crosshair: OFF")
-    
-    -- Останавливаем радужный эффект
-    if rainbowConnection then
-        rainbowConnection:Disconnect()
-        rainbowConnection = nil
-    end
-    
-    -- Восстанавливаем белый цвет прицела
-    if frame then
-        if currentType == "crosshair" then
-            local line1 = frame:FindFirstChild("Line1")
-            local line2 = frame:FindFirstChild("Line2")
-            if line1 then line1.BackgroundColor3 = Color3.new(1, 1, 1) end
-            if line2 then line2.BackgroundColor3 = Color3.new(1, 1, 1) end
-        elseif currentType == "dot" then
-            local dot = frame:FindFirstChild("Dot")
-            if dot then dot.BackgroundColor3 = Color3.new(1, 1, 1) end
-        elseif currentType == "circle" then
-            local outerCircle = frame:FindFirstChild("OuterCircle")
-            if outerCircle then outerCircle.BackgroundColor3 = Color3.new(1, 1, 1) end
+        if not enabled then return end
+        enabled = false
+        Nexus.States.CrosshairEnabled = false
+        Nexus.States.RainbowCrosshairEnabled = false
+        print("Crosshair: OFF")
+        
+        -- Останавливаем радужный эффект
+        if rainbowConnection then
+            rainbowConnection:Disconnect()
+            rainbowConnection = nil
         end
+        
+        -- Восстанавливаем белый цвет прицела
+        if frame then
+            if currentType == "crosshair" then
+                local line1 = frame:FindFirstChild("Line1")
+                local line2 = frame:FindFirstChild("Line2")
+                if line1 then line1.BackgroundColor3 = Color3.new(1, 1, 1) end
+                if line2 then line2.BackgroundColor3 = Color3.new(1, 1, 1) end
+            elseif currentType == "dot" then
+                local dot = frame:FindFirstChild("Dot")
+                if dot then dot.BackgroundColor3 = Color3.new(1, 1, 1) end
+            elseif currentType == "circle" then
+                local outerCircle = frame:FindFirstChild("OuterCircle")
+                if outerCircle then outerCircle.BackgroundColor3 = Color3.new(1, 1, 1) end
+            end
+        end
+        
+        destroyCrosshair()
+        
+        if screenGui then
+            screenGui:Destroy()
+            screenGui = nil
+        end
+        
+        -- Очищаем слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        teamListeners = {}
     end
-    
-    destroyCrosshair()
-    
-    if screenGui then
-        screenGui:Destroy()
-        screenGui = nil
-    end
-end
     
     local function setType(typeName)
         if not crosshairTypes[typeName] then
@@ -239,34 +309,35 @@ end
         print("Crosshair type set to: " .. typeName)
         
         if enabled then
-            createCrosshair()
+            updateCrosshairState()
+        end
+    end
+    
+    local function toggleRainbow(value)
+        rainbowEnabled = value
+        Nexus.States.RainbowCrosshairEnabled = value
+        print("Rainbow Crosshair: " .. (value and "ON" or "OFF"))
+        
+        if not value and frame then
+            -- При выключении радуги восстанавливаем белый цвет
+            if currentType == "crosshair" then
+                local line1 = frame:FindFirstChild("Line1")
+                local line2 = frame:FindFirstChild("Line2")
+                if line1 then line1.BackgroundColor3 = Color3.new(1, 1, 1) end
+                if line2 then line2.BackgroundColor3 = Color3.new(1, 1, 1) end
+            elseif currentType == "dot" then
+                local dot = frame:FindFirstChild("Dot")
+                if dot then dot.BackgroundColor3 = Color3.new(1, 1, 1) end
+            elseif currentType == "circle" then
+                local outerCircle = frame:FindFirstChild("OuterCircle")
+                if outerCircle then outerCircle.BackgroundColor3 = Color3.new(1, 1, 1) end
+            end
+        end
+        
+        if enabled then
             updateRainbowEffect()
         end
     end
-    
-   local function toggleRainbow(value)
-    rainbowEnabled = value
-    Nexus.States.RainbowCrosshairEnabled = value
-    print("Rainbow Crosshair: " .. (value and "ON" or "OFF"))
-    
-    if not value and frame then
-        -- При выключении радуги восстанавливаем белый цвет
-        if currentType == "crosshair" then
-            local line1 = frame:FindFirstChild("Line1")
-            local line2 = frame:FindFirstChild("Line2")
-            if line1 then line1.BackgroundColor3 = Color3.new(1, 1, 1) end
-            if line2 then line2.BackgroundColor3 = Color3.new(1, 1, 1) end
-        elseif currentType == "dot" then
-            local dot = frame:FindFirstChild("Dot")
-            if dot then dot.BackgroundColor3 = Color3.new(1, 1, 1) end
-        elseif currentType == "circle" then
-            local outerCircle = frame:FindFirstChild("OuterCircle")
-            if outerCircle then outerCircle.BackgroundColor3 = Color3.new(1, 1, 1) end
-        end
-    end
-    
-    updateRainbowEffect()
-end
     
     return {
         Enable = Enable,
@@ -286,6 +357,7 @@ local AutoVictory = (function()
     local lastFinishPos = nil
     local beatSurvivorDone = false
     local connection = nil
+    local teamListeners = {}
     
     local function findExitPosition()
         local map = Nexus.Services.Workspace:FindFirstChild("Map")
@@ -359,27 +431,22 @@ local AutoVictory = (function()
         return exitPos
     end
     
-    local function isSurvivor()
-        -- Проверяем роль выжившего (нужно адаптировать под вашу игру)
-        local character = Nexus.getCharacter()
-        if not character then return false end
-        
-        -- Здесь должна быть логика определения роли
-        -- Временно возвращаем true, предполагая что мы всегда выживший
-        return true
-    end
-    
     local function teleportToExit()
         if not enabled then return end
+        
+        -- Проверяем, что игрок в команде выживших
+        if not isSurvivorTeam() then 
+            -- Если не выживший, сбрасываем состояние
+            beatSurvivorDone = false
+            lastFinishPos = nil
+            return 
+        end
         
         local character = Nexus.getCharacter()
         if not character then return end
         
         local root = character:FindFirstChild("HumanoidRootPart")
         if not root then return end
-        
-        -- Проверяем роль
-        if not isSurvivor() then return end
         
         -- Поиск позиции выхода
         local exitPos = findExitPosition()
@@ -409,26 +476,52 @@ local AutoVictory = (function()
         print("Auto Victory: Teleported to exit")
     end
     
+    local function updateAutoVictory()
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+        
+        if enabled and isSurvivorTeam() then
+            connection = Nexus.Services.RunService.Heartbeat:Connect(function()
+                if enabled and isSurvivorTeam() then
+                    teleportToExit()
+                end
+            end)
+            print("Auto Victory: Activated for Survivor team")
+        elseif enabled then
+            print("Auto Victory: Waiting for Survivor team...")
+        end
+    end
+    
     local function Enable()
         if enabled then return end
         enabled = true
         Nexus.States.AutoVictoryEnabled = true
         print("Auto Victory: ON")
         
+        -- Очищаем старые слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        
+        teamListeners = {}
+        
         -- Сбрасываем состояние при включении
         beatSurvivorDone = false
         lastFinishPos = nil
         
-        -- Создаем соединение для периодической проверки
-        if connection then
-            connection:Disconnect()
-        end
+        -- Добавляем слушатель смены команды
+        table.insert(teamListeners, setupTeamListener(updateAutoVictory))
         
-        connection = Nexus.Services.RunService.Heartbeat:Connect(function()
-            if enabled then
-                teleportToExit()
-            end
-        end)
+        -- Инициализируем состояние
+        updateAutoVictory()
     end
     
     local function Disable()
@@ -444,6 +537,18 @@ local AutoVictory = (function()
         
         beatSurvivorDone = false
         lastFinishPos = nil
+        
+        -- Очищаем слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        teamListeners = {}
     end
     
     return {
@@ -462,6 +567,7 @@ end)()
 local NoSlowdown = (function()
     local enabled = false
     local connection = nil
+    local teamListeners = {}
 
     local function IsCrawling(humanoid)
         if not humanoid then return false end
@@ -501,6 +607,9 @@ local NoSlowdown = (function()
     local function UpdateWalkSpeed()
         if not enabled then return end
         
+        -- Проверяем, что игрок в команде выживших
+        if not isSurvivorTeam() then return end
+        
         local character = Nexus.getCharacter()
         if not character then return end
         
@@ -518,58 +627,90 @@ local NoSlowdown = (function()
         end
     end
 
+    local function setupNoSlowdown()
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+        
+        if enabled and isSurvivorTeam() then
+            local character = Nexus.getCharacter()
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    -- Проверяем состояние перед установкой скорости
+                    if not IsCrawling(humanoid) then
+                        humanoid:SetAttribute("NoSlowdown", true)
+                        humanoid.WalkSpeed = 16
+                    end
+                    
+                    -- Отслеживаем изменения скорости и возвращаем к 16
+                    connection = humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+                        if enabled and isSurvivorTeam() and humanoid then
+                            UpdateWalkSpeed()
+                        end
+                    end)
+                end
+            end
+            
+            -- Также отслеживаем появление нового персонажа
+            local charAddedConn
+            charAddedConn = Nexus.Player.CharacterAdded:Connect(function(char)
+                task.wait(0.5) -- Даем время на инициализацию
+                if enabled and isSurvivorTeam() then
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum then
+                        -- Проверяем состояние перед установкой скорости
+                        if not IsCrawling(hum) then
+                            hum:SetAttribute("NoSlowdown", true)
+                            hum.WalkSpeed = 16
+                        end
+                        
+                        -- Обновляем соединение для нового персонажа
+                        if connection then
+                            connection:Disconnect()
+                        end
+                        
+                        connection = hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+                            if enabled and isSurvivorTeam() and hum then
+                                UpdateWalkSpeed()
+                            end
+                        end)
+                    end
+                end
+                charAddedConn:Disconnect()
+            end)
+            
+            print("No Slowdown: Activated for Survivor team")
+        elseif enabled then
+            print("No Slowdown: Waiting for Survivor team...")
+        end
+    end
+    
     local function Enable()
         if enabled then return end
         enabled = true
         Nexus.States.NoSlowdownEnabled = true
         print("No Slowdown: ON")
         
-        local character = Nexus.getCharacter()
-        if character then
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                -- Проверяем состояние перед установкой скорости
-                if not IsCrawling(humanoid) then
-                    humanoid:SetAttribute("NoSlowdown", true)
-                    humanoid.WalkSpeed = 16
+        -- Очищаем старые слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
                 end
-                
-                -- Отслеживаем изменения скорости и возвращаем к 16
-                connection = humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
-                    if enabled and humanoid then
-                        UpdateWalkSpeed()
-                    end
-                end)
+            else
+                Nexus.safeDisconnect(listener)
             end
         end
         
-        -- Также отслеживаем появление нового персонажа
-        local charAddedConn
-        charAddedConn = Nexus.Player.CharacterAdded:Connect(function(char)
-            task.wait(0.5) -- Даем время на инициализацию
-            if enabled then
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum then
-                    -- Проверяем состояние перед установкой скорости
-                    if not IsCrawling(hum) then
-                        hum:SetAttribute("NoSlowdown", true)
-                        hum.WalkSpeed = 16
-                    end
-                    
-                    -- Обновляем соединение для нового персонажа
-                    if connection then
-                        connection:Disconnect()
-                    end
-                    
-                    connection = hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
-                        if enabled and hum then
-                            UpdateWalkSpeed()
-                        end
-                    end)
-                end
-            end
-            charAddedConn:Disconnect()
-        end)
+        teamListeners = {}
+        
+        -- Добавляем слушатель смены команды
+        table.insert(teamListeners, setupTeamListener(setupNoSlowdown))
+        
+        -- Инициализируем состояние
+        setupNoSlowdown()
     end
     
     local function Disable()
@@ -591,6 +732,18 @@ local NoSlowdown = (function()
                 -- Не сбрасываем скорость, так как игра сама управляет этим
             end
         end
+        
+        -- Очищаем слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        teamListeners = {}
     end
     
     return {
@@ -613,6 +766,8 @@ local AutoParry = (function()
     local RANGE = 10
     local lastCheck = 0
     local CHECK_INTERVAL = 0.1
+    local connection = nil
+    local teamListeners = {}
 
     local AttackAnimations = {
         "rbxassetid://110355011987939",
@@ -675,29 +830,60 @@ local AutoParry = (function()
         end)
     end
 
+    local function setupAutoParry()
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+        
+        if Nexus.States.AutoParryEnabled and isSurvivorTeam() then
+            connection = Nexus.Services.RunService.Heartbeat:Connect(function()
+                if not Nexus.States.AutoParryEnabled or not isSurvivorTeam() then
+                    if spamActive then 
+                        spamActive = false; 
+                        Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0) 
+                    end
+                    return
+                end
+
+                if isBlockingInRange() then
+                    if not spamActive then
+                        PerformParry()
+                    end
+                elseif spamActive then
+                    spamActive = false
+                    Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0)
+                end
+            end)
+            print("AutoParry: Activated for Survivor team")
+        elseif Nexus.States.AutoParryEnabled then
+            print("AutoParry: Waiting for Survivor team...")
+        end
+    end
+
     local function Enable()
         if Nexus.States.AutoParryEnabled then return end
         Nexus.States.AutoParryEnabled = true
         print("AutoParry Enabled")
         
-        Survivor.Connections.AutoParry = Nexus.Services.RunService.Heartbeat:Connect(function()
-            if not Nexus.States.AutoParryEnabled then
-                if spamActive then 
-                    spamActive = false; 
-                    Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0) 
+        -- Очищаем старые слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
                 end
-                return
+            else
+                Nexus.safeDisconnect(listener)
             end
-
-            if isBlockingInRange() then
-                if not spamActive then
-                    PerformParry()
-                end
-            elseif spamActive then
-                spamActive = false
-                Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0)
-            end
-        end)
+        end
+        
+        teamListeners = {}
+        
+        -- Добавляем слушатель смены команды
+        table.insert(teamListeners, setupTeamListener(setupAutoParry))
+        
+        -- Инициализируем состояние
+        setupAutoParry()
     end
 
     local function Disable()
@@ -707,10 +893,23 @@ local AutoParry = (function()
             Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0) 
         end 
         
-        if Survivor.Connections.AutoParry then
-            Survivor.Connections.AutoParry:Disconnect()
-            Survivor.Connections.AutoParry = nil
+        if connection then
+            connection:Disconnect()
+            connection = nil
         end
+        
+        -- Очищаем слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        teamListeners = {}
+        
         print("AutoParry Disabled")
     end
 
@@ -733,6 +932,7 @@ local FakeParry = (function()
     local animationId = "rbxassetid://127096285501517"
     local animationTrack = nil
     local characterConnection = nil
+    local teamListeners = {}
     
     local function stopAnimation()
         if animationTrack then
@@ -742,6 +942,9 @@ local FakeParry = (function()
     end
     
     local function startAnimation()
+        -- Проверяем, что игрок в команде выживших
+        if not isSurvivorTeam() then return false end
+        
         local character = Nexus.getCharacter()
         if not character then return false end
         
@@ -774,6 +977,9 @@ local FakeParry = (function()
             characterConnection = nil
         end
         
+        -- Проверяем команду перед настройкой
+        if not isSurvivorTeam() then return end
+        
         -- Останавливаем анимацию при смерти
         local character = Nexus.getCharacter()
         if character then
@@ -785,7 +991,7 @@ local FakeParry = (function()
         
         -- Автоматически запускаем анимацию при появлении нового персонажа
         characterConnection = Nexus.Player.CharacterAdded:Connect(function(newCharacter)
-            if enabled then
+            if enabled and isSurvivorTeam() then
                 task.wait(1) -- Ждем загрузки персонажа
                 
                 local humanoid = newCharacter:WaitForChild("Humanoid", 5)
@@ -801,19 +1007,47 @@ local FakeParry = (function()
         end)
     end
     
+    local function updateFakeParry()
+        -- Останавливаем анимацию если не выживший
+        if not isSurvivorTeam() then
+            stopAnimation()
+            return
+        end
+        
+        if enabled then
+            setupCharacterListeners()
+            if not startAnimation() then
+                print("Fake Parry: Waiting for character to start animation...")
+            end
+        else
+            stopAnimation()
+        end
+    end
+    
     local function Enable()
         if enabled then return end
         enabled = true
         Nexus.States.FakeParryEnabled = true
         print("Fake Parry: ON")
         
-        -- Настраиваем слушатели для персонажа
-        setupCharacterListeners()
-        
-        -- Запускаем анимацию один раз
-        if not startAnimation() then
-            print("Fake Parry: Waiting for character to start animation...")
+        -- Очищаем старые слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
         end
+        
+        teamListeners = {}
+        
+        -- Добавляем слушатель смены команды
+        table.insert(teamListeners, setupTeamListener(updateFakeParry))
+        
+        -- Инициализируем состояние
+        updateFakeParry()
     end
     
     local function Disable()
@@ -830,6 +1064,18 @@ local FakeParry = (function()
             characterConnection:Disconnect()
             characterConnection = nil
         end
+        
+        -- Очищаем слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        teamListeners = {}
     end
     
     return {
@@ -837,7 +1083,7 @@ local FakeParry = (function()
         Disable = Disable,
         IsEnabled = function() return enabled end,
         RestartAnimation = function()
-            if enabled then
+            if enabled and isSurvivorTeam() then
                 stopAnimation()
                 task.wait(0.1)
                 startAnimation()
@@ -846,6 +1092,8 @@ local FakeParry = (function()
     }
 end)()
 
+-- ========== HEALING FUNCTIONS ==========
+
 local healingStates = {
     silentHealRunning = false,
     instantHealRunning = false,
@@ -853,6 +1101,7 @@ local healingStates = {
     healCooldown = 0.2
 }
 
+-- Эти функции работают независимо от команды
 local function StartInstantHeal()
     Nexus.States.InstantHealRunning = true
     healingStates.instantHealRunning = true
@@ -904,6 +1153,18 @@ local function StopInstantHeal()
     Nexus.safeDisconnect(Survivor.Connections.instantHeal)
 end
 
+local function SendStopHealEvent()
+    pcall(function()
+        if Nexus.Services.ReplicatedStorage.Remotes and 
+           Nexus.Services.ReplicatedStorage.Remotes.Healing then
+            local healEvent = Nexus.Services.ReplicatedStorage.Remotes.Healing:FindFirstChild("HealEvent")
+            if healEvent then
+                healEvent:FireServer(false, false)
+            end
+        end
+    end)
+end
+
 local function StartSilentHeal()
     if healingStates.silentHealRunning then return end
     
@@ -915,19 +1176,19 @@ local function StartSilentHeal()
         while healingStates.silentHealRunning do
             local character = Nexus.getCharacter()
             if not character or not Nexus.getRootPart() then
-                task.wait(0.4) -- Задержка при отсутствии персонажа, снижает нагрузку
+                task.wait(0.4)
                 continue
             end
             
             local humanoid = Nexus.getHumanoid()
             if not humanoid or humanoid.Health <= 0 then
-                task.wait(0.4) -- Задержка при смерти персонажа, снижает нагрузку
+                task.wait(0.4)
                 continue
             end
             
             local currentTime = tick()
             if currentTime - healingStates.lastHealTime < healingStates.healCooldown then
-                task.wait(healingStates.healCooldown) -- Кулдаун между лечениями (0.2 секунды)
+                task.wait(healingStates.healCooldown)
                 continue
             end
             
@@ -953,7 +1214,6 @@ local function StartSilentHeal()
                                     Nexus.Services.ReplicatedStorage.Remotes.Healing.HealEvent:FireServer(unpack(args))
                                     healingStates.lastHealTime = tick()
                                     
-                                    -- Вызываем HealAnim с аргументом false
                                     local healAnimRemote = Nexus.Services.ReplicatedStorage.Remotes.Healing:FindFirstChild("HealAnim")
                                     if healAnimRemote then
                                         healAnimRemote:FireServer(false)
@@ -979,7 +1239,7 @@ local function StartSilentHeal()
                 currentValue = not currentValue 
             end
             
-            task.wait(0.1) -- Основная задержка цикла, предотвращает спам и снижает нагрузку
+            task.wait(0.1)
         end
         
         pcall(SendStopHealEvent)
@@ -992,14 +1252,13 @@ local function StopSilentHeal()
     healingStates.silentHealRunning = false
     Nexus.States.SilentHealRunning = false
     
-    task.wait(0.1) -- Задержка перед очисткой соединений
+    task.wait(0.1)
     
     if Survivor.Connections.silentHeal then
         Nexus.safeDisconnect(Survivor.Connections.silentHeal)
         Survivor.Connections.silentHeal = nil
     end
     
-    -- 2 раза вызываем HealAnim с аргументом false при выключении функции
     pcall(function()
         if Nexus.Services.ReplicatedStorage.Remotes and Nexus.Services.ReplicatedStorage.Remotes.Healing then
             local healAnimRemote = Nexus.Services.ReplicatedStorage.Remotes.Healing:FindFirstChild("HealAnim")
@@ -1012,7 +1271,7 @@ local function StopSilentHeal()
     
     for i = 1, 2 do
         pcall(SendStopHealEvent)
-        task.wait(0.05) -- Задержка между вызовами SendStopHealEvent
+        task.wait(0.05)
     end
     
     pcall(function()
@@ -1026,27 +1285,6 @@ local function StopSilentHeal()
     end)
 end
 
-local function ResetAllHealing()
-    healingStates.silentHealRunning = false
-    healingStates.instantHealRunning = false
-    Nexus.States.SilentHealRunning = false
-    Nexus.States.InstantHealRunning = false
-    Nexus.States.autoHealEnabled = false
-    
-    if Survivor.Connections.silentHeal then
-        Nexus.safeDisconnect(Survivor.Connections.silentHeal)
-        Survivor.Connections.silentHeal = nil
-    end
-    if Survivor.Connections.instantHeal then
-        Nexus.safeDisconnect(Survivor.Connections.instantHeal)
-        Survivor.Connections.instantHeal = nil
-    end
-    if Survivor.Connections.autoHeal then
-        Nexus.safeDisconnect(Survivor.Connections.autoHeal)
-        Survivor.Connections.autoHeal = nil
-    end
-end
-
 -- ========== NO FALL ==========
 
 local NoFall = (function()
@@ -1054,6 +1292,7 @@ local NoFall = (function()
     local hooked = false
     local originalNamecall = nil
     local mt = nil
+    local teamListeners = {}
     
     local function getFallRemote()
         local success, remote = pcall(function()
@@ -1086,7 +1325,7 @@ local NoFall = (function()
         mt.__namecall = newcclosure(function(self, ...)
             local method = getnamecallmethod()
             
-            if self == fallRemote and method == "FireServer" and enabled then
+            if self == fallRemote and method == "FireServer" and enabled and isSurvivorTeam() then
                 print("NoFall: Blocked fall damage")
                 return nil 
             end
@@ -1125,33 +1364,72 @@ local NoFall = (function()
         print("NoFall: Hook удален")
     end
     
+    local function updateNoFall()
+        if enabled and isSurvivorTeam() then
+            if not setupHook() then
+                task.spawn(function()
+                    for i = 1, 5 do
+                        task.wait(1)
+                        if enabled and isSurvivorTeam() and not hooked then
+                            if setupHook() then break end
+                        end
+                    end
+                end)
+            end
+            print("NoFall: Activated for Survivor team")
+        elseif enabled then
+            print("NoFall: Waiting for Survivor team...")
+            removeHook()
+        else
+            removeHook()
+        end
+    end
+    
     local function Enable()
         if enabled then return end
         enabled = true
         Nexus.States.NoFallEnabled = true
+        print("NoFall: ON")
         
-        if not setupHook() then
-            -- Пробуем найти Remote позже
-            task.spawn(function()
-                for i = 1, 5 do
-                    task.wait(1)
-                    if enabled and not hooked then
-                        if setupHook() then break end
-                    end
+        -- Очищаем старые слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
                 end
-            end)
+            else
+                Nexus.safeDisconnect(listener)
+            end
         end
         
-        print("NoFall: ON")
+        teamListeners = {}
+        
+        -- Добавляем слушатель смены команды
+        table.insert(teamListeners, setupTeamListener(updateNoFall))
+        
+        -- Инициализируем состояние
+        updateNoFall()
     end
     
     local function Disable()
         if not enabled then return end
         enabled = false
         Nexus.States.NoFallEnabled = false
+        print("NoFall: OFF")
         
         removeHook()
-        print("NoFall: OFF")
+        
+        -- Очищаем слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        teamListeners = {}
     end
     
     return {
@@ -1166,6 +1444,7 @@ end)()
 local GateTool = (function()
     local toolInstance = nil
     local toolConnection = nil
+    local teamListeners = {}
 
     local function CreateTool()
         if not Nexus.Player:FindFirstChild("Backpack") then return nil end
@@ -1194,9 +1473,10 @@ local GateTool = (function()
     end
 
     local function UseGate()
-        -- Просто вызываем event "gate"
+        -- Проверяем команду перед использованием
+        if not isSurvivorTeam() then return false end
+        
         local success = pcall(function()
-            -- Пробуем найти и вызвать RemoteEvent "gate"
             local remotes = Nexus.Services.ReplicatedStorage:FindFirstChild("Remotes")
             if remotes then
                 local items = remotes:FindFirstChild("Items")
@@ -1212,7 +1492,6 @@ local GateTool = (function()
                     end
                 end
                 
-                -- Альтернативный путь поиска
                 for _, remote in ipairs(remotes:GetDescendants()) do
                     if remote:IsA("RemoteEvent") and (remote.Name:lower() == "gate" or remote.Name:find("gate")) then
                         remote:FireServer()
@@ -1230,20 +1509,79 @@ local GateTool = (function()
         return success
     end
 
+    local function updateGateTool()
+        if Nexus.States.GateToolEnabled and isSurvivorTeam() then
+            toolInstance = CreateTool()
+            if toolInstance then 
+                toolConnection = toolInstance.Activated:Connect(function()
+                    UseGate()
+                end)
+            end
+            print("Gate Tool: Activated for Survivor team")
+        elseif Nexus.States.GateToolEnabled then
+            print("Gate Tool: Waiting for Survivor team...")
+            
+            if toolInstance then 
+                pcall(function() 
+                    if toolConnection then
+                        toolConnection:Disconnect()
+                        toolConnection = nil
+                    end
+                    toolInstance:Destroy() 
+                end) 
+                toolInstance = nil
+            end
+        else
+            if toolInstance then 
+                pcall(function() 
+                    if toolConnection then
+                        toolConnection:Disconnect()
+                        toolConnection = nil
+                    end
+                    toolInstance:Destroy() 
+                end) 
+                toolInstance = nil
+            end
+        end
+    end
+
     local function Enable()
         if Nexus.States.GateToolEnabled then return end
         Nexus.States.GateToolEnabled = true
         
-        toolInstance = CreateTool()
-        if toolInstance then 
-            toolConnection = toolInstance.Activated:Connect(function()
-                UseGate()
-            end)
+        -- Очищаем старые слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
         end
+        
+        teamListeners = {}
+        
+        -- Добавляем слушатель смены команды
+        table.insert(teamListeners, setupTeamListener(updateGateTool))
+        
+        -- Инициализируем состояние
+        updateGateTool()
+        
+        -- Слушатель для нового персонажа
+        local charAddedConn = Nexus.Player.CharacterAdded:Connect(function() 
+            if Nexus.States.GateToolEnabled then 
+                task.wait(2)
+                updateGateTool()
+            end 
+        end)
+        
+        table.insert(teamListeners, charAddedConn)
     end
 
     local function Disable()
         Nexus.States.GateToolEnabled = false
+        
         if toolConnection then
             Nexus.safeDisconnect(toolConnection)
             toolConnection = nil
@@ -1262,56 +1600,306 @@ local GateTool = (function()
                 pcall(function() tool:Destroy() end) 
             end
         end
+        
+        -- Очищаем слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        teamListeners = {}
     end
-
-    Nexus.Player.CharacterAdded:Connect(function() 
-        if Nexus.States.GateToolEnabled then 
-            task.wait(2)
-            Enable()
-        end 
-    end)
 
     return {Enable=Enable, Disable=Disable}
 end)()
 
--- ========== AUTO SKILL CHECK ==========
+-- ========== AUTO PERFECT SKILL ==========
 
-local function FindSkillCheckGUI()
-    local PlayerGui = Nexus.Player:WaitForChild("PlayerGui")
-    local skillCheckGui = PlayerGui:FindFirstChild("SkillCheckPromptGui")
-    if skillCheckGui then
-        local checkPart = skillCheckGui:FindFirstChild("Check")
-        if checkPart then
-            local goalPart = checkPart:WaitForChild("Goal")
-            local linePart = checkPart:WaitForChild("Line")
-            return skillCheckGui, checkPart, goalPart, linePart
+local AutoPerfectSkill = (function()
+    local connection = nil
+    local teamListeners = {}
+
+    local function FindSkillCheckGUI()
+        local PlayerGui = Nexus.Player:WaitForChild("PlayerGui")
+        local skillCheckGui = PlayerGui:FindFirstChild("SkillCheckPromptGui")
+        if skillCheckGui then
+            local checkPart = skillCheckGui:FindFirstChild("Check")
+            if checkPart then
+                local goalPart = checkPart:WaitForChild("Goal")
+                local linePart = checkPart:WaitForChild("Line")
+                return skillCheckGui, checkPart, goalPart, linePart
+            end
+        end
+        return nil
+    end
+
+    local function DisableGeneratorFail()
+        local char = Nexus.getCharacter()
+        if char then
+            local skillCheckGen = char:FindFirstChild("Skillcheck-gen")
+            if skillCheckGen then skillCheckGen.Enabled = false end
         end
     end
-    return nil
-end
 
-local function DisableGeneratorFail()
-    local char = Nexus.getCharacter()
-    if char then
-        local skillCheckGen = char:FindFirstChild("Skillcheck-gen")
-        if skillCheckGen then skillCheckGen.Enabled = false end
+    local function PerformPerfectSkillCheck()
+        if not Nexus.States.autoSkillEnabled or not isSurvivorTeam() then return end
+        local skillCheckGui, checkPart, goalPart, linePart = FindSkillCheckGUI()
+        if not skillCheckGui or not checkPart or not checkPart.Visible then return end
+        
+        local lineRot, goalRot = linePart.Rotation, goalPart.Rotation
+        local minRot, maxRot = (104 + goalRot) % 360, (114 + goalRot) % 360
+        if (minRot > maxRot and (lineRot >= minRot or lineRot <= maxRot)) or (lineRot >= minRot and lineRot <= maxRot) then
+            Nexus.Services.VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+            task.wait(0.01)
+            Nexus.Services.VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+            return true
+        end
+        return false
     end
-end
 
-local function PerformPerfectSkillCheck()
-    if not Nexus.States.autoSkillEnabled then return end
-    local skillCheckGui, checkPart, goalPart, linePart = FindSkillCheckGUI()
-    if not skillCheckGui or not checkPart or not checkPart.Visible then return end
+    local function updateAutoSkill()
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+        
+        if Nexus.States.autoSkillEnabled and isSurvivorTeam() then
+            connection = Nexus.Services.RunService.Heartbeat:Connect(PerformPerfectSkillCheck)
+            DisableGeneratorFail()
+            print("Auto Perfect Skill: Activated for Survivor team")
+        elseif Nexus.States.autoSkillEnabled then
+            print("Auto Perfect Skill: Waiting for Survivor team...")
+        end
+    end
+
+    local function Enable()
+        if Nexus.States.autoSkillEnabled then return end
+        Nexus.States.autoSkillEnabled = true
+        
+        -- Очищаем старые слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        
+        teamListeners = {}
+        
+        -- Добавляем слушатель смены команды
+        table.insert(teamListeners, setupTeamListener(updateAutoSkill))
+        
+        -- Инициализируем состояние
+        updateAutoSkill()
+    end
+
+    local function Disable()
+        Nexus.States.autoSkillEnabled = false
+        
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+        
+        -- Очищаем слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        teamListeners = {}
+    end
+
+    return {Enable = Enable, Disable = Disable}
+end)()
+
+-- ========== GAMEMODE (HEAL) ==========
+
+local Gamemode = (function()
+    local connection = nil
+    local teamListeners = {}
+
+    local function updateGamemode()
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+        
+        if Nexus.States.autoHealEnabled and isSurvivorTeam() then
+            connection = Nexus.Services.RunService.Heartbeat:Connect(function()
+                if not Nexus.States.autoHealEnabled or not isSurvivorTeam() or not Nexus.Player.Character then 
+                    return 
+                end
+                local hum = Nexus.Player.Character:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health < hum.MaxHealth then hum.Health = hum.MaxHealth end
+            end)
+            print("Gamemode: Activated for Survivor team")
+        elseif Nexus.States.autoHealEnabled then
+            print("Gamemode: Waiting for Survivor team...")
+        end
+    end
+
+    local function Enable()
+        if Nexus.States.autoHealEnabled then return end
+        Nexus.States.autoHealEnabled = true
+        
+        -- Очищаем старые слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        
+        teamListeners = {}
+        
+        -- Добавляем слушатель смены команды
+        table.insert(teamListeners, setupTeamListener(updateGamemode))
+        
+        -- Инициализируем состояние
+        updateGamemode()
+    end
+
+    local function Disable()
+        Nexus.States.autoHealEnabled = false
+        
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+        
+        -- Очищаем слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        teamListeners = {}
+    end
+
+    return {Enable = Enable, Disable = Disable}
+end)()
+
+-- ========== NO HITBOX ==========
+
+local NoHitbox = (function()
+    local teamListeners = {}
+
+    local function updateNoHitbox(value)
+        -- Проверяем команду перед применением
+        if not isSurvivorTeam() then 
+            print("No Hitbox: Requires Survivor team")
+            return 
+        end
+        
+        local char = Nexus.getCharacter()
+        if not char then return end
+        
+        for _, part in ipairs(char:GetDescendants()) do 
+            if part:IsA("BasePart") then 
+                part.CanTouch = not value 
+            end 
+        end
+        
+        if value then
+            Nexus.Player.CharacterAdded:Connect(function(newChar)
+                task.wait(1)
+                if isSurvivorTeam() then
+                    for _, part in ipairs(newChar:GetDescendants()) do 
+                        if part:IsA("BasePart") then 
+                            part.CanTouch = false 
+                        end 
+                    end
+                end
+            end)
+        end
+    end
+
+    local function Enable()
+        -- Очищаем старые слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        
+        teamListeners = {}
+        
+        -- Добавляем слушатель смены команды
+        table.insert(teamListeners, setupTeamListener(function()
+            if Nexus.States.NoHitboxEnabled then
+                updateNoHitbox(true)
+            end
+        end))
+        
+        -- Инициализируем состояние
+        if isSurvivorTeam() and Nexus.States.NoHitboxEnabled then
+            updateNoHitbox(true)
+        elseif Nexus.States.NoHitboxEnabled then
+            print("No Hitbox: Waiting for Survivor team...")
+        end
+    end
+
+    local function Disable()
+        if isSurvivorTeam() then
+            updateNoHitbox(false)
+        end
+        
+        -- Очищаем слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        teamListeners = {}
+    end
+
+    return {Enable = Enable, Disable = Disable}
+end)()
+
+-- ========== RESET ALL HEALING ==========
+
+local function ResetAllHealing()
+    healingStates.silentHealRunning = false
+    healingStates.instantHealRunning = false
+    Nexus.States.SilentHealRunning = false
+    Nexus.States.InstantHealRunning = false
+    Nexus.States.autoHealEnabled = false
     
-    local lineRot, goalRot = linePart.Rotation, goalPart.Rotation
-    local minRot, maxRot = (104 + goalRot) % 360, (114 + goalRot) % 360
-    if (minRot > maxRot and (lineRot >= minRot or lineRot <= maxRot)) or (lineRot >= minRot and lineRot <= maxRot) then
-        Nexus.Services.VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
-        task.wait(0.01)
-        Nexus.Services.VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
-        return true
+    if Survivor.Connections.silentHeal then
+        Nexus.safeDisconnect(Survivor.Connections.silentHeal)
+        Survivor.Connections.silentHeal = nil
     end
-    return false
+    if Survivor.Connections.instantHeal then
+        Nexus.safeDisconnect(Survivor.Connections.instantHeal)
+        Survivor.Connections.instantHeal = nil
+    end
 end
 
 -- ========== MODULE INITIALIZATION ==========
@@ -1327,7 +1915,7 @@ function Survivor.Init(nxs)
         Content = "Have a great game — and a Happy New Year! ☃"
     })
 
-    -- ========== CROSSHAIR ==========
+    -- ========== CROSSHAIR (работает всегда) ==========
     local CrosshairToggle = Tabs.Main:AddToggle("Crosshair", {
         Title = "Crosshair", 
         Description = "Display crosshair in the center of screen", 
@@ -1368,7 +1956,7 @@ function Survivor.Init(nxs)
         end)
     end)
 
-    -- ========== AUTO VICTORY ==========
+    -- ========== AUTO VICTORY (только для выживших) ==========
     local AutoVictoryToggle = Tabs.Main:AddToggle("AutoVictory", {
         Title = "Auto Victory (Survivor)", 
         Description = "Automatically teleports to exit for victory", 
@@ -1385,7 +1973,7 @@ function Survivor.Init(nxs)
         end)
     end)
 
-    -- ========== NO SLOWDOWN ==========
+    -- ========== NO SLOWDOWN (только для выживших) ==========
     local NoSlowdownToggle = Tabs.Main:AddToggle("NoSlowdown", {
         Title = "No Slowdown + Fast DropPallet", 
         Description = "Prevents all slowdown effects", 
@@ -1402,7 +1990,7 @@ function Survivor.Init(nxs)
         end)
     end)
 
-    -- ========== AUTO PARRY ==========
+    -- ========== AUTO PARRY (только для выживших) ==========
     local AutoParryToggle = Tabs.Main:AddToggle("AutoParry", {
         Title = "AutoParry", 
         Description = "automatic parry of attacks", 
@@ -1433,7 +2021,7 @@ function Survivor.Init(nxs)
         end
     })
 
-    -- ========== FAKE PARRY ==========
+    -- ========== FAKE PARRY (только для выживших) ==========
     local FakeParryToggle = Tabs.Main:AddToggle("FakeParry", {
         Title = "Fake Parry", 
         Description = "Plays parry animation continuously", 
@@ -1450,6 +2038,7 @@ function Survivor.Init(nxs)
         end)
     end)
 
+    -- ========== NO FALL (только для выживших) ==========
     local NoFallToggle = Tabs.Main:AddToggle("NoFall", {
         Title = "No Fall", 
         Description = "Disables the penalty when falling", 
@@ -1466,31 +2055,24 @@ function Survivor.Init(nxs)
         end)
     end)
 
-    -- ========== gamemode ==========
+    -- ========== GAMEMODE (только для выживших) ==========
     local HealToggle = Tabs.Main:AddToggle("Heal", {
         Title = "Gamemode", 
-        Description = "", 
+        Description = "Automatic health regeneration", 
         Default = false
     })
 
     HealToggle:OnChanged(function(v)
         Nexus.SafeCallback(function()
-            Nexus.States.autoHealEnabled = v
-            Nexus.safeDisconnect(Survivor.Connections.autoHeal)
-            if v then
-                Survivor.Connections.autoHeal = Nexus.Services.RunService.Heartbeat:Connect(function()
-                    if not Nexus.States.autoHealEnabled or not Nexus.Player.Character then 
-                        Nexus.safeDisconnect(Survivor.Connections.autoHeal)
-                        return 
-                    end
-                    local hum = Nexus.Player.Character:FindFirstChildOfClass("Humanoid")
-                    if hum and hum.Health < hum.MaxHealth then hum.Health = hum.MaxHealth end
-                end)
+            if v then 
+                Gamemode.Enable()
+            else 
+                Gamemode.Disable()
             end
         end)
     end)
 
-    -- ========== INSTANT HEAL ==========
+    -- ========== INSTANT HEAL (работает всегда) ==========
     local InstantHealToggle = Tabs.Main:AddToggle("InstantHeal", {
         Title = "Instant Heal", 
         Description = "instant treatment", 
@@ -1507,7 +2089,7 @@ function Survivor.Init(nxs)
         end)
     end)
 
-    -- ========== SILENT HEAL ==========
+    -- ========== SILENT HEAL (работает всегда) ==========
     local SilentHealToggle = Tabs.Main:AddToggle("SilentHeal", {
         Title = "Silent Heal", 
         Description = "Heals all players anywhere on the map", 
@@ -1524,7 +2106,7 @@ function Survivor.Init(nxs)
         end)
     end)
 
-    -- ========== GATE TOOL ==========
+    -- ========== GATE TOOL (только для выживших) ==========
     local GateToolToggle = Tabs.Main:AddToggle("GateTool", {
         Title = "Fast use [Gate Tool]", 
         Description = "Quick usage of the Gate Tool", 
@@ -1541,36 +2123,25 @@ function Survivor.Init(nxs)
         end)
     end)
 
-    -- ========== NO HITBOX ==========
+    -- ========== NO HITBOX (только для выживших) ==========
     local NoHitboxToggle = Tabs.Main:AddToggle("NoHitbox", {
         Title = "No Hitbox", 
-        Description = "", 
+        Description = "Disables collision with other players", 
         Default = false
     })
 
     NoHitboxToggle:OnChanged(function(v)
         Nexus.SafeCallback(function()
-            local char = Nexus.getCharacter()
-            if not char then return end
-            for _, part in ipairs(char:GetDescendants()) do 
-                if part:IsA("BasePart") then 
-                    part.CanTouch = not v 
-                end 
-            end
-            if v then
-                Nexus.Player.CharacterAdded:Connect(function(char)
-                    task.wait(1)
-                    for _, part in ipairs(char:GetDescendants()) do 
-                        if part:IsA("BasePart") then 
-                            part.CanTouch = false 
-                        end 
-                    end
-                end)
+            Nexus.States.NoHitboxEnabled = v
+            if v then 
+                NoHitbox.Enable() 
+            else 
+                NoHitbox.Disable() 
             end
         end)
     end)
     
-    -- ========== AUTO PERFECT SKILL ==========
+    -- ========== AUTO PERFECT SKILL (только для выживших) ==========
     local AutoSkillToggle = Tabs.Main:AddToggle("AutoPerfectSkill", {
         Title = "Auto Perfect Skill Check", 
         Description = "automatically clicks in the perfect location", 
@@ -1579,10 +2150,10 @@ function Survivor.Init(nxs)
 
     AutoSkillToggle:OnChanged(function(v)
         Nexus.SafeCallback(function()
-            Nexus.States.autoSkillEnabled = v
-            Nexus.safeDisconnect(Survivor.Connections.skillCheck)
             if v then 
-                Survivor.Connections.skillCheck = Nexus.Services.RunService.Heartbeat:Connect(PerformPerfectSkillCheck) 
+                AutoPerfectSkill.Enable()
+            else 
+                AutoPerfectSkill.Disable()
             end
         end)
     end)
@@ -1597,8 +2168,11 @@ function Survivor.Cleanup()
     AutoParry.Disable()
     FakeParry.Disable()
     NoFall.Disable()  
+    Gamemode.Disable()
     ResetAllHealing()
     GateTool.Disable()
+    NoHitbox.Disable()
+    AutoPerfectSkill.Disable()
     
     for key, connection in pairs(Survivor.Connections) do
         Nexus.safeDisconnect(connection)
