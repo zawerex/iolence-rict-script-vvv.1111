@@ -786,14 +786,14 @@ function Visual.Init(nxs)
     
     local NoShadowToggle = Tabs.Visual:AddToggle("NoShadow", {
         Title = "No Shadow", 
-        Description = "", 
+        Description = "on / off", 
         Default = false
     })
     NoShadowToggle:OnChanged(function(v) Visual.ToggleNoShadow(v) end)
 
     local NoFogToggle = Tabs.Visual:AddToggle("NoFog", {
         Title = "No Fog", 
-        Description = "", 
+        Description = "on / off", 
         Default = false
     })
     
@@ -805,20 +805,20 @@ function Visual.Init(nxs)
 
     local FullBrightToggle = Tabs.Visual:AddToggle("FullBright", {
         Title = "FullBright", 
-        Description = "", 
+        Description = "on / off", 
         Default = false
     })
     FullBrightToggle:OnChanged(function(v) Visual.ToggleFullBright(v) end)
 
     local TimeChangerToggle = Tabs.Visual:AddToggle("TimeChanger", {
         Title = "Time Changer", 
-        Description = "", 
+        Description = "on / off", 
         Default = false
     })
 
     local TimeSlider = Tabs.Visual:AddSlider("TimeValue", {
         Title = "Time of Day", 
-        Description = "",
+        Description = "on / off",
         Default = 14,
         Min = 0,
         Max = 24,
@@ -844,11 +844,13 @@ function Visual.Init(nxs)
         end
     end)
 
-    Tabs.Visual:AddSection("ESP Settings")
-
+        Tabs.VCisual:AddParagraph({
+        Title = "ESP Colors information",
+        Content = "You can only change the ESP color in the lobby. You won't be able to change the ESP color in-game due to certain game mechanics. This is a temporary issue."
+    })
     local ShowGeneratorPercentToggle = Tabs.Visual:AddToggle("ESPShowGenPercent", {
         Title = "Show Generator %", 
-        Description = "Toggle display of generator percentages", 
+        Description = "on / off", 
         Default = true
     })
     ShowGeneratorPercentToggle:OnChanged(function(v)
@@ -858,7 +860,7 @@ function Visual.Init(nxs)
 
     local ESPSurvivorsToggle = Tabs.Visual:AddToggle("ESPSurvivors", {
         Title = "Survivors ESP", 
-        Description = "", 
+        Description = "on / off", 
         Default = false
     })
     ESPSurvivorsToggle:OnChanged(function(v)
@@ -877,7 +879,7 @@ function Visual.Init(nxs)
 
     local ESPKillersToggle = Tabs.Visual:AddToggle("ESPKillers", {
         Title = "Killers ESP", 
-        Description = "", 
+        Description = "on / off", 
         Default = false
     })
     ESPKillersToggle:OnChanged(function(v)
@@ -896,7 +898,7 @@ function Visual.Init(nxs)
 
     local ESPHooksToggle = Tabs.Visual:AddToggle("ESPHooks", {
         Title = "Hooks ESP", 
-        Description = "", 
+        Description = "on / off", 
         Default = false
     })
     ESPHooksToggle:OnChanged(function(v)
@@ -915,7 +917,7 @@ function Visual.Init(nxs)
 
     local ESPGeneratorsToggle = Tabs.Visual:AddToggle("ESPGenerators", {
         Title = "Generators ESP", 
-        Description = "", 
+        Description = "on / off", 
         Default = false
     })
     ESPGeneratorsToggle:OnChanged(function(v)
@@ -924,7 +926,7 @@ function Visual.Init(nxs)
 
     local ESPPalletsToggle = Tabs.Visual:AddToggle("ESPPallets", {
         Title = "Pallets ESP", 
-        Description = "", 
+        Description = "on / off", 
         Default = false
     })
     ESPPalletsToggle:OnChanged(function(v)
@@ -943,7 +945,7 @@ function Visual.Init(nxs)
 
     local ESPGatesToggle = Tabs.Visual:AddToggle("ESPGates", {
         Title = "Exit Gates ESP", 
-        Description = "", 
+        Description = "on / off", 
         Default = false
     })
     ESPGatesToggle:OnChanged(function(v)
@@ -962,7 +964,7 @@ function Visual.Init(nxs)
 
     local ESPWindowsToggle = Tabs.Visual:AddToggle("ESPWindows", {
         Title = "Windows ESP", 
-        Description = "", 
+        Description = "on / off", 
         Default = false
     })
     ESPWindowsToggle:OnChanged(function(v)
@@ -990,7 +992,7 @@ function Visual.Init(nxs)
 
     local BoxESPToggle = Tabs.Visual:AddToggle("BoxESP", {
         Title = "Box ESP",
-        Description = "",
+        Description = "on / off",
         Default = false
     })
     BoxESPToggle:OnChanged(function(v)
@@ -1009,7 +1011,7 @@ function Visual.Init(nxs)
 
     local NamesESPToggle = Tabs.Visual:AddToggle("NamesESP", {
         Title = "Names ESP",
-        Description = "",
+        Description = "on / off",
         Default = false
     })
     NamesESPToggle:OnChanged(function(v)
@@ -1028,7 +1030,7 @@ function Visual.Init(nxs)
 
     local TeamCheckToggle = Tabs.Visual:AddToggle("TeamCheck", {
         Title = "Team Check",
-        Description = "Show enemies in red, teammates in blue",
+        Description = "on / off",
         Default = false
     })
     TeamCheckToggle:OnChanged(function(v)
@@ -1037,7 +1039,7 @@ function Visual.Init(nxs)
 
     local HealthBarToggle = Tabs.Visual:AddToggle("HealthBar", {
         Title = "Health Bar",
-        Description = "",
+        Description = "on / off",
         Default = false
     })
     HealthBarToggle:OnChanged(function(v)
