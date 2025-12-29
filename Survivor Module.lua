@@ -2085,6 +2085,8 @@ function Survivor.Init(nxs)
             end
         end)
     end)
+
+    Tabs.Main:AddSection("Generators")
     
     -- ========== AUTO PERFECT SKILL (только для выживших) ==========
     local AutoSkillToggle = Tabs.Main:AddToggle("AutoPerfectSkill", {
