@@ -714,8 +714,6 @@ function Movement.Init(nxs)
             end
         })
     end
-
-    print("✓ Movement module initialized")
 end
 
 -- ========== CLEANUP ==========
@@ -732,7 +730,7 @@ function Movement.Cleanup()
     -- Восстанавливаем FOV
     local camera = Nexus.Camera
     if camera then
-        camera.FieldOfView = 70
+        camera.FieldOfView = 50
     end
     
     -- Очищаем объекты
@@ -751,7 +749,6 @@ function Movement.Cleanup()
     end
     Movement.Connections = {}
     
-    print("Movement module cleaned up")
 end
 
 return Movement
