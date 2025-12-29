@@ -453,7 +453,7 @@ function Visual.CreateBoxESP(player)
                 local boxPosition = Vector2.new(Target2dPosition.X - width / 2, Target2dPosition.Y - height / 2)
                 
                 espData.HealthBarOutline.Size = Vector2.new(2, height)
-                espData.HealthBarOutline.Position = boxPosition + Vector2.new(-4, 0)
+                espData.HealthBarOutline.Position = boxPosition + Vector2.new(-7, 0)
                 
                 espData.HealthBar.Size = Vector2.new(1, -(espData.HealthBarOutline.Size.Y - 2) * (player.Character:FindFirstChild("Humanoid").Health / player.Character:FindFirstChild("Humanoid").MaxHealth))
                 espData.HealthBar.Position = espData.HealthBarOutline.Position + Vector2.new(1, -1 + espData.HealthBarOutline.Size.Y)
@@ -567,7 +567,7 @@ function Visual.UpdateAllBoxESP()
                         local boxPosition = Vector2.new(Target2dPosition.X - width / 2, Target2dPosition.Y - height / 2)
                         
                         espData.HealthBarOutline.Size = Vector2.new(2, height)
-                        espData.HealthBarOutline.Position = boxPosition + Vector2.new(-4, 0)
+                        espData.HealthBarOutline.Position = boxPosition + Vector2.new(-7, 0)
                         
                         espData.HealthBar.Size = Vector2.new(1, -(espData.HealthBarOutline.Size.Y - 2) * (player.Character:FindFirstChild("Humanoid").Health / player.Character:FindFirstChild("Humanoid").MaxHealth))
                         espData.HealthBar.Position = espData.HealthBarOutline.Position + Vector2.new(1, -1 + espData.HealthBarOutline.Size.Y)
