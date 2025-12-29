@@ -1953,7 +1953,7 @@ function Survivor.Init(nxs)
     end)
 
     local AutoParryRangeSlider = Tabs.Main:AddSlider("AutoParryRange", {
-        Title = "ping compensation",
+        Title = "parry distance",
         Description = "",
         Default = 10,
         Min = 0,
