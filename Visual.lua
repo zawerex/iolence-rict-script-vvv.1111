@@ -593,15 +593,16 @@ function Visual.CreateBoxESP(player)
                 espData.BoxOutline.ZIndex = 1
             end
             
+            -- НОВАЯ СИСТЕМА ОТОБРАЖЕНИЯ НИКОВ
             if Visual.ESP.namesESPEnabled and IsVisible then
                 espData.Name.Color = Visual.ESP.namesColor
-                espData.Name.Text = player.Name .. " " .. math.floor((workspace.CurrentCamera.CFrame.p - player.Character.HumanoidRootPart.Position).magnitude) .. "m"
+                espData.Name.Text = player.Name
                 espData.Name.Center = true
                 espData.Name.Outline = true
                 espData.Name.OutlineColor = Color3.fromRGB(0, 0, 0)
-                espData.Name.Position = Vector2.new(Target2dPosition.X, Target2dPosition.Y - height * 0.5 + -15)
+                espData.Name.Position = Vector2.new(Target2dPosition.X, Target2dPosition.Y - height * 0.5 - 10)
                 espData.Name.Font = 2
-                espData.Name.Size = 13
+                espData.Name.Size = 10
             else
                 espData.Name.Visible = false
             end
@@ -712,15 +713,16 @@ function Visual.UpdateAllBoxESP()
                         espData.BoxOutline.ZIndex = 1
                     end
                     
+                    -- НОВАЯ СИСТЕМА ОТОБРАЖЕНИЯ НИКОВ
                     if Visual.ESP.namesESPEnabled and IsVisible then
                         espData.Name.Color = Visual.ESP.namesColor
-                        espData.Name.Text = player.Name .. " " .. math.floor((workspace.CurrentCamera.CFrame.p - player.Character.HumanoidRootPart.Position).magnitude) .. "m"
+                        espData.Name.Text = player.Name
                         espData.Name.Center = true
                         espData.Name.Outline = true
                         espData.Name.OutlineColor = Color3.fromRGB(0, 0, 0)
-                        espData.Name.Position = Vector2.new(Target2dPosition.X, Target2dPosition.Y - height * 0.5 + -15)
+                        espData.Name.Position = Vector2.new(Target2dPosition.X, Target2dPosition.Y - height * 0.5 - 10)
                         espData.Name.Font = 2
-                        espData.Name.Size = 13
+                        espData.Name.Size = 10
                     else
                         espData.Name.Visible = false
                     end
