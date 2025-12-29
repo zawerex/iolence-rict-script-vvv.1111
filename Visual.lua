@@ -436,6 +436,7 @@ function Visual.UpdateESP()
                 if setting and setting.Enabled then
                     local color = setting.Colorpicker and setting.Colorpicker.Value or setting.Color
                     Visual.EnsureHighlight(targetPlayer.Character, color, false)
+                    Visual.ClearLabel(targetPlayer.Character)
                 else
                     Visual.ClearHighlight(targetPlayer.Character)
                     Visual.ClearLabel(targetPlayer.Character)
@@ -454,11 +455,7 @@ function Visual.UpdateESP()
                 else
                     local color = setting.Colorpicker and setting.Colorpicker.Value or setting.Color
                     Visual.EnsureHighlight(obj, color, true)
-                    if typeName == "Gifts" then
-                        Visual.EnsureLabel(obj, "Gift", false, color)
-                    else
-                        Visual.ClearLabel(obj)
-                    end
+                    Visual.ClearLabel(obj)
                 end
             else
                 Visual.ClearHighlight(obj)
@@ -605,6 +602,8 @@ function Visual.CreateBoxESP(player)
                 espData.Name.Position = Vector2.new(Target2dPosition.X, Target2dPosition.Y - height * 0.5 + -15)
                 espData.Name.Font = 2
                 espData.Name.Size = 13
+            else
+                espData.Name.Visible = false
             end
             
             if Visual.ESP.healthBarEnabled and IsVisible then
@@ -624,6 +623,9 @@ function Visual.CreateBoxESP(player)
                 
                 espData.HealthBar.Size = Vector2.new(1, -(espData.HealthBarOutline.Size.Y - 2) * (player.Character:FindFirstChild("Humanoid").Health / player.Character:FindFirstChild("Humanoid").MaxHealth))
                 espData.HealthBar.Position = espData.HealthBarOutline.Position + Vector2.new(1, -1 + espData.HealthBarOutline.Size.Y)
+            else
+                espData.HealthBar.Visible = false
+                espData.HealthBarOutline.Visible = false
             end
         else
             espData.Box.Visible = false
@@ -719,6 +721,8 @@ function Visual.UpdateAllBoxESP()
                         espData.Name.Position = Vector2.new(Target2dPosition.X, Target2dPosition.Y - height * 0.5 + -15)
                         espData.Name.Font = 2
                         espData.Name.Size = 13
+                    else
+                        espData.Name.Visible = false
                     end
                     
                     if Visual.ESP.healthBarEnabled and IsVisible then
@@ -738,6 +742,9 @@ function Visual.UpdateAllBoxESP()
                         
                         espData.HealthBar.Size = Vector2.new(1, -(espData.HealthBarOutline.Size.Y - 2) * (player.Character:FindFirstChild("Humanoid").Health / player.Character:FindFirstChild("Humanoid").MaxHealth))
                         espData.HealthBar.Position = espData.HealthBarOutline.Position + Vector2.new(1, -1 + espData.HealthBarOutline.Size.Y)
+                    else
+                        espData.HealthBar.Visible = false
+                        espData.HealthBarOutline.Visible = false
                     end
                 else
                     espData.Box.Visible = false
@@ -789,6 +796,9 @@ function Visual.ToggleBoxESP(enabled)
         for _, espData in pairs(Visual.ESP.boxESPObjects) do
             espData.Box.Visible = false
             espData.BoxOutline.Visible = false
+            espData.Name.Visible = false
+            espData.HealthBar.Visible = false
+            espData.HealthBarOutline.Visible = false
         end
     end
 end
