@@ -1458,16 +1458,6 @@ function Visual.Init(nxs)
     end)
     GiftColorpicker:SetValueRGB(Color3.fromRGB(255, 182, 193))
 
-    -- ========== AUTO FARM GIFT ДОБАВЛЕНИЕ ==========
-    local AutoFarmGiftToggle = Tabs.Visual:AddToggle("AutoFarmGift", {
-        Title = "AutoFarm Gift",
-        Description = "Automatically collects Christmas gifts",
-        Default = false
-    })
-    AutoFarmGiftToggle:OnChanged(function(v)
-        Visual.ToggleAutoFarmGift(v)
-    end)
-
     -- Store colorpickers
     Visual.ESP.settings.Survivors.Colorpicker = SurvivorColorpicker
     Visual.ESP.settings.Killers.Colorpicker = KillerColorpicker
@@ -1477,7 +1467,8 @@ function Visual.Init(nxs)
     Visual.ESP.settings.Windows.Colorpicker = WindowColorpicker
     Visual.ESP.settings.Gifts.Colorpicker = GiftColorpicker 
 
-
+    Tabs.Visual:AddSection("Other ESP")
+    
     local AdvancedESPToggle = Tabs.Visual:AddToggle("AdvancedESP", {
         Title = "Enabling/disabling ESP", 
         Description = "Enable advanced player ESP system", 
