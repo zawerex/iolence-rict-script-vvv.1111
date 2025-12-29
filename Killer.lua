@@ -39,6 +39,132 @@ local function setupTeamListener(callback)
     return {teamChangedConn, charAddedConn}
 end
 
+-- ========== USE FAKE SAW ==========
+
+local UseFakeSaw = (function()
+    local enabled = false
+    local teamListeners = {}
+    local connection = nil
+    
+    local function getMaskedAlexAttackRemote()
+        local success, result = pcall(function()
+            return Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Killers"):WaitForChild("Masked"):WaitForChild("alexattack")
+        end)
+        return success and result or nil
+    end
+    
+    local function executeFakeSaw()
+        if not enabled then return end
+        
+        local Event = getMaskedAlexAttackRemote()
+        if not Event then
+            print("Use Fake Saw: Remote not found")
+            return
+        end
+        
+        -- Вызываем RemoteEvent
+        local success = pcall(function()
+            Event:FireServer()
+        end)
+        
+        if success then
+            print("Use Fake Saw: Activated")
+        else
+            print("Use Fake Saw: Failed to activate")
+        end
+    end
+    
+    local function updateFakeSawState()
+        if enabled and isKillerTeam() then
+            if connection then
+                connection:Disconnect()
+            end
+            
+            -- Запускаем циклический вызов каждые 0.5 секунд
+            connection = Nexus.Services.RunService.Heartbeat:Connect(function()
+                if enabled and isKillerTeam() then
+                    executeFakeSaw()
+                    task.wait(0.5)  -- Интервал между вызовами
+                end
+            end)
+            
+            print("Use Fake Saw: Activated for Killer team")
+        elseif enabled then
+            print("Use Fake Saw: Waiting for Killer team...")
+            if connection then
+                connection:Disconnect()
+                connection = nil
+            end
+        else
+            if connection then
+                connection:Disconnect()
+                connection = nil
+            end
+        end
+    end
+    
+    local function Enable()
+        if enabled then return end
+        enabled = true
+        Nexus.States.UseFakeSawEnabled = true
+        print("Use Fake Saw: ON")
+        
+        -- Очищаем старые слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        
+        teamListeners = {}
+        
+        -- Добавляем слушатель смены команды
+        table.insert(teamListeners, setupTeamListener(updateFakeSawState))
+        
+        -- Инициализируем состояние
+        updateFakeSawState()
+    end
+    
+    local function Disable()
+        if not enabled then return end
+        enabled = false
+        Nexus.States.UseFakeSawEnabled = false
+        print("Use Fake Saw: OFF")
+        
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+        
+        -- Очищаем слушатели
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        teamListeners = {}
+    end
+    
+    return {
+        Enable = Enable,
+        Disable = Disable,
+        IsEnabled = function() return enabled end,
+        ActivateOnce = function()
+            if enabled and isKillerTeam() then
+                executeFakeSaw()
+            end
+        end
+    }
+end)()
+
 -- ========== SPEAR CROSSHAIR ==========
 
 local SpearCrosshair = (function()
@@ -1712,23 +1838,25 @@ end)()
 -- ========== ABYSSWALKER CORRUPT ==========
 
 local AbysswalkerCorrupt = (function()
-    local enabled = false
+    local enabled = false  -- Состояние Toggle
+    local keybindEnabled = false  -- Состояние возможности активации
     local teamListeners = {}
+    local inputConnection = nil
     
     local function canActivate()
-        return enabled and isKillerTeam()
+        return enabled and keybindEnabled and isKillerTeam()
     end
     
     local function fireCorruptEvent()
         if not canActivate() then
-            print("Abysswalker Corrupt: Requires Killer team")
+            print("Abysswalker Corrupt: Cannot activate (check team/toggle)")
             return
         end
         
         local success = pcall(function()
             local CorruptRemote = Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Killers"):WaitForChild("Abysswalker"):WaitForChild("corrupt")
             CorruptRemote:FireServer()
-            print("Abysswalker Corrupt: Activated")
+            print("Abysswalker Corrupt: Activated via Q key")
         end)
         
         if not success then
@@ -1736,18 +1864,50 @@ local AbysswalkerCorrupt = (function()
         end
     end
     
+    local function setupKeybind()
+        if inputConnection then
+            inputConnection:Disconnect()
+            inputConnection = nil
+        end
+        
+        if enabled then
+            inputConnection = Nexus.Services.UserInputService.InputBegan:Connect(function(input, gameProcessed)
+                if gameProcessed or not canActivate() then return end
+                
+                if input.KeyCode == Enum.KeyCode.Q then
+                    fireCorruptEvent()
+                end
+            end)
+                
+        end
+    end
+    
     local function updateAbysswalkerState()
         if enabled and isKillerTeam() then
-            print("Abysswalker Corrupt: Ready for Killer team")
+            keybindEnabled = true
+            setupKeybind()
+            print("Abysswalker Corrupt: Ready for Killer team (Press Q)")
         elseif enabled then
             print("Abysswalker Corrupt: Waiting for Killer team...")
+            keybindEnabled = false
+            if inputConnection then
+                inputConnection:Disconnect()
+                inputConnection = nil
+            end
+        else
+            keybindEnabled = false
+            if inputConnection then
+                inputConnection:Disconnect()
+                inputConnection = nil
+            end
         end
     end
     
     local function Enable()
         if enabled then return end
         enabled = true
-        print("Abysswalker Corrupt: ON")
+        Nexus.States.AbysswalkerCorruptEnabled = true
+        print("Abysswalker Corrupt: Toggle ON (Press Q to activate)")
         
         -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
@@ -1772,7 +1932,14 @@ local AbysswalkerCorrupt = (function()
     local function Disable()
         if not enabled then return end
         enabled = false
-        print("Abysswalker Corrupt: OFF")
+        keybindEnabled = false
+        Nexus.States.AbysswalkerCorruptEnabled = false
+        print("Abysswalker Corrupt: Toggle OFF")
+        
+        if inputConnection then
+            inputConnection:Disconnect()
+            inputConnection = nil
+        end
         
         -- Очищаем слушатели
         for _, listener in ipairs(teamListeners) do
@@ -1787,12 +1954,20 @@ local AbysswalkerCorrupt = (function()
         teamListeners = {}
     end
     
+    local function ForceActivate()
+        if enabled and isKillerTeam() then
+            fireCorruptEvent()
+        else
+            print("Abysswalker Corrupt: Cannot force activate (toggle off or wrong team)")
+        end
+    end
+    
     return {
         Enable = Enable,
         Disable = Disable,
         IsEnabled = function() return enabled end,
-        Activate = fireCorruptEvent,
-        IsReady = function() return canActivate() end
+        IsKeybindReady = function() return keybindEnabled end,
+        Activate = ForceActivate  -- Оставляем для ручной активации если нужно
     }
 end)()
 
@@ -2414,20 +2589,40 @@ end)
         end)
     end)
 
-    -- ========== ABYSSWALKER CORRUPT ==========
-    local AbysswalkerCorruptKeybind = Tabs.Killer:AddKeybind("AbysswalkerCorruptKeybind", {
-        Title = "Abysswalker Corrupt [NO COOLDOWN]",
-        Description = "Activate Abysswalker corrupt ability",
-        Default = "",
-        Callback = function()
-            Nexus.SafeCallback(function()
-                AbysswalkerCorrupt.Activate()
-            end)
-        end,
-        ChangedCallback = function(newKey)
-            -- Optional: handle key change
-        end
+        -- ========== USE FAKE SAW ==========
+    local UseFakeSawToggle = Tabs.Killer:AddToggle("UseFakeSaw", {
+        Title = "Use Fake Saw", 
+        Description = "Continuously activates Alex's chainsaw attack (kills from 1 time)", 
+        Default = false
     })
+
+    UseFakeSawToggle:OnChanged(function(v)
+        Nexus.SafeCallback(function()
+            if v then 
+                UseFakeSaw.Enable() 
+            else 
+                UseFakeSaw.Disable() 
+            end
+        end)
+    end)
+
+    -- ========== ABYSSWALKER CORRUPT ==========
+    
+    local AbysswalkerCorruptToggle = Tabs.Killer:AddToggle("AbysswalkerCorrupt", {
+        Title = "Abysswalker Corrupt [NO CD]",
+        Description = "no cooldown",
+        Default = false
+    })
+
+    AbysswalkerCorruptToggle:OnChanged(function(v)
+        Nexus.SafeCallback(function()
+            if v then 
+                AbysswalkerCorrupt.Enable() 
+            else 
+                AbysswalkerCorrupt.Disable() 
+            end
+        end)
+    end)
 
     -- ========== ANTI BLIND ==========
     local AntiBlindToggle = Tabs.Killer:AddToggle("AntiBlind", {
@@ -2484,7 +2679,7 @@ end
 -- ========== CLEANUP ==========
 
 function Killer.Cleanup()
-    -- Отключаем все функции
+
     SpearCrosshair.Disable()
     DestroyPallets.Disable()
     NoSlowdown.Disable()
@@ -2496,6 +2691,7 @@ function Killer.Cleanup()
     SpamHook.Disable()  
     BeatGameKiller.Disable()
     AbysswalkerCorrupt.Disable()
+    UseFakeSaw.Disable() 
     AntiBlind.Disable()
     
     -- Очищаем все соединения
