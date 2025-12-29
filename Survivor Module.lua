@@ -2106,7 +2106,7 @@ function Survivor.Init(nxs)
 end
 
 function Survivor.Cleanup()
-    -- Отключаем все функции
+
     Crosshair.Disable()
     AutoVictory.Disable()
     NoSlowdown.Disable()
