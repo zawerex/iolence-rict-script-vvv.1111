@@ -1298,6 +1298,11 @@ function Visual.Init(nxs)
     -- ========== ESP SETTINGS ==========
     Tabs.Visual:AddSection("ESP Settings")
 
+        Tabs.Visual:AddParagraph({
+        Title = "ESP Colors Information",
+        Content = "ESP color changes will only be available in the lobby or spectator mode due to game mechanics, but this issue will be resolved soon"
+    })
+
     local ShowGeneratorPercentToggle = Tabs.Visual:AddToggle("ESPShowGenPercent", {
         Title = "Show Generator %", 
         Description = "Toggle display of generator percentages", 
@@ -1468,10 +1473,8 @@ function Visual.Init(nxs)
     Visual.ESP.settings.Pallets.Colorpicker = PalletColorpicker
     Visual.ESP.settings.ExitGates.Colorpicker = GateColorpicker
     Visual.ESP.settings.Windows.Colorpicker = WindowColorpicker
-    Visual.ESP.settings.Gifts.Colorpicker = GiftColorpicker  -- Добавлен Colorpicker для подарков
+    Visual.ESP.settings.Gifts.Colorpicker = GiftColorpicker 
 
-    -- ========== ADVANCED ESP ==========
-    Tabs.Visual:AddSection("Other ESP")
 
     local AdvancedESPToggle = Tabs.Visual:AddToggle("AdvancedESP", {
         Title = "Enabling/disabling ESP", 
@@ -1481,8 +1484,6 @@ function Visual.Init(nxs)
     AdvancedESPToggle:OnChanged(function(v)
         Visual.ToggleAdvancedESP(v)
     end)
-
-    Tabs.Visual:AddSection("ESP Components")
 
     local ESPBoxToggle = Tabs.Visual:AddToggle("ESPBox", {
         Title = "Player Boxes", 
