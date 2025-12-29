@@ -4,32 +4,64 @@ local Visual = {
     Connections = {},
     ESP = {
         lastUpdate = 0,
-        UPDATE_INTERVAL = 0.1,
+        UPDATE_INTERVAL = 0.10,
         settings = {
-            Survivors = {Enabled = false, Color = Color3.fromRGB(100, 255, 100), Colorpicker = nil},
-            Killers = {Enabled = false, Color = Color3.fromRGB(255, 100, 100), Colorpicker = nil},
-            Generators = {Enabled = false, Color = Color3.fromRGB(100, 170, 255)},
-            Pallets = {Enabled = false, Color = Color3.fromRGB(120, 80, 40), Colorpicker = nil},
-            ExitGates = {Enabled = false, Color = Color3.fromRGB(200, 200, 100), Colorpicker = nil},
-            Windows = {Enabled = false, Color = Color3.fromRGB(100, 200, 200), Colorpicker = nil},
-            Hooks = {Enabled = false, Color = Color3.fromRGB(100, 50, 150), Colorpicker = nil},
-            Gifts = {Enabled = false, Color = Color3.fromRGB(255, 182, 193), Colorpicker = nil}
+            Survivors  = {Enabled=false, Color=Color3.fromRGB(100,255,100), Colorpicker = nil},
+            Killers    = {Enabled=false, Color=Color3.fromRGB(255,100,100), Colorpicker = nil},
+            Generators = {Enabled=false, Color=Color3.fromRGB(100,170,255)},
+            Pallets    = {Enabled=false, Color=Color3.fromRGB(120,80,40), Colorpicker = nil},
+            ExitGates  = {Enabled=false, Color=Color3.fromRGB(200,200,100), Colorpicker = nil},
+            Windows    = {Enabled=false, Color=Color3.fromRGB(100,200,200), Colorpicker = nil},
+            Hooks      = {Enabled=false, Color=Color3.fromRGB(100, 50, 150), Colorpicker = nil}
         },
         trackedObjects = {},
         espConnections = {},
         espLoopRunning = false,
-        showGeneratorPercent = true,
-        boxESPEnabled = false,
-        namesESPEnabled = false,
-        teamCheckEnabled = false,
-        healthBarEnabled = false,
-        boxColor = Color3.fromRGB(255, 255, 255),
-        namesColor = Color3.fromRGB(255, 255, 255),
-        boxESPObjects = {},
-        autoFarmGiftEnabled = false,
-        autoFarmRunning = false,
-        autoFarmConnection = nil,
-        currentGiftIndex = 1
+        showGeneratorPercent = true
+    },
+    AdvancedESP = {
+        settings = {
+            name = {Enabled = true, TextSize = 15},
+            distance = {Enabled = true, TextSize = 13},
+            healthbar = {Enabled = true},
+            box = {Enabled = true},
+            boxType = "full",
+            bones = {Enabled = true},
+            boneColorName = "White",
+            tracers = {Enabled = true},
+            tracerColorName = "White",
+            scale = 1.5,
+            healthBarTopColorName = "DarkGreen",
+            healthBarMidColorName = "DarkOrange",
+            healthBarBottomColorName = "DarkRed",
+            stateColorName = "Orange",
+            boxOutline = {Enabled = true},
+            boxOutlineColorName = "Black",
+            boxOutlineThickness = 0.4,
+            boxColorName = "White",
+            boxFill = {Enabled = true},
+            boxFillColorName = "White",
+            boxFillTransparency = 0.9,
+            healthBarLeftOffset = 10
+        },
+        colorMap = {
+            Red = Color3.fromRGB(255,0,0),
+            DarkRed = Color3.fromRGB(100,0,0),
+            Green = Color3.fromRGB(0,255,0),
+            DarkGreen = Color3.fromRGB(0,80,0),
+            Blue = Color3.fromRGB(0,0,255),
+            LightBlue = Color3.fromRGB(200,200,255),
+            Yellow = Color3.fromRGB(255,255,0),
+            Orange = Color3.fromRGB(255,165,0),
+            DarkOrange = Color3.fromRGB(140,70,0),
+            Purple = Color3.fromRGB(128,0,128),
+            White = Color3.fromRGB(255,255,255),
+            Black = Color3.fromRGB(0,0,0)
+        },
+        connections = {},
+        espObjects = {},
+        playerConnections = {},
+        advancedESPRunning = false
     },
     Effects = {
         noShadowEnabled = false,
@@ -39,10 +71,43 @@ local Visual = {
         originalFogEnd = nil,
         originalFogStart = nil,
         originalFogColor = nil,
-        fogCache = nil,
-        originalClockTime = nil
+        fogCache = {},
+        originalClockTime = nil        
     }
 }
+
+-- Вспомогательная функция для скрытия Drawing объектов
+local function hideDrawing(obj)
+    if obj and typeof(obj) == "userdata" and obj.Visible ~= nil then
+        pcall(function()
+            obj.Visible = false
+        end)
+    end
+end
+
+-- Вспомогательная функция для скрытия всех Drawing объектов в таблице
+local function hideAllDrawings(d)
+    if not d then return end
+    
+    local drawingObjects = {
+        d.BoxFill, d.Name, d.Distance, d.Tracer, d.HealthBg, 
+        d.HealthBar, d.HealthMask, d.HealthText, d.Box, d.BoxOutline
+    }
+    
+    for _, obj in ipairs(drawingObjects) do
+        hideDrawing(obj)
+    end
+    
+    for i = 1, 24 do
+        hideDrawing(d["HealthStripe"..i])
+    end
+    
+    if d.Bones then
+        for _, bone in ipairs(d.Bones) do
+            hideDrawing(bone)
+        end
+    end
+end
 
 function Visual.GetGeneratorProgress(gen)
     local progress = 0
@@ -74,18 +139,18 @@ function Visual.EnsureHighlight(model, color, isObject)
         hl.Adornee = model
         hl.FillColor = color
         hl.FillTransparency = 0.8
-        hl.OutlineColor = Color3.fromRGB(0, 0, 0)
+        hl.OutlineColor = Color3.fromRGB(0,0,0)
         hl.OutlineTransparency = 0.1
         hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
         hl.Parent = model
     else
         hl.FillColor = color
         if isObject then
-            hl.OutlineColor = Color3.fromRGB(0, 0, 0)
+            hl.OutlineColor = Color3.fromRGB(0,0,0)
             hl.FillTransparency = 0.7
             hl.OutlineTransparency = 0.1
         else
-            hl.OutlineColor = Color3.fromRGB(0, 0, 0)
+            hl.OutlineColor = Color3.fromRGB(0,0,0)
             hl.FillTransparency = 0.7
             hl.OutlineTransparency = 0.1
         end
@@ -105,11 +170,11 @@ function Visual.EnsureLabel(model, text, isGenerator, textColor)
         lbl = Instance.new("BillboardGui")
         lbl.Name = "VD_Label"
         if isGenerator then
-            lbl.Size = UDim2.new(0, 100, 0, 25)
-            lbl.StudsOffset = Vector3.new(0, 2.5, 0)
+            lbl.Size = UDim2.new(0,100,0,25)
+            lbl.StudsOffset = Vector3.new(0,2.5,0)
         else
-            lbl.Size = UDim2.new(0, 120, 0, 20)
-            lbl.StudsOffset = Vector3.new(0, 3, 0)
+            lbl.Size = UDim2.new(0,120,0,20)
+            lbl.StudsOffset = Vector3.new(0,3,0)
         end
         lbl.AlwaysOnTop = true
         lbl.MaxDistance = 1000
@@ -117,7 +182,7 @@ function Visual.EnsureLabel(model, text, isGenerator, textColor)
         
         local textLabel = Instance.new("TextLabel")
         textLabel.Name = "TextLabel"
-        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.Size = UDim2.new(1,0,1,0)
         textLabel.BackgroundTransparency = 1
         textLabel.TextScaled = false
         if isGenerator then
@@ -128,8 +193,8 @@ function Visual.EnsureLabel(model, text, isGenerator, textColor)
         textLabel.Font = Enum.Font.SourceSansBold
         textLabel.RichText = true
         textLabel.TextStrokeTransparency = 0.1
-        textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        textLabel.TextColor3 = textColor or Color3.fromRGB(255, 255, 255)
+        textLabel.TextStrokeColor3 = Color3.fromRGB(0,0,0)
+        textLabel.TextColor3 = textColor or Color3.fromRGB(255,255,255)
         textLabel.Text = text
         textLabel.Parent = lbl
     else
@@ -139,13 +204,13 @@ function Visual.EnsureLabel(model, text, isGenerator, textColor)
             textLabel.Text = text
             if isGenerator then
                 textLabel.TextSize = 14
-                lbl.StudsOffset = Vector3.new(0, 2.5, 0)
+                lbl.StudsOffset = Vector3.new(0,2.5,0)
             else
                 textLabel.TextSize = 12
-                lbl.StudsOffset = Vector3.new(0, 3, 0)
+                lbl.StudsOffset = Vector3.new(0,3,0)
             end
             textLabel.TextStrokeTransparency = 0.1
-            textLabel.TextColor3 = textColor or Color3.fromRGB(255, 255, 255)
+            textLabel.TextColor3 = textColor or Color3.fromRGB(255,255,255)
         end
     end
 end
@@ -181,13 +246,13 @@ function Visual.EnsureGeneratorESP(generator, progress)
         hl.Adornee = generator
         hl.FillColor = color
         hl.FillTransparency = 0.7
-        hl.OutlineColor = Color3.fromRGB(0, 0, 0)
+        hl.OutlineColor = Color3.fromRGB(0,0,0)
         hl.OutlineTransparency = 0.1
         hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
         hl.Parent = generator
     else
         hl.FillColor = color
-        hl.OutlineColor = Color3.fromRGB(0, 0, 0)
+        hl.OutlineColor = Color3.fromRGB(0,0,0)
         hl.FillTransparency = 0.7
         hl.OutlineTransparency = 0.1
     end
@@ -223,10 +288,6 @@ function Visual.AddObjectToTrack(obj)
         Visual.ESP.trackedObjects[obj] = "Windows"
     elseif nameLower:find("hook") then 
         Visual.ESP.trackedObjects[obj] = "Hooks"
-    elseif nameLower:find("gift") then
-        if Visual.IsValidGift(obj) then
-            Visual.ESP.trackedObjects[obj] = "Gifts"
-        end
     end
 end
 
@@ -249,160 +310,6 @@ function Visual.IsValidPallet(obj)
     end
     
     return false
-end
-
-function Visual.IsValidGift(obj)
-    if obj.Name:lower():find("gift") then
-        for _, child in ipairs(obj:GetDescendants()) do
-            if child:IsA("SurfaceAppearance") then
-                return true
-            end
-        end
-    end
-    return false
-end
-
-function Visual.GetAllGifts()
-    local gifts = {}
-    for obj, typeName in pairs(Visual.ESP.trackedObjects) do
-        if obj and obj.Parent and typeName == "Gifts" and Visual.IsValidGift(obj) then
-            table.insert(gifts, obj)
-        end
-    end
-    return gifts
-end
-
-function Visual.FindChristmasTree()
-    local map = Nexus.Services.Workspace:FindFirstChild("Map")
-    if not map then return nil end
-    
-    local christmasTree = map:FindFirstChild("chris")
-    if christmasTree then
-        christmasTree = christmasTree:FindFirstChild("chrismta tute")
-        if christmasTree then
-            christmasTree = christmasTree:FindFirstChild("Model")
-            if christmasTree then
-                christmasTree = christmasTree:FindFirstChild("ChristmasTree")
-                if christmasTree then
-                    local treePine = christmasTree:FindFirstChild("TreePine")
-                    if treePine then
-                        return treePine
-                    end
-                end
-            end
-        end
-    end
-    
-    for _, obj in ipairs(Nexus.Services.Workspace:GetDescendants()) do
-        if obj.Name == "TreePine" then
-            return obj
-        end
-    end
-    
-    return nil
-end
-
-function Visual.TeleportToObject(obj)
-    local localPlayer = Nexus.Player
-    if not localPlayer or not localPlayer.Character then
-        return false
-    end
-    
-    local humanoid = localPlayer.Character:FindFirstChild("Humanoid")
-    local rootPart = localPlayer.Character:FindFirstChild("HumanoidRootPart")
-    
-    if not humanoid or not rootPart then
-        return false
-    end
-    
-    if obj then
-        local targetPosition
-        if obj:IsA("BasePart") then
-            targetPosition = obj.Position + Vector3.new(0, 3, 0)
-        elseif obj:IsA("Model") and obj.PrimaryPart then
-            targetPosition = obj.PrimaryPart.Position + Vector3.new(0, 3, 0)
-        else
-            targetPosition = obj.Position + Vector3.new(0, 3, 0)
-        end
-        
-        local success = pcall(function()
-            rootPart.CFrame = CFrame.new(targetPosition)
-        end)
-        
-        return success
-    end
-    
-    return false
-end
-
-function Visual.SimulateMouseClick()
-    local virtualInputManager = game:GetService("VirtualInputManager")
-    if virtualInputManager then
-        pcall(function()
-            virtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-            task.wait(0.1)
-            virtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-        end)
-    end
-end
-
-function Visual.AutoFarmGiftLoop()
-    if Visual.ESP.autoFarmRunning then
-        return
-    end
-    
-    Visual.ESP.autoFarmRunning = true
-    Visual.ESP.currentGiftIndex = 1
-    
-    task.spawn(function()
-        while Visual.ESP.autoFarmGiftEnabled do
-            local gifts = Visual.GetAllGifts()
-            
-            if #gifts > 0 then
-                if Visual.ESP.currentGiftIndex > #gifts then
-                    Visual.ESP.currentGiftIndex = 1
-                end
-                
-                local currentGift = gifts[Visual.ESP.currentGiftIndex]
-                
-                if currentGift and currentGift.Parent and Visual.IsValidGift(currentGift) then
-                    Visual.TeleportToObject(currentGift)
-                    task.wait(0.5)
-                    
-                    Visual.SimulateMouseClick()
-                    task.wait(3)
-                    
-                    local christmasTree = Visual.FindChristmasTree()
-                    if christmasTree then
-                        Visual.TeleportToObject(christmasTree)
-                        task.wait(3)
-                    else
-                        task.wait(3)
-                    end
-                    
-                    Visual.ESP.currentGiftIndex = Visual.ESP.currentGiftIndex + 1
-                else
-                    Visual.ESP.currentGiftIndex = Visual.ESP.currentGiftIndex + 1
-                end
-            else
-                task.wait(2)
-            end
-            
-            task.wait(0.5)
-        end
-        
-        Visual.ESP.autoFarmRunning = false
-    end)
-end
-
-function Visual.ToggleAutoFarmGift(enabled)
-    Visual.ESP.autoFarmGiftEnabled = enabled
-    
-    if enabled then
-        Visual.AutoFarmGiftLoop()
-    else
-        Visual.ESP.autoFarmRunning = false
-    end
 end
 
 function Visual.TrackObjects()
@@ -436,7 +343,6 @@ function Visual.UpdateESP()
                 if setting and setting.Enabled then
                     local color = setting.Colorpicker and setting.Colorpicker.Value or setting.Color
                     Visual.EnsureHighlight(targetPlayer.Character, color, false)
-                    Visual.ClearLabel(targetPlayer.Character)
                 else
                     Visual.ClearHighlight(targetPlayer.Character)
                     Visual.ClearLabel(targetPlayer.Character)
@@ -541,288 +447,478 @@ function Visual.UpdateESPDisplay()
     end
 end
 
-function Visual.GetTeamCheckColor(player)
-    if Visual.ESP.teamCheckEnabled then
-        local localTeam = Visual.GetRole(Nexus.Player)
-        local playerTeam = Visual.GetRole(player)
-        
-        if localTeam == playerTeam then
-            return Color3.fromRGB(0, 0, 255)
-        else
-            return Color3.fromRGB(255, 0, 0)
+function Visual.ClearAdvancedESP(plr)
+    local d = Visual.AdvancedESP.espObjects[plr]
+    if d then
+        hideAllDrawings(d)
+    end
+    
+    if Visual.AdvancedESP.playerConnections[plr] then
+        for connName, connection in pairs(Visual.AdvancedESP.playerConnections[plr]) do
+            if connection and typeof(connection) == "RBXScriptConnection" then
+                pcall(function() connection:Disconnect() end)
+            end
+            Visual.AdvancedESP.playerConnections[plr][connName] = nil
         end
-    else
-        return Visual.ESP.boxColor
+        Visual.AdvancedESP.playerConnections[plr] = nil
     end
 end
 
-function Visual.CreateBoxESP(player)
-    local espData = {}
-    espData.Box = Drawing.new("Square")
-    espData.BoxOutline = Drawing.new("Square")
-    espData.Name = Drawing.new("Text")
-    espData.HealthBar = Drawing.new("Square")
-    espData.HealthBarOutline = Drawing.new("Square")
-    espData.Updater = nil
-    
-    Visual.ESP.boxESPObjects[player] = espData
-    
-    local function UpdateBoxESP()
-        if player.Character ~= nil and player.Character:FindFirstChild("Humanoid") ~= nil and player.Character:FindFirstChild("HumanoidRootPart") ~= nil and player.Character.Humanoid.Health > 0 and player.Character:FindFirstChild("Head") ~= nil then
-            local Target2dPosition, IsVisible = workspace.CurrentCamera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
-            local scale_factor = 1 / (Target2dPosition.Z * math.tan(math.rad(workspace.CurrentCamera.FieldOfView * 0.5)) * 2) * 100
-            local width, height = math.floor(40 * scale_factor), math.floor(60 * scale_factor)
-            
-            espData.Box.Visible = Visual.ESP.boxESPEnabled and IsVisible
-            espData.BoxOutline.Visible = Visual.ESP.boxESPEnabled and IsVisible
-            espData.Name.Visible = Visual.ESP.namesESPEnabled and IsVisible
-            espData.HealthBar.Visible = Visual.ESP.healthBarEnabled and IsVisible
-            espData.HealthBarOutline.Visible = Visual.ESP.healthBarEnabled and IsVisible
-            
-            if Visual.ESP.boxESPEnabled and IsVisible then
-                espData.Box.Color = Visual.GetTeamCheckColor(player)
-                espData.Box.Size = Vector2.new(width, height)
-                espData.Box.Position = Vector2.new(Target2dPosition.X - espData.Box.Size.X / 2, Target2dPosition.Y - espData.Box.Size.Y / 2)
-                espData.Box.Thickness = 1
-                espData.Box.ZIndex = 69
-                
-                espData.BoxOutline.Color = Color3.fromRGB(0, 0, 0)
-                espData.BoxOutline.Size = Vector2.new(width, height)
-                espData.BoxOutline.Position = Vector2.new(Target2dPosition.X - espData.Box.Size.X / 2, Target2dPosition.Y - espData.Box.Size.Y / 2)
-                espData.BoxOutline.Thickness = 3
-                espData.BoxOutline.ZIndex = 1
-            end
-            
-            if Visual.ESP.namesESPEnabled and IsVisible then
-                espData.Name.Color = Visual.ESP.namesColor
-                espData.Name.Text = player.Name .. " " .. math.floor((workspace.CurrentCamera.CFrame.p - player.Character.HumanoidRootPart.Position).magnitude) .. "m"
-                espData.Name.Center = true
-                espData.Name.Outline = true
-                espData.Name.OutlineColor = Color3.fromRGB(0, 0, 0)
-                espData.Name.Position = Vector2.new(Target2dPosition.X, Target2dPosition.Y - height * 0.5 + -15)
-                espData.Name.Font = 2
-                espData.Name.Size = 13
-            else
-                espData.Name.Visible = false
-            end
-            
-            if Visual.ESP.healthBarEnabled and IsVisible then
-                espData.HealthBarOutline.Color = Color3.fromRGB(0, 0, 0)
-                espData.HealthBarOutline.Filled = true
-                espData.HealthBarOutline.ZIndex = 1
+function Visual.CleanupPlayerAdvancedESP(plr)
+    Visual.ClearAdvancedESP(plr)
+end
 
-                espData.HealthBar.Color = Color3.fromRGB(255, 0, 0):lerp(Color3.fromRGB(0, 255, 0), player.Character:FindFirstChild("Humanoid").Health / player.Character:FindFirstChild("Humanoid").MaxHealth)
-                espData.HealthBar.Thickness = 1
-                espData.HealthBar.Filled = true
-                espData.HealthBar.ZIndex = 69
+function Visual.CreateAdvancedESP(plr)
+    if Visual.AdvancedESP.espObjects[plr] then
+        return Visual.AdvancedESP.espObjects[plr]
+    end
+    
+    local settings = Visual.AdvancedESP.settings
+    local colorMap = Visual.AdvancedESP.colorMap
+    
+    local boneColor = colorMap[settings.boneColorName] or colorMap.White
+    local tracerColor = colorMap[settings.tracerColorName] or colorMap.White
+    local boxColor = colorMap[settings.boxColorName] or colorMap.White
+    local boxOutlineColor = colorMap[settings.boxOutlineColorName] or colorMap.Black
+    local boxFillColor = colorMap[settings.boxFillColorName] or colorMap.White
+    
+    local function createDrawing(tp, props)
+        local o = Drawing.new(tp)
+        for prop, value in pairs(props) do 
+            o[prop] = value 
+        end
+        return o
+    end
+    
+    local d = {
+        Bones = {},
+        BoxFill = createDrawing("Square",{
+            Thickness = 0,
+            Color = boxFillColor,
+            Visible = false,
+            Filled = true,
+            Transparency = 1 - (settings.boxFillTransparency or 0.9)
+        }),
+        
+        Name = createDrawing("Text",{
+            Size = settings.name.TextSize,
+            Center = true,
+            Outline = true,
+            Color = Color3.new(1,1,1),
+            Visible = false
+        }),
+        
+        Distance = createDrawing("Text",{
+            Size = settings.distance.TextSize,
+            Center = true,
+            Outline = true,
+            Color = Color3.new(0.8,0.8,0.8),
+            Visible = false
+        }),
+        
+        Tracer = createDrawing("Line",{
+            Thickness = 1.5,
+            Color = tracerColor,
+            Visible = false
+        }),
+        
+        HealthBg = createDrawing("Square",{
+            Filled = true,
+            Color = Color3.new(0,0,0),
+            Transparency = 1,
+            Visible = false
+        }),
+        
+        HealthBar = createDrawing("Square",{
+            Filled = true,
+            Transparency = 1,
+            Visible = false
+        }),
+        
+        HealthMask = createDrawing("Square",{
+            Filled = true,
+            Color = Color3.new(0,0,0),
+            Transparency = 0.3,
+            Visible = false
+        }),
+        
+        HealthText = createDrawing("Text",{
+            Size = 14,
+            Center = true,
+            Outline = true,
+            Color = Color3.new(1,1,1),
+            Visible = false
+        }),
+        
+        Box = createDrawing("Square", {
+            Thickness = 1.7,
+            Color = boxColor,
+            Visible = false,
+            Filled = false
+        }),
+        
+        BoxOutline = createDrawing("Square", {
+            Thickness = 1.7 + (settings.boxOutlineThickness or 0.4) * 2,
+            Color = boxOutlineColor,
+            Visible = false,
+            Filled = false
+        })
+    }
+    
+    for i=1,14 do
+        d.Bones[i] = createDrawing("Line", {
+            Thickness = 1.5,
+            Color = boneColor,
+            Visible = false
+        })
+    end
+    
+    for i=1,24 do
+        d["HealthStripe"..i] = createDrawing("Square", {
+            Filled = true,
+            Visible = false,
+            Transparency = 1
+        })
+    end
+    
+    Visual.AdvancedESP.espObjects[plr] = d
+    
+    if not Visual.AdvancedESP.playerConnections[plr] then
+        Visual.AdvancedESP.playerConnections[plr] = {}
+    end
+    
+    return d
+end
+
+function Visual.SetupPlayerAdvancedESP(plr)
+    if plr == Nexus.Player then return end
+    
+    Visual.CreateAdvancedESP(plr)
+    
+    local charAddedConnection = plr.CharacterAdded:Connect(function(char)
+        task.wait(0.5)
+        
+        Visual.CreateAdvancedESP(plr)
+        
+        local humanoid = char:WaitForChild("Humanoid", 5)
+        if humanoid then
+            if Visual.AdvancedESP.playerConnections[plr] then
+                if Visual.AdvancedESP.playerConnections[plr].died then
+                    Visual.AdvancedESP.playerConnections[plr].died:Disconnect()
+                end
                 
-                local boxPosition = Vector2.new(Target2dPosition.X - width / 2, Target2dPosition.Y - height / 2)
-                
-                espData.HealthBarOutline.Size = Vector2.new(2, height)
-                espData.HealthBarOutline.Position = boxPosition + Vector2.new(-7, 0)
-                
-                espData.HealthBar.Size = Vector2.new(1, -(espData.HealthBarOutline.Size.Y - 2) * (player.Character:FindFirstChild("Humanoid").Health / player.Character:FindFirstChild("Humanoid").MaxHealth))
-                espData.HealthBar.Position = espData.HealthBarOutline.Position + Vector2.new(1, -1 + espData.HealthBarOutline.Size.Y)
-            else
-                espData.HealthBar.Visible = false
-                espData.HealthBarOutline.Visible = false
+                Visual.AdvancedESP.playerConnections[plr].died = humanoid.Died:Connect(function()
+                    Visual.ClearAdvancedESP(plr)
+                end)
             end
-        else
-            espData.Box.Visible = false
-            espData.BoxOutline.Visible = false
-            espData.Name.Visible = false
-            espData.HealthBar.Visible = false
-            espData.HealthBarOutline.Visible = false
         end
-    end
-    
-    espData.Updater = game:GetService("RunService").RenderStepped:Connect(UpdateBoxESP)
-    
-    local function CleanupBoxESP()
-        if espData.Updater then
-            espData.Updater:Disconnect()
-            espData.Updater = nil
-        end
-        
-        espData.Box.Visible = false
-        espData.BoxOutline.Visible = false
-        espData.Name.Visible = false
-        espData.HealthBar.Visible = false
-        espData.HealthBarOutline.Visible = false
-        
-        Visual.ESP.boxESPObjects[player] = nil
-    end
-    
-    player.CharacterRemoving:Connect(function()
-        espData.Box.Visible = false
-        espData.BoxOutline.Visible = false
-        espData.Name.Visible = false
-        espData.HealthBar.Visible = false
-        espData.HealthBarOutline.Visible = false
     end)
     
-    player.AncestryChanged:Connect(function()
-        if not player.Parent then
-            CleanupBoxESP()
+    local charRemovingConnection = plr.CharacterRemoving:Connect(function()
+        Visual.ClearAdvancedESP(plr)
+    end)
+    
+    if Visual.AdvancedESP.playerConnections[plr] then
+        Visual.AdvancedESP.playerConnections[plr].charAdded = charAddedConnection
+        Visual.AdvancedESP.playerConnections[plr].charRemoving = charRemovingConnection
+    end
+    
+    local ancestryConnection = plr.AncestryChanged:Connect(function()
+        if not plr or not plr.Parent then
+            Visual.CleanupPlayerAdvancedESP(plr)
         end
+    end)
+    
+    Visual.AdvancedESP.playerConnections[plr].ancestry = ancestryConnection
+    
+    if plr.Character then
+        task.spawn(function()
+            local char = plr.Character
+            task.wait(0.5)
+            
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                if Visual.AdvancedESP.playerConnections[plr] then
+                    Visual.AdvancedESP.playerConnections[plr].died = humanoid.Died:Connect(function()
+                        Visual.ClearAdvancedESP(plr)
+                    end)
+                end
+            end
+        end)
+    end
+end
+
+function Visual.GetHealthGradientColor(y, h)
+    local settings = Visual.AdvancedESP.settings
+    local colorMap = Visual.AdvancedESP.colorMap
+    
+    local t = 1 - (y / math.max(h, 1))
+    if t >= 0.5 then
+        local s = (t - 0.5) * 2
+        local midColor = colorMap[settings.healthBarMidColorName] or colorMap.DarkOrange
+        local topColor = colorMap[settings.healthBarTopColorName] or colorMap.DarkGreen
+        return midColor:Lerp(topColor, s)
+    else
+        local s = t * 2
+        local bottomColor = colorMap[settings.healthBarBottomColorName] or colorMap.DarkRed
+        local midColor = colorMap[settings.healthBarMidColorName] or colorMap.DarkOrange
+        return bottomColor:Lerp(midColor, s)
+    end
+end
+
+function Visual.IsR6(char)
+    return char:FindFirstChild("Torso") and not char:FindFirstChild("UpperTorso")
+end
+
+function Visual.UpdateAdvancedESP()
+    if not Visual.AdvancedESP.advancedESPRunning then return end
+    
+    local anyComponentEnabled = false
+    for _, component in pairs(Visual.AdvancedESP.settings) do
+        if type(component) == "table" and component.Enabled then
+            anyComponentEnabled = true
+            break
+        end
+    end
+    
+    if not anyComponentEnabled then return end
+    
+    local Camera = Nexus.Camera
+    local camPos = Camera.CFrame.Position
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+    
+    for plr, d in pairs(Visual.AdvancedESP.espObjects) do
+        if not plr or not plr.Parent then
+            Visual.CleanupPlayerAdvancedESP(plr)
+            continue
+        end
+        
+        local char = plr.Character
+        if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Head") and char:FindFirstChildOfClass("Humanoid") then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            
+            if hum and hum.Health <= 0 then
+                hideAllDrawings(d)
+                continue
+            end
+            
+            local root = char.HumanoidRootPart
+            local head = char.Head
+
+            local function screenPosOrNil(part)
+                if part then
+                    local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen and pos.Z > 0 then 
+                        return Vector2.new(pos.X, pos.Y) 
+                    end
+                end
+                return nil
+            end
+
+            local headPos, onScreen = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+            local footPos = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 2.5, 0))
+
+            if onScreen then
+                local rawHeight = footPos.Y - headPos.Y
+                local height = rawHeight * Visual.AdvancedESP.settings.scale
+                local width = (height / 2) * Visual.AdvancedESP.settings.scale
+                local x = headPos.X - width / 2
+                local y = headPos.Y - (height - rawHeight) / 2
+
+                if d.BoxFill then
+                    d.BoxFill.Position = Vector2.new(x, y)
+                    d.BoxFill.Size = Vector2.new(width, height)
+                    d.BoxFill.Color = Visual.AdvancedESP.colorMap[Visual.AdvancedESP.settings.boxFillColorName] or Visual.AdvancedESP.colorMap.White
+                    d.BoxFill.Filled = true
+                    d.BoxFill.Transparency = 1 - (Visual.AdvancedESP.settings.boxFillTransparency or 0.9)
+                    d.BoxFill.Visible = Visual.AdvancedESP.settings.boxFill.Enabled
+                end
+
+                if d.Box then
+                    d.Box.Position = Vector2.new(x, y)
+                    d.Box.Size = Vector2.new(width, height)
+                    d.Box.Color = Visual.AdvancedESP.colorMap[Visual.AdvancedESP.settings.boxColorName] or Visual.AdvancedESP.colorMap.White
+                    d.Box.Thickness = 1.7
+                    d.Box.Visible = Visual.AdvancedESP.settings.box.Enabled
+                end
+                
+                if d.BoxOutline then
+                    local thickness = Visual.AdvancedESP.settings.boxOutlineThickness or 0.4
+                    d.BoxOutline.Position = Vector2.new(x - thickness, y - thickness)
+                    d.BoxOutline.Size = Vector2.new(width + thickness * 2, height + thickness * 2)
+                    d.BoxOutline.Color = Visual.AdvancedESP.colorMap[Visual.AdvancedESP.settings.boxOutlineColorName] or Visual.AdvancedESP.colorMap.Black
+                    d.BoxOutline.Thickness = thickness
+                    d.BoxOutline.Visible = Visual.AdvancedESP.settings.box.Enabled and Visual.AdvancedESP.settings.boxOutline.Enabled
+                end
+
+                if d.Name then
+                    d.Name.Text = plr.Name
+                    d.Name.Size = Visual.AdvancedESP.settings.name.TextSize
+                    d.Name.Position = Vector2.new(headPos.X, y - 22)
+                    d.Name.Visible = Visual.AdvancedESP.settings.name.Enabled
+                end
+
+                if d.Distance then
+                    local dist = math.floor((root.Position - camPos).Magnitude)
+                    d.Distance.Text = dist .. "m"
+                    d.Distance.Size = Visual.AdvancedESP.settings.distance.TextSize
+                    d.Distance.Position = Vector2.new(headPos.X, y + height + 6)
+                    d.Distance.Visible = Visual.AdvancedESP.settings.distance.Enabled
+                end
+
+                if d.HealthBg and d.HealthText then
+                    local barX = x - (Visual.AdvancedESP.settings.healthBarLeftOffset or 10)
+                    local barY = y
+                    local barWidth = 6
+                    local barHeight = height
+                    
+                    d.HealthBg.Position = Vector2.new(barX, barY)
+                    d.HealthBg.Size = Vector2.new(barWidth, barHeight)
+                    d.HealthBg.Visible = Visual.AdvancedESP.settings.healthbar.Enabled
+                    
+                    if Visual.AdvancedESP.settings.healthbar.Enabled then
+                        local HEALTH_STRIPES = 24
+                        local hpPerc = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                        for i = 1, HEALTH_STRIPES do
+                            local stripeY = barY + barHeight * (i - 1) / HEALTH_STRIPES
+                            local stripeH = barHeight / HEALTH_STRIPES
+                            local stripeColor = Visual.GetHealthGradientColor(stripeY - barY, barHeight)
+                            local stripe = d["HealthStripe"..i]
+                            if stripe then
+                                stripe.Color = stripeColor
+                                stripe.Position = Vector2.new(barX, stripeY)
+                                stripe.Size = Vector2.new(barWidth, stripeH)
+                                stripe.Visible = (i - 1) / HEALTH_STRIPES < hpPerc
+                                stripe.Transparency = 1
+                            end
+                        end
+                        
+                        d.HealthText.Text = tostring(math.floor(hum.Health))
+                        d.HealthText.Size = 14
+                        d.HealthText.Position = Vector2.new(x - (Visual.AdvancedESP.settings.healthBarLeftOffset or 10) - 14, y + height / 2)
+                        d.HealthText.Visible = true
+                    else
+                        for i = 1, 24 do
+                            hideDrawing(d["HealthStripe"..i])
+                        end
+                        d.HealthText.Visible = false
+                    end
+                end
+
+                if d.Bones then
+                    local bonesVisible = Visual.AdvancedESP.settings.bones.Enabled
+                    local bones
+                    
+                    if Visual.IsR6(char) then
+                        bones = {
+                            {char:FindFirstChild("Head"), char:FindFirstChild("Torso")},
+                            {char:FindFirstChild("Torso"), char:FindFirstChild("Left Arm")},
+                            {char:FindFirstChild("Left Arm"), char:FindFirstChild("Left Leg")},
+                            {char:FindFirstChild("Torso"), char:FindFirstChild("Right Arm")},
+                            {char:FindFirstChild("Right Arm"), char:FindFirstChild("Right Leg")},
+                            {char:FindFirstChild("Torso"), char:FindFirstChild("Left Leg")},
+                            {char:FindFirstChild("Torso"), char:FindFirstChild("Right Leg")}
+                        }
+                    else
+                        bones = {
+                            {char:FindFirstChild("Head"), char:FindFirstChild("Neck")},
+                            {char:FindFirstChild("Neck"), char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")},
+                            {char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"), char:FindFirstChild("LeftUpperArm") or char:FindFirstChild("Left Arm")},
+                            {char:FindFirstChild("LeftUpperArm") or char:FindFirstChild("Left Arm"), char:FindFirstChild("LeftLowerArm") or char:FindFirstChild("Left Forearm")},
+                            {char:FindFirstChild("LeftLowerArm") or char:FindFirstChild("Left Forearm"), char:FindFirstChild("LeftHand") or char:FindFirstChild("Left hand")},
+                            {char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"), char:FindFirstChild("RightUpperArm") or char:FindFirstChild("Right Arm")},
+                            {char:FindFirstChild("RightUpperArm") or char:FindFirstChild("Right Arm"), char:FindFirstChild("RightLowerArm") or char:FindFirstChild("Right Forearm")},
+                            {char:FindFirstChild("RightLowerArm") or char:FindFirstChild("Right Forearm"), char:FindFirstChild("RightHand") or char:FindFirstChild("Right hand")},
+                            {char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"), char:FindFirstChild("LeftUpperLeg") or char:FindFirstChild("Left Leg")},
+                            {char:FindFirstChild("LeftUpperLeg") or char:FindFirstChild("Left Leg"), char:FindFirstChild("LeftLowerLeg") or char:FindFirstChild("Left Shin")},
+                            {char:FindFirstChild("LeftLowerLeg") or char:FindFirstChild("Left Shin"), char:FindFirstChild("LeftFoot") or char:FindFirstChild("Left foot")},
+                            {char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"), char:FindFirstChild("RightUpperLeg") or char:FindFirstChild("Right Leg")},
+                            {char:FindFirstChild("RightUpperLeg") or char:FindFirstChild("Right Leg"), char:FindFirstChild("RightLowerLeg") or char:FindFirstChild("Right Shin")},
+                            {char:FindFirstChild("RightLowerLeg") or char:FindFirstChild("Right Shin"), char:FindFirstChild("RightFoot") or char:FindFirstChild("Right foot")}
+                        }
+                    }
+                    
+                    for i = 1, 14 do
+                        local line = d.Bones[i]
+                        if bones[i] and bones[i][1] and bones[i][2] then
+                            local p1 = screenPosOrNil(bones[i][1])
+                            local p2 = screenPosOrNil(bones[i][2])
+                            if p1 and p2 then
+                                line.From = p1
+                                line.To = p2
+                                line.Color = Visual.AdvancedESP.colorMap[Visual.AdvancedESP.settings.boneColorName] or Visual.AdvancedESP.colorMap.White
+                                line.Visible = bonesVisible
+                            else
+                                line.Visible = false
+                            end
+                        else
+                            line.Visible = false
+                        end
+                    end
+                end
+
+                if d.Tracer then
+                    local rootPos2D = Vector2.new(headPos.X, headPos.Y)
+                    d.Tracer.From = screenCenter
+                    d.Tracer.To = rootPos2D
+                    d.Tracer.Color = Visual.AdvancedESP.colorMap[Visual.AdvancedESP.settings.tracerColorName] or Visual.AdvancedESP.colorMap.White
+                    d.Tracer.Visible = Visual.AdvancedESP.settings.tracers.Enabled
+                end
+            else
+                hideAllDrawings(d)
+            end
+        else
+            Visual.CleanupPlayerAdvancedESP(plr)
+        end
+    end
+end
+
+function Visual.StartAdvancedESP()
+    if Visual.AdvancedESP.advancedESPRunning then return end
+    Visual.AdvancedESP.advancedESPRunning = true
+    
+    local playerAddedConnection = Nexus.Services.Players.PlayerAdded:Connect(function(plr)
+        Visual.SetupPlayerAdvancedESP(plr)
+    end)
+    
+    local playerRemovingConnection = Nexus.Services.Players.PlayerRemoving:Connect(function(plr)
+        Visual.CleanupPlayerAdvancedESP(plr)
+    end)
+    
+    Visual.AdvancedESP.connections.playerAdded = playerAddedConnection
+    Visual.AdvancedESP.connections.playerRemoving = playerRemovingConnection
+    
+    for _, plr in pairs(Nexus.Services.Players:GetPlayers()) do
+        if plr ~= Nexus.Player then
+            Visual.SetupPlayerAdvancedESP(plr)
+        end
+    end
+    
+    Visual.AdvancedESP.connections.renderStepped = Nexus.Services.RunService.RenderStepped:Connect(function()
+        Visual.UpdateAdvancedESP()
     end)
 end
 
-function Visual.InitializeBoxESP()
-    for _, player in ipairs(Nexus.Services.Players:GetPlayers()) do
-        if player ~= Nexus.Player then
-            if not Visual.ESP.boxESPObjects[player] then
-                Visual.CreateBoxESP(player)
-            end
-        end
-    end
-end
-
-function Visual.UpdateAllBoxESP()
-    for player, espData in pairs(Visual.ESP.boxESPObjects) do
-        if player and player.Parent then
-            if espData.Updater then
-                espData.Updater:Disconnect()
-                espData.Updater = nil
-            end
-            
-            local function UpdateBoxESP()
-                if player.Character ~= nil and player.Character:FindFirstChild("Humanoid") ~= nil and player.Character:FindFirstChild("HumanoidRootPart") ~= nil and player.Character.Humanoid.Health > 0 and player.Character:FindFirstChild("Head") ~= nil then
-                    local Target2dPosition, IsVisible = workspace.CurrentCamera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
-                    local scale_factor = 1 / (Target2dPosition.Z * math.tan(math.rad(workspace.CurrentCamera.FieldOfView * 0.5)) * 2) * 100
-                    local width, height = math.floor(40 * scale_factor), math.floor(60 * scale_factor)
-                    
-                    espData.Box.Visible = Visual.ESP.boxESPEnabled and IsVisible
-                    espData.BoxOutline.Visible = Visual.ESP.boxESPEnabled and IsVisible
-                    espData.Name.Visible = Visual.ESP.namesESPEnabled and IsVisible
-                    espData.HealthBar.Visible = Visual.ESP.healthBarEnabled and IsVisible
-                    espData.HealthBarOutline.Visible = Visual.ESP.healthBarEnabled and IsVisible
-                    
-                    if Visual.ESP.boxESPEnabled and IsVisible then
-                        espData.Box.Color = Visual.GetTeamCheckColor(player)
-                        espData.Box.Size = Vector2.new(width, height)
-                        espData.Box.Position = Vector2.new(Target2dPosition.X - espData.Box.Size.X / 2, Target2dPosition.Y - espData.Box.Size.Y / 2)
-                        espData.Box.Thickness = 1
-                        espData.Box.ZIndex = 69
-                        
-                        espData.BoxOutline.Color = Color3.fromRGB(0, 0, 0)
-                        espData.BoxOutline.Size = Vector2.new(width, height)
-                        espData.BoxOutline.Position = Vector2.new(Target2dPosition.X - espData.Box.Size.X / 2, Target2dPosition.Y - espData.Box.Size.Y / 2)
-                        espData.BoxOutline.Thickness = 3
-                        espData.BoxOutline.ZIndex = 1
-                    end
-                    
-                    if Visual.ESP.namesESPEnabled and IsVisible then
-                        espData.Name.Color = Visual.ESP.namesColor
-                        espData.Name.Text = player.Name .. " " .. math.floor((workspace.CurrentCamera.CFrame.p - player.Character.HumanoidRootPart.Position).magnitude) .. "m"
-                        espData.Name.Center = true
-                        espData.Name.Outline = true
-                        espData.Name.OutlineColor = Color3.fromRGB(0, 0, 0)
-                        espData.Name.Position = Vector2.new(Target2dPosition.X, Target2dPosition.Y - height * 0.5 + -15)
-                        espData.Name.Font = 2
-                        espData.Name.Size = 13
-                    else
-                        espData.Name.Visible = false
-                    end
-                    
-                    if Visual.ESP.healthBarEnabled and IsVisible then
-                        espData.HealthBarOutline.Color = Color3.fromRGB(0, 0, 0)
-                        espData.HealthBarOutline.Filled = true
-                        espData.HealthBarOutline.ZIndex = 1
-
-                        espData.HealthBar.Color = Color3.fromRGB(255, 0, 0):lerp(Color3.fromRGB(0, 255, 0), player.Character:FindFirstChild("Humanoid").Health / player.Character:FindFirstChild("Humanoid").MaxHealth)
-                        espData.HealthBar.Thickness = 1
-                        espData.HealthBar.Filled = true
-                        espData.HealthBar.ZIndex = 69
-                        
-                        local boxPosition = Vector2.new(Target2dPosition.X - width / 2, Target2dPosition.Y - height / 2)
-                        
-                        espData.HealthBarOutline.Size = Vector2.new(2, height)
-                        espData.HealthBarOutline.Position = boxPosition + Vector2.new(-7, 0)
-                        
-                        espData.HealthBar.Size = Vector2.new(1, -(espData.HealthBarOutline.Size.Y - 2) * (player.Character:FindFirstChild("Humanoid").Health / player.Character:FindFirstChild("Humanoid").MaxHealth))
-                        espData.HealthBar.Position = espData.HealthBarOutline.Position + Vector2.new(1, -1 + espData.HealthBarOutline.Size.Y)
-                    else
-                        espData.HealthBar.Visible = false
-                        espData.HealthBarOutline.Visible = false
-                    end
-                else
-                    espData.Box.Visible = false
-                    espData.BoxOutline.Visible = false
-                    espData.Name.Visible = false
-                    espData.HealthBar.Visible = false
-                    espData.HealthBarOutline.Visible = false
-                end
-            end
-            
-            espData.Updater = game:GetService("RunService").RenderStepped:Connect(UpdateBoxESP)
-        end
-    end
-end
-
-function Visual.ToggleBoxESP(enabled)
-    Visual.ESP.boxESPEnabled = enabled
+function Visual.StopAdvancedESP()
+    if not Visual.AdvancedESP.advancedESPRunning then return end
+    Visual.AdvancedESP.advancedESPRunning = false
     
-    if enabled then
-        Visual.InitializeBoxESP()
-        if not Visual.ESP.espConnections.boxESPPlayerAdded then
-            Visual.ESP.espConnections.boxESPPlayerAdded = Nexus.Services.Players.PlayerAdded:Connect(function(player)
-                if player ~= Nexus.Player then
-                    Visual.CreateBoxESP(player)
-                end
-            end)
-        end
-        
-        if not Visual.ESP.espConnections.boxESPPlayerRemoving then
-            Visual.ESP.espConnections.boxESPPlayerRemoving = Nexus.Services.Players.PlayerRemoving:Connect(function(player)
-                if Visual.ESP.boxESPObjects[player] then
-                    local espData = Visual.ESP.boxESPObjects[player]
-                    if espData.Updater then
-                        espData.Updater:Disconnect()
-                        espData.Updater = nil
-                    end
-                    
-                    espData.Box.Visible = false
-                    espData.BoxOutline.Visible = false
-                    espData.Name.Visible = false
-                    espData.HealthBar.Visible = false
-                    espData.HealthBarOutline.Visible = false
-                    
-                    Visual.ESP.boxESPObjects[player] = nil
-                end
-            end)
-        end
-    else
-        for _, espData in pairs(Visual.ESP.boxESPObjects) do
-            espData.Box.Visible = false
-            espData.BoxOutline.Visible = false
-            espData.Name.Visible = false
-            espData.HealthBar.Visible = false
-            espData.HealthBarOutline.Visible = false
-        end
+    for _, connection in pairs(Visual.AdvancedESP.connections) do
+        pcall(function() connection:Disconnect() end)
     end
-end
-
-function Visual.ToggleNamesESP(enabled)
-    Visual.ESP.namesESPEnabled = enabled
+    Visual.AdvancedESP.connections = {}
     
-    for _, espData in pairs(Visual.ESP.boxESPObjects) do
-        espData.Name.Visible = enabled
+    for plr, _ in pairs(Visual.AdvancedESP.espObjects) do
+        Visual.CleanupPlayerAdvancedESP(plr)
     end
-end
-
-function Visual.ToggleTeamCheck(enabled)
-    Visual.ESP.teamCheckEnabled = enabled
-    Visual.UpdateAllBoxESP()
-end
-
-function Visual.ToggleHealthBar(enabled)
-    Visual.ESP.healthBarEnabled = enabled
     
-    for _, espData in pairs(Visual.ESP.boxESPObjects) do
-        espData.HealthBar.Visible = enabled
-        espData.HealthBarOutline.Visible = enabled
+    for plr, connections in pairs(Visual.AdvancedESP.playerConnections) do
+        for _, connection in pairs(connections) do
+            pcall(function() connection:Disconnect() end)
+        end
     end
+    
+    Visual.AdvancedESP.playerConnections = {}
 end
 
 function Visual.ToggleNoShadow(enabled)
@@ -848,91 +944,48 @@ function Visual.ToggleNoFog(enabled)
     Visual.Effects.noFogEnabled = enabled
     
     if enabled then
-        pcall(function()
-            local lighting = Nexus.Services.Lighting
-            
-            if not Visual.Effects.fogCache then
-                Visual.Effects.fogCache = {}
-                
-                Visual.Effects.fogCache.FogEnd = lighting.FogEnd
-                Visual.Effects.fogCache.FogStart = lighting.FogStart
-                Visual.Effects.fogCache.FogColor = lighting.FogColor
-                Visual.Effects.fogCache.FogDensity = lighting.FogDensity
-                Visual.Effects.fogCache.GlobalShadows = lighting.GlobalShadows
-                Visual.Effects.fogCache.Brightness = lighting.Brightness
-                Visual.Effects.fogCache.ExposureCompensation = lighting.ExposureCompensation
-                
-                for _, effect in ipairs(lighting:GetChildren()) do
-                    if effect:IsA("Atmosphere") or 
-                       effect:IsA("BloomEffect") or 
-                       effect:IsA("BlurEffect") or 
-                       effect:IsA("ColorCorrectionEffect") or
-                       effect:IsA("SunRaysEffect") or
-                       effect.Name:lower():find("fog") or
-                       effect.Name:lower():find("bloom") or
-                       effect.Name:lower():find("blur") or
-                       effect.Name:lower():find("color") then
-                        Visual.Effects.fogCache[effect.Name] = effect:Clone()
-                    end
-                end
-                
-                local map = Nexus.Services.Workspace:FindFirstChild("Map")
-                if map then
-                    Visual.Effects.fogCache.mapEffects = {}
-                    for _, effect in ipairs(map:GetDescendants()) do
-                        if effect:IsA("Atmosphere") or 
-                           effect:IsA("BloomEffect") or 
-                           effect:IsA("BlurEffect") or 
-                           effect:IsA("ColorCorrectionEffect") or
-                           effect:IsA("SunRaysEffect") then
-                            Visual.Effects.fogCache.mapEffects[effect] = true
-                        end
-                    end
+        local lighting = Nexus.Services.Lighting
+        
+        Visual.Effects.fogCache = {
+            FogEnd = lighting.FogEnd,
+            FogStart = lighting.FogStart,
+            FogColor = lighting.FogColor,
+            FogDensity = lighting.FogDensity
+        }
+        
+        local originalAtmospheres = {}
+        for _, obj in ipairs(lighting:GetChildren()) do
+            if obj:IsA("Atmosphere") then
+                table.insert(originalAtmospheres, obj:Clone())
+                obj:Destroy()
+            end
+        end
+        
+        Visual.Effects.atmosphereCache = originalAtmospheres
+        
+        lighting.FogEnd = 10000000
+        lighting.FogStart = 0
+        lighting.FogColor = Color3.new(1,1,1)
+        lighting.FogDensity = 0
+        
+        local workspaceAtmospheres = {}
+        local map = Nexus.Services.Workspace:FindFirstChild("Map")
+        if map then
+            for _, obj in ipairs(map:GetDescendants()) do
+                if obj:IsA("Atmosphere") then
+                    table.insert(workspaceAtmospheres, {Object = obj, Parent = obj.Parent})
+                    obj:Destroy()
                 end
             end
-            
-            for _, effect in ipairs(lighting:GetChildren()) do
-                if effect:IsA("Atmosphere") or 
-                   effect:IsA("BloomEffect") or 
-                   effect:IsA("BlurEffect") or 
-                   effect:IsA("ColorCorrectionEffect") or
-                   effect:IsA("SunRaysEffect") or
-                   effect.Name:lower():find("fog") then
-                    effect:Destroy()
-                end
+        end
+        Visual.Effects.workspaceAtmosphereCache = workspaceAtmospheres
+        
+        Visual.ESP.espConnections.noFog = Nexus.Services.RunService.Heartbeat:Connect(function()
+            if Visual.Effects.noFogEnabled then
+                lighting.FogEnd = 10000000
+                lighting.FogStart = 0
+                lighting.FogDensity = 0
             end
-            
-            local map = Nexus.Services.Workspace:FindFirstChild("Map")
-            if map then
-                for _, effect in ipairs(map:GetDescendants()) do
-                    if effect:IsA("Atmosphere") or 
-                       effect:IsA("BloomEffect") or 
-                       effect:IsA("BlurEffect") or 
-                       effect:IsA("ColorCorrectionEffect") or
-                       effect:IsA("SunRaysEffect") then
-                        effect:Destroy()
-                    end
-                end
-            end
-            
-            lighting.FogEnd = 10000000
-            lighting.FogStart = 0
-            lighting.FogDensity = 0
-            lighting.FogColor = Color3.fromRGB(255, 255, 255)
-            lighting.Brightness = 2
-            lighting.ExposureCompensation = 1
-            
-            if Visual.ESP.espConnections.noFog then
-                Visual.ESP.espConnections.noFog:Disconnect()
-            end
-            
-            Visual.ESP.espConnections.noFog = Nexus.Services.RunService.Heartbeat:Connect(function()
-                if Visual.Effects.noFogEnabled then
-                    lighting.FogEnd = 10000000
-                    lighting.FogStart = 0
-                    lighting.FogDensity = 0
-                end
-            end)
         end)
     else
         if Visual.ESP.espConnections.noFog then
@@ -942,50 +995,34 @@ function Visual.ToggleNoFog(enabled)
         
         if Visual.Effects.fogCache then
             local lighting = Nexus.Services.Lighting
-            lighting.FogEnd = Visual.Effects.fogCache.FogEnd
-            lighting.FogStart = Visual.Effects.fogCache.FogStart
-            lighting.FogColor = Visual.Effects.fogCache.FogColor
-            lighting.FogDensity = Visual.Effects.fogCache.FogDensity
-            lighting.GlobalShadows = Visual.Effects.fogCache.GlobalShadows
-            lighting.Brightness = Visual.Effects.fogCache.Brightness
-            lighting.ExposureCompensation = Visual.Effects.fogCache.ExposureCompensation
-            
-            for name, cachedEffect in pairs(Visual.Effects.fogCache) do
-                if typeof(cachedEffect) == "Instance" then
-                    local existing = lighting:FindFirstChild(name)
-                    if not existing then
-                        cachedEffect:Clone().Parent = lighting
-                    end
-                end
-            end
-            
-            if Visual.Effects.fogCache.mapEffects then
-                local map = Nexus.Services.Workspace:FindFirstChild("Map")
-                if map then
-                    for effect, _ in pairs(Visual.Effects.fogCache.mapEffects) do
-                        if not effect.Parent then
-                            local parent = map
-                            local path = {}
-                            local current = effect
-                            while current and current ~= map do
-                                table.insert(path, 1, current.Name)
-                                current = current.Parent
-                            end
-                            
-                            for i, name in ipairs(path) do
-                                local child = parent:FindFirstChild(name)
-                                if not child then
-                                    break
-                                end
-                                parent = child
-                            end
-                        end
-                    end
-                end
-            end
-            
-            Visual.Effects.fogCache = nil
+            lighting.FogEnd = Visual.Effects.fogCache.FogEnd or 1000
+            lighting.FogStart = Visual.Effects.fogCache.FogStart or 0
+            lighting.FogColor = Visual.Effects.fogCache.FogColor or Color3.new(0.5,0.5,0.5)
+            lighting.FogDensity = Visual.Effects.fogCache.FogDensity or 0.1
         end
+        
+        if Visual.Effects.atmosphereCache then
+            local lighting = Nexus.Services.Lighting
+            for _, atmosphere in ipairs(Visual.Effects.atmosphereCache) do
+                if atmosphere then
+                    local newAtmosphere = atmosphere:Clone()
+                    newAtmosphere.Parent = lighting
+                end
+            end
+        end
+        
+        if Visual.Effects.workspaceAtmosphereCache then
+            for _, data in ipairs(Visual.Effects.workspaceAtmosphereCache) do
+                if data.Object and data.Parent then
+                    local newAtmosphere = data.Object:Clone()
+                    newAtmosphere.Parent = data.Parent
+                end
+            end
+        end
+        
+        Visual.Effects.fogCache = {}
+        Visual.Effects.atmosphereCache = nil
+        Visual.Effects.workspaceAtmosphereCache = nil
     end
 end
 
@@ -1034,14 +1071,14 @@ function Visual.Init(nxs)
     
     local NoShadowToggle = Tabs.Visual:AddToggle("NoShadow", {
         Title = "No Shadow", 
-        Description = "Disables all shadows in the game", 
+        Description = "", 
         Default = false
     })
     NoShadowToggle:OnChanged(function(v) Visual.ToggleNoShadow(v) end)
 
     local NoFogToggle = Tabs.Visual:AddToggle("NoFog", {
         Title = "No Fog", 
-        Description = "Removes all fog and atmospheric effects", 
+        Description = "", 
         Default = false
     })
     
@@ -1053,20 +1090,20 @@ function Visual.Init(nxs)
 
     local FullBrightToggle = Tabs.Visual:AddToggle("FullBright", {
         Title = "FullBright", 
-        Description = "Makes the game brighter", 
+        Description = "", 
         Default = false
     })
     FullBrightToggle:OnChanged(function(v) Visual.ToggleFullBright(v) end)
 
     local TimeChangerToggle = Tabs.Visual:AddToggle("TimeChanger", {
         Title = "Time Changer", 
-        Description = "Changes the time of day", 
+        Description = "", 
         Default = false
     })
 
     local TimeSlider = Tabs.Visual:AddSlider("TimeValue", {
         Title = "Time of Day", 
-        Description = "Set the time (0-24 hours)",
+        Description = "",
         Default = 14,
         Min = 0,
         Max = 24,
@@ -1092,14 +1129,11 @@ function Visual.Init(nxs)
         end
     end)
 
-    Tabs.Visual:AddParagraph({
-        Title = "ESP Colors information",
-        Content = "You can only change the ESP color in the lobby. You won't be able to change the ESP color in-game due to certain game mechanics. This is a temporary issue."
-    })
-    
+    Tabs.Visual:AddSection("ESP Settings")
+
     local ShowGeneratorPercentToggle = Tabs.Visual:AddToggle("ESPShowGenPercent", {
         Title = "Show Generator %", 
-        Description = "Shows generator repair percentage", 
+        Description = "Toggle display of generator percentages", 
         Default = true
     })
     ShowGeneratorPercentToggle:OnChanged(function(v)
@@ -1107,11 +1141,9 @@ function Visual.Init(nxs)
         Visual.UpdateESPDisplay()
     end)
 
-    Tabs.Visual:AddSection("Player ESP Settings")
-
     local ESPSurvivorsToggle = Tabs.Visual:AddToggle("ESPSurvivors", {
         Title = "Survivors ESP", 
-        Description = "Highlights survivors", 
+        Description = "", 
         Default = false
     })
     ESPSurvivorsToggle:OnChanged(function(v)
@@ -1130,7 +1162,7 @@ function Visual.Init(nxs)
 
     local ESPKillersToggle = Tabs.Visual:AddToggle("ESPKillers", {
         Title = "Killers ESP", 
-        Description = "Highlights killers", 
+        Description = "", 
         Default = false
     })
     ESPKillersToggle:OnChanged(function(v)
@@ -1147,11 +1179,9 @@ function Visual.Init(nxs)
     end)
     KillerColorpicker:SetValueRGB(Color3.fromRGB(255, 100, 100))
 
-    Tabs.Visual:AddSection("Object ESP Settings")
-
     local ESPHooksToggle = Tabs.Visual:AddToggle("ESPHooks", {
         Title = "Hooks ESP", 
-        Description = "Highlights hooks", 
+        Description = "", 
         Default = false
     })
     ESPHooksToggle:OnChanged(function(v)
@@ -1170,7 +1200,7 @@ function Visual.Init(nxs)
 
     local ESPGeneratorsToggle = Tabs.Visual:AddToggle("ESPGenerators", {
         Title = "Generators ESP", 
-        Description = "Highlights generators", 
+        Description = "", 
         Default = false
     })
     ESPGeneratorsToggle:OnChanged(function(v)
@@ -1179,7 +1209,7 @@ function Visual.Init(nxs)
 
     local ESPPalletsToggle = Tabs.Visual:AddToggle("ESPPallets", {
         Title = "Pallets ESP", 
-        Description = "Highlights pallets", 
+        Description = "", 
         Default = false
     })
     ESPPalletsToggle:OnChanged(function(v)
@@ -1198,7 +1228,7 @@ function Visual.Init(nxs)
 
     local ESPGatesToggle = Tabs.Visual:AddToggle("ESPGates", {
         Title = "Exit Gates ESP", 
-        Description = "Highlights exit gates", 
+        Description = "", 
         Default = false
     })
     ESPGatesToggle:OnChanged(function(v)
@@ -1217,7 +1247,7 @@ function Visual.Init(nxs)
 
     local ESPWindowsToggle = Tabs.Visual:AddToggle("ESPWindows", {
         Title = "Windows ESP", 
-        Description = "Highlights windows", 
+        Description = "", 
         Default = false
     })
     ESPWindowsToggle:OnChanged(function(v)
@@ -1234,100 +1264,109 @@ function Visual.Init(nxs)
     end)
     WindowColorpicker:SetValueRGB(Color3.fromRGB(100, 200, 200))
 
-    local ESPGiftsToggle = Tabs.Visual:AddToggle("ESPGifts", {
-        Title = "Gift ESP", 
-        Description = "Highlights Christmas gifts", 
-        Default = false
-    })
-    ESPGiftsToggle:OnChanged(function(v)
-        Visual.ToggleESPSetting("Gifts", v)
-    end)
-
-    local GiftColorpicker = Tabs.Visual:AddColorpicker("GiftColorpicker", {
-        Title = "Gift Color",
-        Default = Color3.fromRGB(255, 182, 193)
-    })
-    GiftColorpicker:OnChanged(function()
-        Visual.ESP.settings.Gifts.Color = GiftColorpicker.Value
-        Visual.UpdateESPColors()
-    end)
-    GiftColorpicker:SetValueRGB(Color3.fromRGB(255, 182, 193))
-
     Visual.ESP.settings.Survivors.Colorpicker = SurvivorColorpicker
     Visual.ESP.settings.Killers.Colorpicker = KillerColorpicker
     Visual.ESP.settings.Hooks.Colorpicker = HookColorpicker
     Visual.ESP.settings.Pallets.Colorpicker = PalletColorpicker
     Visual.ESP.settings.ExitGates.Colorpicker = GateColorpicker
     Visual.ESP.settings.Windows.Colorpicker = WindowColorpicker
-    Visual.ESP.settings.Gifts.Colorpicker = GiftColorpicker
 
-    Tabs.Visual:AddSection("Box ESP Settings")
+    Tabs.Visual:AddSection("ESP Components")
 
-    local BoxESPToggle = Tabs.Visual:AddToggle("BoxESP", {
-        Title = "Box ESP",
-        Description = "Draws boxes around players",
-        Default = false
+    local ESPBoxToggle = Tabs.Visual:AddToggle("ESPBox", {
+        Title = "Player Boxes", 
+        Description = "Show/hide player boxes", 
+        Default = true
     })
-    BoxESPToggle:OnChanged(function(v)
-        Visual.ToggleBoxESP(v)
+    ESPBoxToggle:OnChanged(function(v)
+        Visual.AdvancedESP.settings.box.Enabled = v
+        if not Visual.AdvancedESP.advancedESPRunning then
+            Visual.StartAdvancedESP()
+        end
     end)
 
-    local BoxColorpicker = Tabs.Visual:AddColorpicker("BoxColorpicker", {
-        Title = "Box Color",
-        Default = Color3.fromRGB(255, 255, 255)
+    local ESPNamesToggle = Tabs.Visual:AddToggle("ESPNames", {
+        Title = "Player Names", 
+        Description = "Show/hide player names", 
+        Default = true
     })
-    BoxColorpicker:OnChanged(function()
-        Visual.ESP.boxColor = BoxColorpicker.Value
-        Visual.UpdateAllBoxESP()
-    end)
-    BoxColorpicker:SetValueRGB(Color3.fromRGB(255, 255, 255))
-
-    local NamesESPToggle = Tabs.Visual:AddToggle("NamesESP", {
-        Title = "Names ESP",
-        Description = "Shows player names and distance",
-        Default = false
-    })
-    NamesESPToggle:OnChanged(function(v)
-        Visual.ToggleNamesESP(v)
+    ESPNamesToggle:OnChanged(function(v)
+        Visual.AdvancedESP.settings.name.Enabled = v
+        if not Visual.AdvancedESP.advancedESPRunning then
+            Visual.StartAdvancedESP()
+        end
     end)
 
-    local NamesColorpicker = Tabs.Visual:AddColorpicker("NamesColorpicker", {
-        Title = "Names Color",
-        Default = Color3.fromRGB(255, 255, 255)
+    local ESPHealthBarToggle = Tabs.Visual:AddToggle("ESPHealthBar", {
+        Title = "Health Bar", 
+        Description = "Show/hide health bar", 
+        Default = true
     })
-    NamesColorpicker:OnChanged(function()
-        Visual.ESP.namesColor = NamesColorpicker.Value
-        Visual.UpdateAllBoxESP()
-    end)
-    NamesColorpicker:SetValueRGB(Color3.fromRGB(255, 255, 255))
-
-    local TeamCheckToggle = Tabs.Visual:AddToggle("TeamCheck", {
-        Title = "Team Check",
-        Description = "Shows enemies in red, teammates in blue",
-        Default = false
-    })
-    TeamCheckToggle:OnChanged(function(v)
-        Visual.ToggleTeamCheck(v)
+    ESPHealthBarToggle:OnChanged(function(v)
+        Visual.AdvancedESP.settings.healthbar.Enabled = v
+        if not Visual.AdvancedESP.advancedESPRunning then
+            Visual.StartAdvancedESP()
+        end
     end)
 
-    local HealthBarToggle = Tabs.Visual:AddToggle("HealthBar", {
-        Title = "Health Bar",
-        Description = "Shows player health bars",
-        Default = false
+    local ESPDistanceToggle = Tabs.Visual:AddToggle("ESPDistance", {
+        Title = "Distance", 
+        Description = "Show/hide distance to players", 
+        Default = true
     })
-    HealthBarToggle:OnChanged(function(v)
-        Visual.ToggleHealthBar(v)
+    ESPDistanceToggle:OnChanged(function(v)
+        Visual.AdvancedESP.settings.distance.Enabled = v
+        if not Visual.AdvancedESP.advancedESPRunning then
+            Visual.StartAdvancedESP()
+        end
     end)
 
-    Tabs.Visual:AddSection("Auto Farm Settings")
-
-    local AutoFarmGiftToggle = Tabs.Visual:AddToggle("AutoFarmGift", {
-        Title = "AutoFarm Gift",
-        Description = "Automatically collects Christmas gifts",
-        Default = false
+    local ESPBoxFillToggle = Tabs.Visual:AddToggle("ESPBoxFill", {
+        Title = "Filled Box", 
+        Description = "Show/hide filled boxes", 
+        Default = true
     })
-    AutoFarmGiftToggle:OnChanged(function(v)
-        Visual.ToggleAutoFarmGift(v)
+    ESPBoxFillToggle:OnChanged(function(v)
+        Visual.AdvancedESP.settings.boxFill.Enabled = v
+        if not Visual.AdvancedESP.advancedESPRunning then
+            Visual.StartAdvancedESP()
+        end
+    end)
+
+    local ESPTracersToggle = Tabs.Visual:AddToggle("ESPTracers", {
+        Title = "Tracers", 
+        Description = "Show/hide tracers to players", 
+        Default = true
+    })
+    ESPTracersToggle:OnChanged(function(v)
+        Visual.AdvancedESP.settings.tracers.Enabled = v
+        if not Visual.AdvancedESP.advancedESPRunning then
+            Visual.StartAdvancedESP()
+        end
+    end)
+
+    local ESPBonesToggle = Tabs.Visual:AddToggle("ESPBones", {
+        Title = "Player Bones", 
+        Description = "Show/hide player bones", 
+        Default = true
+    })
+    ESPBonesToggle:OnChanged(function(v)
+        Visual.AdvancedESP.settings.bones.Enabled = v
+        if not Visual.AdvancedESP.advancedESPRunning then
+            Visual.StartAdvancedESP()
+        end
+    end)
+
+    local ESPBoxOutlineToggle = Tabs.Visual:AddToggle("ESPBoxOutline", {
+        Title = "Box Outline", 
+        Description = "Show/hide box outline", 
+        Default = true
+    })
+    ESPBoxOutlineToggle:OnChanged(function(v)
+        Visual.AdvancedESP.settings.boxOutline.Enabled = v
+        if not Visual.AdvancedESP.advancedESPRunning then
+            Visual.StartAdvancedESP()
+        end
     end)
 
     task.spawn(function()
@@ -1348,22 +1387,7 @@ end
 
 function Visual.Cleanup()
     Visual.StopESP()
-    
-    Visual.ToggleAutoFarmGift(false)
-    
-    for _, espData in pairs(Visual.ESP.boxESPObjects) do
-        if espData.Updater then
-            espData.Updater:Disconnect()
-            espData.Updater = nil
-        end
-        
-        espData.Box.Visible = false
-        espData.BoxOutline.Visible = false
-        espData.Name.Visible = false
-        espData.HealthBar.Visible = false
-        espData.HealthBarOutline.Visible = false
-    end
-    Visual.ESP.boxESPObjects = {}
+    Visual.StopAdvancedESP()
     
     Visual.ToggleNoShadow(false)
     Visual.ToggleNoFog(false)
@@ -1379,6 +1403,20 @@ function Visual.Cleanup()
         Nexus.safeDisconnect(connection)
     end
     Visual.ESP.espConnections = {}
+    
+    for _, connection in pairs(Visual.AdvancedESP.connections) do
+        Nexus.safeDisconnect(connection)
+    end
+    Visual.AdvancedESP.connections = {}
+    
+    -- Скрываем все Drawing объекты
+    for plr, d in pairs(Visual.AdvancedESP.espObjects) do
+        hideAllDrawings(d)
+    end
+    
+    task.wait(0.1)
+    pcall(function() game:GetService("RunService"):RenderStepped():Wait() end)
+    collectgarbage()
 end
 
 return Visual
