@@ -394,7 +394,11 @@ function Visual.StopESP()
     Visual.ClearAllESP()
     
     for _, connection in pairs(Visual.ESP.espConnections) do
-        Nexus.safeDisconnect(connection)
+        if Nexus and Nexus.safeDisconnect then
+            Nexus.safeDisconnect(connection)
+        elseif connection and typeof(connection) == "RBXScriptConnection" then
+            pcall(function() connection:Disconnect() end)
+        end
     end
     Visual.ESP.espConnections = {}
 end
@@ -690,7 +694,7 @@ function Visual.UpdateAdvancedESP()
     for plr, d in pairs(Visual.AdvancedESP.espObjects) do
         if not plr or not plr.Parent then
             Visual.CleanupPlayerAdvancedESP(plr)
-            continue
+            goto continue
         end
         
         local char = plr.Character
@@ -699,7 +703,7 @@ function Visual.UpdateAdvancedESP()
             
             if hum and hum.Health <= 0 then
                 hideAllDrawings(d)
-                continue
+                goto continue
             end
             
             local root = char.HumanoidRootPart
@@ -836,7 +840,7 @@ function Visual.UpdateAdvancedESP()
                             {char:FindFirstChild("RightUpperLeg") or char:FindFirstChild("Right Leg"), char:FindFirstChild("RightLowerLeg") or char:FindFirstChild("Right Shin")},
                             {char:FindFirstChild("RightLowerLeg") or char:FindFirstChild("Right Shin"), char:FindFirstChild("RightFoot") or char:FindFirstChild("Right foot")}
                         }
-                    }
+                    end
                     
                     for i = 1, 14 do
                         local line = d.Bones[i]
@@ -870,6 +874,8 @@ function Visual.UpdateAdvancedESP()
         else
             Visual.CleanupPlayerAdvancedESP(plr)
         end
+        
+        ::continue::
     end
 end
 
@@ -1028,7 +1034,6 @@ end
 
 function Visual.ToggleFullBright(enabled)
     Visual.Effects.fullbrightEnabled = enabled
-    Nexus.States.fullbrightEnabled = enabled
     
     if enabled then
         Nexus.Services.Lighting.GlobalShadows = false
@@ -1083,9 +1088,7 @@ function Visual.Init(nxs)
     })
     
     NoFogToggle:OnChanged(function(v) 
-        Nexus.SafeCallback(function()
-            Visual.ToggleNoFog(v)
-        end)
+        Visual.ToggleNoFog(v)
     end)
 
     local FullBrightToggle = Tabs.Visual:AddToggle("FullBright", {
@@ -1158,7 +1161,6 @@ function Visual.Init(nxs)
         Visual.ESP.settings.Survivors.Color = SurvivorColorpicker.Value
         Visual.UpdateESPColors()
     end)
-    SurvivorColorpicker:SetValueRGB(Color3.fromRGB(100, 255, 100))
 
     local ESPKillersToggle = Tabs.Visual:AddToggle("ESPKillers", {
         Title = "Killers ESP", 
@@ -1177,7 +1179,6 @@ function Visual.Init(nxs)
         Visual.ESP.settings.Killers.Color = KillerColorpicker.Value
         Visual.UpdateESPColors()
     end)
-    KillerColorpicker:SetValueRGB(Color3.fromRGB(255, 100, 100))
 
     local ESPHooksToggle = Tabs.Visual:AddToggle("ESPHooks", {
         Title = "Hooks ESP", 
@@ -1196,7 +1197,6 @@ function Visual.Init(nxs)
         Visual.ESP.settings.Hooks.Color = HookColorpicker.Value
         Visual.UpdateESPColors()
     end)
-    HookColorpicker:SetValueRGB(Color3.fromRGB(100, 50, 150))
 
     local ESPGeneratorsToggle = Tabs.Visual:AddToggle("ESPGenerators", {
         Title = "Generators ESP", 
@@ -1224,7 +1224,6 @@ function Visual.Init(nxs)
         Visual.ESP.settings.Pallets.Color = PalletColorpicker.Value
         Visual.UpdateESPColors()
     end)
-    PalletColorpicker:SetValueRGB(Color3.fromRGB(120, 80, 40))
 
     local ESPGatesToggle = Tabs.Visual:AddToggle("ESPGates", {
         Title = "Exit Gates ESP", 
@@ -1243,7 +1242,6 @@ function Visual.Init(nxs)
         Visual.ESP.settings.ExitGates.Color = GateColorpicker.Value
         Visual.UpdateESPColors()
     end)
-    GateColorpicker:SetValueRGB(Color3.fromRGB(200, 200, 100))
 
     local ESPWindowsToggle = Tabs.Visual:AddToggle("ESPWindows", {
         Title = "Windows ESP", 
@@ -1262,7 +1260,6 @@ function Visual.Init(nxs)
         Visual.ESP.settings.Windows.Color = WindowColorpicker.Value
         Visual.UpdateESPColors()
     end)
-    WindowColorpicker:SetValueRGB(Color3.fromRGB(100, 200, 200))
 
     Visual.ESP.settings.Survivors.Colorpicker = SurvivorColorpicker
     Visual.ESP.settings.Killers.Colorpicker = KillerColorpicker
@@ -1395,17 +1392,25 @@ function Visual.Cleanup()
     Visual.ToggleTimeChanger(false)
     
     for _, connection in pairs(Visual.Connections) do
-        Nexus.safeDisconnect(connection)
+        if Nexus and Nexus.safeDisconnect then
+            Nexus.safeDisconnect(connection)
+        elseif connection and typeof(connection) == "RBXScriptConnection" then
+            pcall(function() connection:Disconnect() end)
+        end
     end
     Visual.Connections = {}
     
     for _, connection in pairs(Visual.ESP.espConnections) do
-        Nexus.safeDisconnect(connection)
+        if Nexus and Nexus.safeDisconnect then
+            Nexus.safeDisconnect(connection)
+        elseif connection and typeof(connection) == "RBXScriptConnection" then
+            pcall(function() connection:Disconnect() end)
+        end
     end
     Visual.ESP.espConnections = {}
     
     for _, connection in pairs(Visual.AdvancedESP.connections) do
-        Nexus.safeDisconnect(connection)
+        pcall(function() connection:Disconnect() end)
     end
     Visual.AdvancedESP.connections = {}
     
