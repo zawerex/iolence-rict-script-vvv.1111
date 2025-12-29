@@ -1381,6 +1381,262 @@ local AntiBlind = (function()
     }
 end)()
 
+-- ========== NO PALLET STUN ==========
+
+local NoPalletStun = (function()
+    local enabled = false
+    local hooked = false
+    local originalConnections = {}
+    local stunRemote, stunOverRemote
+    
+    local function getRemotes()
+        if not stunRemote then
+            local success1, remote1 = pcall(function()
+                return Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Pallet"):WaitForChild("Jason"):WaitForChild("Stun")
+            end)
+            
+            local success2, remote2 = pcall(function()
+                return Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Pallet"):WaitForChild("Jason"):WaitForChild("Stunover")
+            end)
+            
+            if success1 then stunRemote = remote1 end
+            if success2 then stunOverRemote = remote2 end
+        end
+        return stunRemote, stunOverRemote
+    end
+    
+    local function setupHook()
+        if hooked then return end
+        
+        local stunRemote, stunOverRemote = getRemotes()
+        if not stunRemote or not stunOverRemote then
+            print("NoPalletStun: Could not find remotes")
+            return false
+        end
+        
+        -- Блокируем через метатаблицу
+        local mt = getrawmetatable(stunRemote)
+        if not mt then return false end
+        
+        local originalNamecall = mt.__namecall
+        
+        local wasReadonly = isreadonly and isreadonly(mt)
+        if setreadonly then
+            setreadonly(mt, false)
+        end
+        
+        mt.__namecall = newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            
+            if self == stunRemote and method == "FireServer" and enabled then
+                -- Блокируем оглушение и сразу отправляем завершение
+                if stunOverRemote then
+                    stunOverRemote:FireServer()
+                end
+                return nil
+            end
+            
+            return originalNamecall(self, ...)
+        end)
+        
+        if setreadonly and wasReadonly then
+            setreadonly(mt, true)
+        end
+        
+        -- Также блокируем OnClientEvent для клиентских вызовов
+        local originalOnClientEvent = stunRemote.OnClientEvent
+        stunRemote.OnClientEvent = function(...)
+            if enabled then
+                if stunOverRemote then
+                    stunOverRemote:FireServer()
+                end
+                return nil
+            end
+            return originalOnClientEvent(...)
+        end
+        
+        hooked = true
+        print("NoPalletStun: Hook установлен")
+        return true
+    end
+    
+    local function removeHook()
+        if not hooked then return end
+        
+        -- Восстанавливаем оригинальный функционал
+        local stunRemote = getRemotes()
+        if stunRemote then
+            local mt = getrawmetatable(stunRemote)
+            if mt and mt.__namecall then
+                local wasReadonly = isreadonly and isreadonly(mt)
+                if setreadonly then
+                    setreadonly(mt, false)
+                end
+                
+                -- Нужно найти оригинальный namecall в замыкании
+                -- Для простоты перезагрузим игру или создадим новый экземпляр
+                -- В этом случае проще отключить функцию
+            end
+        end
+        
+        hooked = false
+        print("NoPalletStun: Hook удален")
+    end
+    
+    local function Enable()
+        if enabled then return end
+        enabled = true
+        Nexus.States.NoPalletStunEnabled = true
+        
+        if not setupHook() then
+            -- Пробуем найти Remote позже
+            task.spawn(function()
+                for i = 1, 5 do
+                    task.wait(1)
+                    if enabled and not hooked then
+                        if setupHook() then break end
+                    end
+                end
+            end)
+        end
+        
+        print("NoPalletStun: ON")
+    end
+    
+    local function Disable()
+        if not enabled then return end
+        enabled = false
+        Nexus.States.NoPalletStunEnabled = false
+        
+        removeHook()
+        print("NoPalletStun: OFF")
+    end
+    
+    return {
+        Enable = Enable,
+        Disable = Disable,
+        IsEnabled = function() return enabled end
+    }
+end)()
+
+-- ========== NO FALL ==========
+
+local NoFall = (function()
+    local enabled = false
+    local hooked = false
+    local originalNamecall = nil
+    local mt = nil
+    
+    local function getFallRemote()
+        local success, remote = pcall(function()
+            return Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Mechanics"):WaitForChild("Fall")
+        end)
+        return success and remote or nil
+    end
+    
+    local function setupHook()
+        if hooked then return end
+        
+        local fallRemote = getFallRemote()
+        if not fallRemote then
+            print("NoFall: Fall remote not found")
+            return false
+        end
+        
+        -- Получаем метатаблицу
+        mt = getrawmetatable(fallRemote)
+        if not mt then
+            print("NoFall: Could not get metatable")
+            return false
+        end
+        
+        originalNamecall = mt.__namecall
+        
+        -- Временно снимаем защиту
+        local wasReadonly = isreadonly and isreadonly(mt)
+        if setreadonly then
+            setreadonly(mt, false)
+        end
+        
+        mt.__namecall = newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            
+            if self == fallRemote and method == "FireServer" and enabled then
+                print("NoFall: Blocked fall damage")
+                return nil -- Блокируем вызов
+            end
+            
+            return originalNamecall(self, ...)
+        end)
+        
+        -- Возвращаем защиту если была
+        if setreadonly and wasReadonly then
+            setreadonly(mt, true)
+        end
+        
+        hooked = true
+        print("NoFall: Hook установлен")
+        return true
+    end
+    
+    local function removeHook()
+        if not hooked or not mt or not originalNamecall then return end
+        
+        -- Временно снимаем защиту
+        local wasReadonly = isreadonly and isreadonly(mt)
+        if setreadonly then
+            setreadonly(mt, false)
+        end
+        
+        mt.__namecall = originalNamecall
+        
+        -- Возвращаем защиту если была
+        if setreadonly and wasReadonly then
+            setreadonly(mt, true)
+        end
+        
+        hooked = false
+        originalNamecall = nil
+        mt = nil
+        print("NoFall: Hook удален")
+    end
+    
+    local function Enable()
+        if enabled then return end
+        enabled = true
+        Nexus.States.NoFallEnabled = true
+        
+        if not setupHook() then
+            -- Пробуем найти Remote позже
+            task.spawn(function()
+                for i = 1, 5 do
+                    task.wait(1)
+                    if enabled and not hooked then
+                        if setupHook() then break end
+                    end
+                end
+            end)
+        end
+        
+        print("NoFall: ON")
+    end
+    
+    local function Disable()
+        if not enabled then return end
+        enabled = false
+        Nexus.States.NoFallEnabled = false
+        
+        removeHook()
+        print("NoFall: OFF")
+    end
+    
+    return {
+        Enable = Enable,
+        Disable = Disable,
+        IsEnabled = function() return enabled end
+    }
+end)()
+
 -- ========== MASK POWERS ==========
 
 local function activateMaskPower(maskName)
@@ -1513,6 +1769,40 @@ function Killer.Init(nxs)
                 ThirdPerson.Enable() 
             else 
                 ThirdPerson.Disable() 
+            end
+        end)
+    end)
+
+        -- ========== NO PALLET STUN ==========
+    local NoPalletStunToggle = Tabs.Killer:AddToggle("NoPalletStun", {
+        Title = "No Pallet Stun", 
+        Description = "Protection against pallet stunning", 
+        Default = false
+    })
+
+    NoPalletStunToggle:OnChanged(function(v)
+        Nexus.SafeCallback(function()
+            if v then 
+                NoPalletStun.Enable() 
+            else 
+                NoPalletStun.Disable() 
+            end
+        end)
+    end)
+
+    -- ========== NO FALL ==========
+    local NoFallToggle = Tabs.Killer:AddToggle("NoFall", {
+        Title = "No Fall", 
+        Description = "Disables the penalty when falling", 
+        Default = false
+    })
+
+    NoFallToggle:OnChanged(function(v)
+        Nexus.SafeCallback(function()
+            if v then 
+                NoFall.Enable() 
+            else 
+                NoFall.Disable() 
             end
         end)
     end)
@@ -1657,6 +1947,8 @@ function Killer.Cleanup()
     DoubleTap.Disable()      
     SpamHook.Disable()  
     ThirdPerson.Disable()
+    NoPalletStun.Disable()  
+    NoFall.Disable()   
     BeatGameKiller.Disable()
     AntiBlind.Disable()
     
