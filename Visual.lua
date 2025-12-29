@@ -568,105 +568,66 @@ function Visual.CreateBoxESP(player)
     Visual.ESP.boxESPObjects[player] = espData
     
     local function UpdateBoxESP()
-        if player and player.Parent and player.Character and player.Character:FindFirstChild("Humanoid") and 
-           player.Character:FindFirstChild("HumanoidRootPart") and player.Character.Humanoid.Health > 0 then
+        if player.Character ~= nil and player.Character:FindFirstChild("Humanoid") ~= nil and player.Character:FindFirstChild("HumanoidRootPart") ~= nil and player.Character.Humanoid.Health > 0 and player.Character:FindFirstChild("Head") ~= nil then
+            local Target2dPosition, IsVisible = workspace.CurrentCamera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+            local scale_factor = 1 / (Target2dPosition.Z * math.tan(math.rad(workspace.CurrentCamera.FieldOfView * 0.5)) * 2) * 100
+            local width, height = math.floor(40 * scale_factor), math.floor(60 * scale_factor)
             
-            local hrp = player.Character.HumanoidRootPart
-            local head = player.Character:FindFirstChild("Head")
+            espData.Box.Visible = Visual.ESP.boxESPEnabled and IsVisible
+            espData.BoxOutline.Visible = Visual.ESP.boxESPEnabled and IsVisible
+            espData.Name.Visible = Visual.ESP.namesESPEnabled and IsVisible
+            espData.HealthBar.Visible = Visual.ESP.healthBarEnabled and IsVisible
+            espData.HealthBarOutline.Visible = Visual.ESP.healthBarEnabled and IsVisible
             
-            if hrp and head then
-                local headPosition, headOnScreen = workspace.CurrentCamera:WorldToViewportPoint(head.Position)
-                local rootPosition, rootOnScreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
+            if Visual.ESP.boxESPEnabled and IsVisible then
+                espData.Box.Color = Visual.GetTeamCheckColor(player)
+                espData.Box.Size = Vector2.new(width, height)
+                espData.Box.Position = Vector2.new(Target2dPosition.X - espData.Box.Size.X / 2, Target2dPosition.Y - espData.Box.Size.Y / 2)
+                espData.Box.Thickness = 1
+                espData.Box.ZIndex = 69
                 
-                if headOnScreen or rootOnScreen then
-                    local width = 60
-                    local height = 100
-                    local distance = (workspace.CurrentCamera.CFrame.Position - hrp.Position).Magnitude
-                    
-                    if distance > 0 then
-                        local scale = math.clamp(500 / distance, 0.5, 2)
-                        width = width * scale
-                        height = height * scale
-                    end
-                    
-                    local boxPosition = Vector2.new(rootPosition.X - width / 2, rootPosition.Y - height / 2)
-                    
-                    -- Обновляем видимость
-                    espData.Box.Visible = Visual.ESP.boxESPEnabled
-                    espData.BoxOutline.Visible = Visual.ESP.boxESPEnabled
-                    espData.Name.Visible = Visual.ESP.namesESPEnabled
-                    espData.HealthBar.Visible = Visual.ESP.healthBarEnabled
-                    espData.HealthBarOutline.Visible = Visual.ESP.healthBarEnabled
-                    
-                    -- Box
-                    if Visual.ESP.boxESPEnabled then
-                        espData.Box.Color = Visual.GetTeamCheckColor(player)
-                        espData.Box.Size = Vector2.new(width, height)
-                        espData.Box.Position = boxPosition
-                        espData.Box.Thickness = 1
-                        espData.Box.Filled = false
-                        espData.Box.ZIndex = 69
-                        
-                        espData.BoxOutline.Color = Color3.fromRGB(0, 0, 0)
-                        espData.BoxOutline.Size = Vector2.new(width, height)
-                        espData.BoxOutline.Position = boxPosition
-                        espData.BoxOutline.Thickness = 3
-                        espData.BoxOutline.Filled = false
-                        espData.BoxOutline.ZIndex = 1
-                    end
-                    
-                    -- Name
-                    if Visual.ESP.namesESPEnabled then
-                        espData.Name.Color = Visual.ESP.namesColor
-                        espData.Name.Text = player.Name
-                        espData.Name.Center = true
-                        espData.Name.Outline = true
-                        espData.Name.OutlineColor = Color3.fromRGB(0, 0, 0)
-                        espData.Name.Position = Vector2.new(rootPosition.X, boxPosition.Y - 10)
-                        espData.Name.Font = 2
-                        espData.Name.Size = 10
-                    end
-                    
-                    -- Health Bar
-                    if Visual.ESP.healthBarEnabled then
-                        local healthPercent = player.Character.Humanoid.Health / player.Character.Humanoid.MaxHealth
-                        
-                        espData.HealthBarOutline.Color = Color3.fromRGB(0, 0, 0)
-                        espData.HealthBarOutline.Filled = true
-                        espData.HealthBarOutline.ZIndex = 1
-                        
-                        espData.HealthBar.Color = Color3.fromRGB(255, 0, 0):lerp(Color3.fromRGB(0, 255, 0), healthPercent)
-                        espData.HealthBar.Thickness = 1
-                        espData.HealthBar.Filled = true
-                        espData.HealthBar.ZIndex = 69
-                        
-                        local barHeight = height - 4
-                        local barWidth = 4
-                        
-                        espData.HealthBarOutline.Size = Vector2.new(barWidth, barHeight)
-                        espData.HealthBarOutline.Position = boxPosition + Vector2.new(-barWidth - 2, 2)
-                        
-                        espData.HealthBar.Size = Vector2.new(barWidth - 2, math.max(1, (barHeight - 4) * healthPercent))
-                        espData.HealthBar.Position = espData.HealthBarOutline.Position + Vector2.new(1, (barHeight - 4) - (barHeight - 4) * healthPercent + 1)
-                    end
-                else
-                    -- Игрок не на экране
-                    espData.Box.Visible = false
-                    espData.BoxOutline.Visible = false
-                    espData.Name.Visible = false
-                    espData.HealthBar.Visible = false
-                    espData.HealthBarOutline.Visible = false
-                end
+                espData.BoxOutline.Color = Color3.fromRGB(0, 0, 0)
+                espData.BoxOutline.Size = Vector2.new(width, height)
+                espData.BoxOutline.Position = Vector2.new(Target2dPosition.X - espData.Box.Size.X / 2, Target2dPosition.Y - espData.Box.Size.Y / 2)
+                espData.BoxOutline.Thickness = 3
+                espData.BoxOutline.ZIndex = 1
+            end
+            
+            if Visual.ESP.namesESPEnabled and IsVisible then
+                espData.Name.Color = Visual.ESP.namesColor
+                espData.Name.Text = player.Name .. " " .. math.floor((workspace.CurrentCamera.CFrame.p - player.Character.HumanoidRootPart.Position).magnitude) .. "m"
+                espData.Name.Center = true
+                espData.Name.Outline = true
+                espData.Name.OutlineColor = Color3.fromRGB(0, 0, 0)
+                espData.Name.Position = Vector2.new(Target2dPosition.X, Target2dPosition.Y - height * 0.5 + -15)
+                espData.Name.Font = 2
+                espData.Name.Size = 13
             else
-                -- У игрока нет нужных частей
-                espData.Box.Visible = false
-                espData.BoxOutline.Visible = false
                 espData.Name.Visible = false
+            end
+            
+            if Visual.ESP.healthBarEnabled and IsVisible then
+                espData.HealthBarOutline.Color = Color3.fromRGB(0, 0, 0)
+                espData.HealthBarOutline.Filled = true
+                espData.HealthBarOutline.ZIndex = 1
+
+                espData.HealthBar.Color = Color3.fromRGB(255, 0, 0):lerp(Color3.fromRGB(0, 255, 0), player.Character:FindFirstChild("Humanoid").Health / player.Character:FindFirstChild("Humanoid").MaxHealth)
+                espData.HealthBar.Thickness = 1
+                espData.HealthBar.Filled = true
+                espData.HealthBar.ZIndex = 69
+                
+                local boxPosition = Vector2.new(Target2dPosition.X - width / 2, Target2dPosition.Y - height / 2)
+                
+                espData.HealthBarOutline.Size = Vector2.new(2, height)
+                espData.HealthBarOutline.Position = boxPosition + Vector2.new(-7, 0)
+                
+                espData.HealthBar.Size = Vector2.new(1, -(espData.HealthBarOutline.Size.Y - 2) * (player.Character:FindFirstChild("Humanoid").Health / player.Character:FindFirstChild("Humanoid").MaxHealth))
+                espData.HealthBar.Position = espData.HealthBarOutline.Position + Vector2.new(1, -1 + espData.HealthBarOutline.Size.Y)
+            else
                 espData.HealthBar.Visible = false
                 espData.HealthBarOutline.Visible = false
             end
         else
-            -- Игрок не существует или мертв
             espData.Box.Visible = false
             espData.BoxOutline.Visible = false
             espData.Name.Visible = false
@@ -675,38 +636,23 @@ function Visual.CreateBoxESP(player)
         end
     end
     
-    -- Создаем соединение для обновления
     espData.Updater = game:GetService("RunService").RenderStepped:Connect(UpdateBoxESP)
     
-    -- Очистка при удалении игрока
-    player.AncestryChanged:Connect(function(_, parent)
-        if parent == nil then
-            if espData.Updater then
-                espData.Updater:Disconnect()
-                espData.Updater = nil
-            end
-            
-            if espData.Box then
-                espData.Box:Remove()
-            end
-            if espData.BoxOutline then
-                espData.BoxOutline:Remove()
-            end
-            if espData.Name then
-                espData.Name:Remove()
-            end
-            if espData.HealthBar then
-                espData.HealthBar:Remove()
-            end
-            if espData.HealthBarOutline then
-                espData.HealthBarOutline:Remove()
-            end
-            
-            Visual.ESP.boxESPObjects[player] = nil
+    local function CleanupBoxESP()
+        if espData.Updater then
+            espData.Updater:Disconnect()
+            espData.Updater = nil
         end
-    end)
+        
+        espData.Box.Visible = false
+        espData.BoxOutline.Visible = false
+        espData.Name.Visible = false
+        espData.HealthBar.Visible = false
+        espData.HealthBarOutline.Visible = false
+        
+        Visual.ESP.boxESPObjects[player] = nil
+    end
     
-    -- Очистка при удалении персонажа
     player.CharacterRemoving:Connect(function()
         espData.Box.Visible = false
         espData.BoxOutline.Visible = false
@@ -714,43 +660,102 @@ function Visual.CreateBoxESP(player)
         espData.HealthBar.Visible = false
         espData.HealthBarOutline.Visible = false
     end)
+    
+    player.AncestryChanged:Connect(function()
+        if not player.Parent then
+            CleanupBoxESP()
+        end
+    end)
 end
 
 function Visual.InitializeBoxESP()
     for _, player in ipairs(Nexus.Services.Players:GetPlayers()) do
-        if player ~= Nexus.Player and not Visual.ESP.boxESPObjects[player] then
-            Visual.CreateBoxESP(player)
+        if player ~= Nexus.Player then
+            if not Visual.ESP.boxESPObjects[player] then
+                Visual.CreateBoxESP(player)
+            end
         end
     end
 end
 
 function Visual.UpdateAllBoxESP()
-    -- Просто обновляем все ESP через существующие соединения
     for player, espData in pairs(Visual.ESP.boxESPObjects) do
-        if not player or not player.Parent then
-            -- Очищаем ESP для удаленных игроков
+        if player and player.Parent then
             if espData.Updater then
                 espData.Updater:Disconnect()
                 espData.Updater = nil
             end
             
-            if espData.Box then
-                espData.Box:Remove()
-            end
-            if espData.BoxOutline then
-                espData.BoxOutline:Remove()
-            end
-            if espData.Name then
-                espData.Name:Remove()
-            end
-            if espData.HealthBar then
-                espData.HealthBar:Remove()
-            end
-            if espData.HealthBarOutline then
-                espData.HealthBarOutline:Remove()
+            local function UpdateBoxESP()
+                if player.Character ~= nil and player.Character:FindFirstChild("Humanoid") ~= nil and player.Character:FindFirstChild("HumanoidRootPart") ~= nil and player.Character.Humanoid.Health > 0 and player.Character:FindFirstChild("Head") ~= nil then
+                    local Target2dPosition, IsVisible = workspace.CurrentCamera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+                    local scale_factor = 1 / (Target2dPosition.Z * math.tan(math.rad(workspace.CurrentCamera.FieldOfView * 0.5)) * 2) * 100
+                    local width, height = math.floor(40 * scale_factor), math.floor(60 * scale_factor)
+                    
+                    espData.Box.Visible = Visual.ESP.boxESPEnabled and IsVisible
+                    espData.BoxOutline.Visible = Visual.ESP.boxESPEnabled and IsVisible
+                    espData.Name.Visible = Visual.ESP.namesESPEnabled and IsVisible
+                    espData.HealthBar.Visible = Visual.ESP.healthBarEnabled and IsVisible
+                    espData.HealthBarOutline.Visible = Visual.ESP.healthBarEnabled and IsVisible
+                    
+                    if Visual.ESP.boxESPEnabled and IsVisible then
+                        espData.Box.Color = Visual.GetTeamCheckColor(player)
+                        espData.Box.Size = Vector2.new(width, height)
+                        espData.Box.Position = Vector2.new(Target2dPosition.X - espData.Box.Size.X / 2, Target2dPosition.Y - espData.Box.Size.Y / 2)
+                        espData.Box.Thickness = 1
+                        espData.Box.ZIndex = 69
+                        
+                        espData.BoxOutline.Color = Color3.fromRGB(0, 0, 0)
+                        espData.BoxOutline.Size = Vector2.new(width, height)
+                        espData.BoxOutline.Position = Vector2.new(Target2dPosition.X - espData.Box.Size.X / 2, Target2dPosition.Y - espData.Box.Size.Y / 2)
+                        espData.BoxOutline.Thickness = 3
+                        espData.BoxOutline.ZIndex = 1
+                    end
+                    
+                    if Visual.ESP.namesESPEnabled and IsVisible then
+                        espData.Name.Color = Visual.ESP.namesColor
+                        espData.Name.Text = player.Name .. " " .. math.floor((workspace.CurrentCamera.CFrame.p - player.Character.HumanoidRootPart.Position).magnitude) .. "m"
+                        espData.Name.Center = true
+                        espData.Name.Outline = true
+                        espData.Name.OutlineColor = Color3.fromRGB(0, 0, 0)
+                        espData.Name.Position = Vector2.new(Target2dPosition.X, Target2dPosition.Y - height * 0.5 + -15)
+                        espData.Name.Font = 2
+                        espData.Name.Size = 13
+                    else
+                        espData.Name.Visible = false
+                    end
+                    
+                    if Visual.ESP.healthBarEnabled and IsVisible then
+                        espData.HealthBarOutline.Color = Color3.fromRGB(0, 0, 0)
+                        espData.HealthBarOutline.Filled = true
+                        espData.HealthBarOutline.ZIndex = 1
+
+                        espData.HealthBar.Color = Color3.fromRGB(255, 0, 0):lerp(Color3.fromRGB(0, 255, 0), player.Character:FindFirstChild("Humanoid").Health / player.Character:FindFirstChild("Humanoid").MaxHealth)
+                        espData.HealthBar.Thickness = 1
+                        espData.HealthBar.Filled = true
+                        espData.HealthBar.ZIndex = 69
+                        
+                        local boxPosition = Vector2.new(Target2dPosition.X - width / 2, Target2dPosition.Y - height / 2)
+                        
+                        espData.HealthBarOutline.Size = Vector2.new(2, height)
+                        espData.HealthBarOutline.Position = boxPosition + Vector2.new(-7, 0)
+                        
+                        espData.HealthBar.Size = Vector2.new(1, -(espData.HealthBarOutline.Size.Y - 2) * (player.Character:FindFirstChild("Humanoid").Health / player.Character:FindFirstChild("Humanoid").MaxHealth))
+                        espData.HealthBar.Position = espData.HealthBarOutline.Position + Vector2.new(1, -1 + espData.HealthBarOutline.Size.Y)
+                    else
+                        espData.HealthBar.Visible = false
+                        espData.HealthBarOutline.Visible = false
+                    end
+                else
+                    espData.Box.Visible = false
+                    espData.BoxOutline.Visible = false
+                    espData.Name.Visible = false
+                    espData.HealthBar.Visible = false
+                    espData.HealthBarOutline.Visible = false
+                end
             end
             
-            Visual.ESP.boxESPObjects[player] = nil
+            espData.Updater = game:GetService("RunService").RenderStepped:Connect(UpdateBoxESP)
         end
     end
 end
@@ -760,19 +765,35 @@ function Visual.ToggleBoxESP(enabled)
     
     if enabled then
         Visual.InitializeBoxESP()
-        
         if not Visual.ESP.espConnections.boxESPPlayerAdded then
             Visual.ESP.espConnections.boxESPPlayerAdded = Nexus.Services.Players.PlayerAdded:Connect(function(player)
                 if player ~= Nexus.Player then
-                    task.wait(1)
-                    if not Visual.ESP.boxESPObjects[player] then
-                        Visual.CreateBoxESP(player)
+                    Visual.CreateBoxESP(player)
+                end
+            end)
+        end
+        
+        if not Visual.ESP.espConnections.boxESPPlayerRemoving then
+            Visual.ESP.espConnections.boxESPPlayerRemoving = Nexus.Services.Players.PlayerRemoving:Connect(function(player)
+                if Visual.ESP.boxESPObjects[player] then
+                    local espData = Visual.ESP.boxESPObjects[player]
+                    if espData.Updater then
+                        espData.Updater:Disconnect()
+                        espData.Updater = nil
                     end
+                    
+                    espData.Box.Visible = false
+                    espData.BoxOutline.Visible = false
+                    espData.Name.Visible = false
+                    espData.HealthBar.Visible = false
+                    espData.HealthBarOutline.Visible = false
+                    
+                    Visual.ESP.boxESPObjects[player] = nil
                 end
             end)
         end
     else
-        for player, espData in pairs(Visual.ESP.boxESPObjects) do
+        for _, espData in pairs(Visual.ESP.boxESPObjects) do
             espData.Box.Visible = false
             espData.BoxOutline.Visible = false
             espData.Name.Visible = false
@@ -1330,28 +1351,17 @@ function Visual.Cleanup()
     
     Visual.ToggleAutoFarmGift(false)
     
-    -- Очищаем все Drawing объекты
-    for player, espData in pairs(Visual.ESP.boxESPObjects) do
+    for _, espData in pairs(Visual.ESP.boxESPObjects) do
         if espData.Updater then
             espData.Updater:Disconnect()
             espData.Updater = nil
         end
         
-        if espData.Box then
-            espData.Box:Remove()
-        end
-        if espData.BoxOutline then
-            espData.BoxOutline:Remove()
-        end
-        if espData.Name then
-            espData.Name:Remove()
-        end
-        if espData.HealthBar then
-            espData.HealthBar:Remove()
-        end
-        if espData.HealthBarOutline then
-            espData.HealthBarOutline:Remove()
-        end
+        espData.Box.Visible = false
+        espData.BoxOutline.Visible = false
+        espData.Name.Visible = false
+        espData.HealthBar.Visible = false
+        espData.HealthBarOutline.Visible = false
     end
     Visual.ESP.boxESPObjects = {}
     
