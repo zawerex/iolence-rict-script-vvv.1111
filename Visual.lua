@@ -4,7 +4,7 @@ local Visual = {
     Connections = {},
     ESP = {
         lastUpdate = 0,
-        UPDATE_INTERVAL = 0.1,
+        UPDATE_INTERVAL = 0.2,
         settings = {
             Survivors  = {Enabled=false, Color=Color3.fromRGB(100,255,100), Colorpicker = nil},
             Killers    = {Enabled=false, Color=Color3.fromRGB(255,100,100), Colorpicker = nil},
@@ -920,7 +920,7 @@ function Visual.UpdateAdvancedESP()
                 -- Name
                 if d.Name then
                     d.Name.Text = plr.Name
-                    d.Name.Size = 20
+                    d.Name.Size = 9.5
                     d.Name.Position = Vector2.new(headPos.X, y - 22)
                     d.Name.Visible = settings.name and settings.enabled
                 end
@@ -929,7 +929,7 @@ function Visual.UpdateAdvancedESP()
                 if d.Distance then
                     local dist = math.floor((root.Position - camPos).Magnitude)
                     d.Distance.Text = dist .. "m"
-                    d.Distance.Size = 16
+                    d.Distance.Size = 9.5
                     d.Distance.Position = Vector2.new(headPos.X, y + height + 6)
                     d.Distance.Visible = settings.distance and settings.enabled
                 end
@@ -1471,10 +1471,10 @@ function Visual.Init(nxs)
     Visual.ESP.settings.Gifts.Colorpicker = GiftColorpicker  -- Добавлен Colorpicker для подарков
 
     -- ========== ADVANCED ESP ==========
-    Tabs.Visual:AddSection("Advanced ESP Settings")
+    Tabs.Visual:AddSection("Other ESP")
 
     local AdvancedESPToggle = Tabs.Visual:AddToggle("AdvancedESP", {
-        Title = "Advanced ESP", 
+        Title = "Enabling/disabling ESP", 
         Description = "Enable advanced player ESP system", 
         Default = false
     })
