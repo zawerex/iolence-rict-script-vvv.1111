@@ -598,15 +598,11 @@ local DestroyPallets = (function()
     local destroyed = false
     local teamListeners = {}
     local connection = nil
+    local mapCheckConnection = nil  
     
     local function destroyAllPallets()
         if destroyed then
             print("DestroyPallets: Pallets already destroyed")
-            return
-        end
-        
-        if not isKillerTeam() then
-            print("DestroyPallets: Requires Killer team")
             return
         end
         
@@ -643,33 +639,50 @@ local DestroyPallets = (function()
         print("DestroyPallets: State reset")
     end
     
+    local function checkForNewMap()
+
+        resetPalletsState()
+        print("DestroyPallets: Map changed, state reset")
+    end
+    
     local function updateDestroyPallets()
-        if enabled and isKillerTeam() then
-            -- Сбрасываем состояние при активации
+        if enabled then  
+
             resetPalletsState()
             
             if connection then
                 connection:Disconnect()
             end
             
-            -- Периодически проверяем и уничтожаем паллеты
+            -- Отслеживаем смену карты
+            if mapCheckConnection then
+                mapCheckConnection:Disconnect()
+            end
+            
+            mapCheckConnection = Nexus.Services.Workspace.DescendantAdded:Connect(function(obj)
+                if obj.Name:find("PalletPoint") then
+                    task.wait(0.1)  -- Ждем немного чтобы паллет полностью загрузился
+                    resetPalletsState()
+                    print("DestroyPallets: New pallet detected, state reset")
+                end
+            end)
+            
+
             connection = Nexus.Services.RunService.Heartbeat:Connect(function()
-                if enabled and isKillerTeam() then
+                if enabled then  -- УБИРАЕМ проверку isKillerTeam()
                     destroyAllPallets()
                 end
             end)
-            print("DestroyPallets: Activated for Killer team")
-        elseif enabled then
-            print("DestroyPallets: Waiting for Killer team...")
+            print("DestroyPallets: Activated")
+        else
+            print("DestroyPallets: Deactivated")
             if connection then
                 connection:Disconnect()
                 connection = nil
             end
-            resetPalletsState()
-        else
-            if connection then
-                connection:Disconnect()
-                connection = nil
+            if mapCheckConnection then
+                mapCheckConnection:Disconnect()
+                mapCheckConnection = nil
             end
             resetPalletsState()
         end
@@ -680,8 +693,7 @@ local DestroyPallets = (function()
         enabled = true
         Nexus.States.DestroyPalletsEnabled = true
         print("DestroyPallets: ON")
-        
-        -- Очищаем старые слушатели
+
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -694,10 +706,6 @@ local DestroyPallets = (function()
         
         teamListeners = {}
         
-        -- Добавляем слушатель смены команды
-        table.insert(teamListeners, setupTeamListener(updateDestroyPallets))
-        
-        -- Инициализируем состояние
         updateDestroyPallets()
     end
     
@@ -710,6 +718,11 @@ local DestroyPallets = (function()
         if connection then
             connection:Disconnect()
             connection = nil
+        end
+        
+        if mapCheckConnection then
+            mapCheckConnection:Disconnect()
+            mapCheckConnection = nil
         end
         
         resetPalletsState()
@@ -732,14 +745,13 @@ local DestroyPallets = (function()
         Disable = Disable,
         IsEnabled = function() return enabled end,
         DestroyNow = function()
-            if enabled and isKillerTeam() then
+            if enabled then  -- УБИРАЕМ проверку isKillerTeam()
                 resetPalletsState()
                 destroyAllPallets()
             end
         end
     }
 end)()
-
 -- ========== NO SLOWDOWN ==========
 
 local NoSlowdown = (function()
@@ -2245,33 +2257,33 @@ function Killer.Init(nxs)
         end)
     end)
 
-    -- ========== DESTROY PALLETS ==========
-    local DestroyPalletsToggle = Tabs.Killer:AddToggle("DestroyPallets", {
-        Title = "Destroy Pallets", 
-        Description = "Smash all the pallets on the map (works once, resets on re-enable)", 
-        Default = false
-    })
+-- ========== DESTROY PALLETS ==========
+local DestroyPalletsToggle = Tabs.Killer:AddToggle("DestroyPallets", {
+    Title = "Destroy Pallets", 
+    Description = "Smash all the pallets on the map",  -- Обновили описание
+    Default = false
+})
 
-    DestroyPalletsToggle:OnChanged(function(v)
-        Nexus.SafeCallback(function()
-            if v then 
-                DestroyPallets.Enable() 
-            else 
-                DestroyPallets.Disable() 
-            end
-        end)
-    end)
-
-    -- Кнопка для ручного уничтожения
-    Tabs.Killer:AddButton({
-        Title = "Force Destroy Pallets Now",
-        Description = "Manually destroy all pallets",
-        Callback = function()
-            Nexus.SafeCallback(function()
-                DestroyPallets.DestroyNow()
-            end)
+DestroyPalletsToggle:OnChanged(function(v)
+    Nexus.SafeCallback(function()
+        if v then 
+            DestroyPallets.Enable() 
+        else 
+            DestroyPallets.Disable() 
         end
-    })
+    end)
+end)
+
+-- Кнопка для ручного уничтожения
+Tabs.Killer:AddButton({
+    Title = "Force Destroy Pallets Now",
+    Description = "Manually destroy all pallets",
+    Callback = function()
+        Nexus.SafeCallback(function()
+            DestroyPallets.DestroyNow()
+        end)
+    end
+})
 
     -- ========== NO SLOWDOWN ==========
     local NoSlowdownToggle = Tabs.Killer:AddToggle("NoSlowdown", {
