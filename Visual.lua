@@ -4,7 +4,7 @@ local Visual = {
     Connections = {},
     ESP = {
         lastUpdate = 0,
-        UPDATE_INTERVAL = 0.10,
+        UPDATE_INTERVAL = 0.1,
         settings = {
             Survivors = {Enabled = false, Color = Color3.fromRGB(100, 255, 100), Colorpicker = nil},
             Killers = {Enabled = false, Color = Color3.fromRGB(255, 100, 100), Colorpicker = nil},
