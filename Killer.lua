@@ -246,7 +246,6 @@ end)()
 
 local SpamHook = (function()
     local enabled = false
-    local spamActive = false
     local spamCount = 0
     local maxSpam = 50
     local hooked = false
@@ -260,35 +259,59 @@ local SpamHook = (function()
         return success and result or nil
     end
     
-    local function executeHookSpam()
-        if not enabled or spamActive then return end
-        
-        spamActive = true
-        spamCount = 0
-        
-        local hookEvent = GetHookEventRemote()
-        if not hookEvent then
-            spamActive = false
-            return
+    -- Найти ближайшего выжившего
+    local function findNearestSurvivor()
+        local character = Nexus.getCharacter()
+        if not character or not character:FindFirstChild("HumanoidRootPart") then
+            return nil
         end
         
-        task.spawn(function()
-            while enabled and spamActive and spamCount < maxSpam do
-                -- Просто вызываем HookEvent без цели
+        local myPosition = character.HumanoidRootPart.Position
+        local nearestPlayer = nil
+        local nearestDistance = math.huge
+        
+        for _, player in pairs(Nexus.Services.Players:GetPlayers()) do
+            if player ~= Nexus.Player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local team = player.Team
+                if team and team.Name == "Survivor" then
+                    local distance = (player.Character.HumanoidRootPart.Position - myPosition).Magnitude
+                    if distance < nearestDistance and distance < 50 then
+                        nearestDistance = distance
+                        nearestPlayer = player
+                    end
+                end
+            end
+        end
+        
+        return nearestPlayer
+    end
+    
+    local function executeHookSpam()
+        if not enabled then return end
+        
+        spamCount = 0
+        
+        for i = 1, maxSpam do
+            if not enabled then break end
+            
+            local target = findNearestSurvivor()
+            if target and target.Character then
+                -- Вызываем HookEvent через pcall для безопасности
                 local success = pcall(function()
-                    hookEvent:FireServer()
+                    -- Получаем remote здесь, так как он может быть nil при первом вызове
+                    local hookEvent = GetHookEventRemote()
+                    if hookEvent then
+                        hookEvent:FireServer(target.Character)
+                    end
                 end)
                 
                 if success then
                     spamCount = spamCount + 1
                 end
-                
-                task.wait(0.1) -- Задержка между вызовами
             end
             
-            spamActive = false
-            spamCount = 0
-        end)
+            task.wait(0.1) -- Задержка между вызовами
+        end
     end
     
     local function setupHook()
@@ -368,7 +391,6 @@ local SpamHook = (function()
         hooked = false
         originalNamecall = nil
         mt = nil
-        spamActive = false
         spamCount = 0
         print("SpamHook: Hook удален")
     end
@@ -378,6 +400,7 @@ local SpamHook = (function()
         enabled = true
         Nexus.States.SpamHookEnabled = true
         
+        -- Устанавливаем хук
         if not setupHook() then
             -- Пробуем найти Remote позже
             task.spawn(function()
@@ -399,26 +422,16 @@ local SpamHook = (function()
         enabled = false
         Nexus.States.SpamHookEnabled = false
         
-        spamActive = false
         spamCount = 0
         
         removeHook()
         print("SpamHook: OFF")
     end
     
-    local function SetMaxSpam(value)
-        maxSpam = math.clamp(value, 10, 500)
-        print("SpamHook: Max spam set to " .. maxSpam)
-    end
-    
     return {
         Enable = Enable,
         Disable = Disable,
-        IsEnabled = function() return enabled end,
-        SetMaxSpam = SetMaxSpam,
-        GetMaxSpam = function() return maxSpam end,
-        IsSpamming = function() return spamActive end,
-        GetSpamCount = function() return spamCount end
+        IsEnabled = function() return enabled end
     }
 end)()
 
@@ -1502,20 +1515,6 @@ function Killer.Init(nxs)
             end
         end)
     end)
-
-    local SpamHookSlider = Tabs.Killer:AddSlider("SpamHookAmount", {
-        Title = "Spam Hook Amount",
-        Description = "The amount of spam",
-        Default = 50,
-        Min = 10,
-        Max = 500,
-        Rounding = 1,
-        Callback = function(value)
-            Nexus.SafeCallback(function()
-                SpamHook.SetMaxSpam(value)
-            end)
-        end
-    })
 
     
     -- ========== BEAT GAME (KILLER) ==========
