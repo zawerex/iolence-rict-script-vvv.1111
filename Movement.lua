@@ -9,13 +9,11 @@ local Movement = {
 -- ========== UTILITY FUNCTIONS ==========
 
 local function setupCharacterListener(callback)
-    -- Отслеживаем появление нового персонажа
     local charAddedConn = Nexus.Player.CharacterAdded:Connect(function(character)
-        task.wait(0.5) -- Ждем загрузку персонажа
+        task.wait(0.5)
         callback(character)
     end)
     
-    -- Первоначальный вызов если есть персонаж
     local currentChar = Nexus.getCharacter()
     if currentChar then
         task.spawn(function()
@@ -39,7 +37,6 @@ local InfiniteLunge = (function()
             if character then
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
                 if humanoid then
-                    -- Проверяем, не ползет ли персонаж
                     local state = humanoid:GetState()
                     local isCrawling = state == Enum.HumanoidStateType.FallingDown or 
                                       state == Enum.HumanoidStateType.GettingUp or
@@ -47,20 +44,18 @@ local InfiniteLunge = (function()
                     
                     if not isCrawling then
                         humanoid:SetAttribute("InfiniteLunge", true)
-                        humanoid.WalkSpeed = 28  -- Увеличиваем скорость для бесконечного рывка
+                        humanoid.WalkSpeed = 28
                     else
                         humanoid:SetAttribute("InfiniteLunge", nil)
                     end
                 end
             end
-            print("Infinite Lunge: Activated")
         else
             local character = Nexus.getCharacter()
             if character then
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
                 if humanoid then
                     humanoid:SetAttribute("InfiniteLunge", nil)
-                    -- Не сбрасываем скорость, игра сама восстановит
                 end
             end
         end
@@ -69,15 +64,13 @@ local InfiniteLunge = (function()
     local function setupInfiniteLungeForCharacter(character)
         if not enabled then return end
         
-        task.wait(1) -- Ждем полной инициализации персонажа
+        task.wait(1)
         
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if humanoid then
-            -- Устанавливаем скорость
             humanoid:SetAttribute("InfiniteLunge", true)
             humanoid.WalkSpeed = 28
             
-            -- Отслеживаем изменения скорости
             humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
                 if enabled and humanoid.WalkSpeed ~= 28 then
                     task.wait(0.1)
@@ -85,10 +78,9 @@ local InfiniteLunge = (function()
                 end
             end)
             
-            -- Отслеживаем смерть
             humanoid.Died:Connect(function()
                 if enabled then
-                    task.wait(2) -- Ждем респавна
+                    task.wait(2)
                     if Nexus.getCharacter() then
                         setupInfiniteLungeForCharacter(Nexus.getCharacter())
                     end
@@ -101,24 +93,19 @@ local InfiniteLunge = (function()
         if enabled then return end
         enabled = true
         Nexus.States.InfiniteLungeEnabled = true
-        print("Infinite Lunge: ON")
         
-        -- Очищаем старые слушатели
         for _, listener in ipairs(characterListeners) do
             Nexus.safeDisconnect(listener)
         end
         characterListeners = {}
         
-        -- Добавляем слушатель появления персонажа
         table.insert(characterListeners, setupCharacterListener(setupInfiniteLungeForCharacter))
         
-        -- Инициализируем для текущего персонажа
         local currentChar = Nexus.getCharacter()
         if currentChar then
             setupInfiniteLungeForCharacter(currentChar)
         end
         
-        -- Цикл обновления
         local updateConn = Nexus.Services.RunService.Heartbeat:Connect(updateInfiniteLunge)
         table.insert(characterListeners, updateConn)
     end
@@ -127,7 +114,6 @@ local InfiniteLunge = (function()
         if not enabled then return end
         enabled = false
         Nexus.States.InfiniteLungeEnabled = false
-        print("Infinite Lunge: OFF")
         
         local character = Nexus.getCharacter()
         if character then
@@ -137,7 +123,6 @@ local InfiniteLunge = (function()
             end
         end
         
-        -- Очищаем слушатели
         for _, listener in ipairs(characterListeners) do
             Nexus.safeDisconnect(listener)
         end
@@ -157,6 +142,7 @@ local WalkSpeed = (function()
     local enabled = false
     local targetSpeed = 16
     local characterListeners = {}
+    local originalSpeeds = {}
     
     local function updateWalkSpeed()
         if enabled then
@@ -164,7 +150,6 @@ local WalkSpeed = (function()
             if character then
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
                 if humanoid then
-                    -- Проверяем, не ползет ли персонаж
                     local state = humanoid:GetState()
                     local isCrawling = state == Enum.HumanoidStateType.FallingDown or 
                                       state == Enum.HumanoidStateType.GettingUp or
@@ -182,6 +167,10 @@ local WalkSpeed = (function()
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
                 if humanoid then
                     humanoid:SetAttribute("WalkSpeedBoost", nil)
+                    if originalSpeeds[character] then
+                        humanoid.WalkSpeed = originalSpeeds[character]
+                        originalSpeeds[character] = nil
+                    end
                 end
             end
         end
@@ -190,15 +179,17 @@ local WalkSpeed = (function()
     local function setupWalkSpeedForCharacter(character)
         if not enabled then return end
         
-        task.wait(1) -- Ждем полной инициализации персонажа
+        task.wait(1)
         
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if humanoid then
-            -- Устанавливаем скорость
+            if not originalSpeeds[character] then
+                originalSpeeds[character] = humanoid.WalkSpeed
+            end
+            
             humanoid:SetAttribute("WalkSpeedBoost", true)
             humanoid.WalkSpeed = targetSpeed
             
-            -- Отслеживаем изменения скорости
             humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
                 if enabled and humanoid.WalkSpeed ~= targetSpeed then
                     task.wait(0.1)
@@ -206,10 +197,9 @@ local WalkSpeed = (function()
                 end
             end)
             
-            -- Отслеживаем смерть
             humanoid.Died:Connect(function()
                 if enabled then
-                    task.wait(2) -- Ждем респавна
+                    task.wait(2)
                     if Nexus.getCharacter() then
                         setupWalkSpeedForCharacter(Nexus.getCharacter())
                     end
@@ -222,24 +212,19 @@ local WalkSpeed = (function()
         if enabled then return end
         enabled = true
         Nexus.States.WalkSpeedEnabled = true
-        print("Walk Speed: ON (" .. targetSpeed .. ")")
         
-        -- Очищаем старые слушатели
         for _, listener in ipairs(characterListeners) do
             Nexus.safeDisconnect(listener)
         end
         characterListeners = {}
         
-        -- Добавляем слушатель появления персонажа
         table.insert(characterListeners, setupCharacterListener(setupWalkSpeedForCharacter))
         
-        -- Инициализируем для текущего персонажа
         local currentChar = Nexus.getCharacter()
         if currentChar then
             setupWalkSpeedForCharacter(currentChar)
         end
         
-        -- Цикл обновления
         local updateConn = Nexus.Services.RunService.Heartbeat:Connect(updateWalkSpeed)
         table.insert(characterListeners, updateConn)
     end
@@ -248,17 +233,19 @@ local WalkSpeed = (function()
         if not enabled then return end
         enabled = false
         Nexus.States.WalkSpeedEnabled = false
-        print("Walk Speed: OFF")
         
         local character = Nexus.getCharacter()
         if character then
             local humanoid = character:FindFirstChildOfClass("Humanoid")
             if humanoid then
                 humanoid:SetAttribute("WalkSpeedBoost", nil)
+                if originalSpeeds[character] then
+                    humanoid.WalkSpeed = originalSpeeds[character]
+                    originalSpeeds[character] = nil
+                end
             end
         end
         
-        -- Очищаем слушатели
         for _, listener in ipairs(characterListeners) do
             Nexus.safeDisconnect(listener)
         end
@@ -268,7 +255,6 @@ local WalkSpeed = (function()
     local function SetSpeed(speed)
         targetSpeed = math.clamp(speed, 16, 100)
         if enabled then
-            print("Walk Speed set to: " .. targetSpeed)
             updateWalkSpeed()
         end
     end
@@ -309,16 +295,14 @@ local Noclip = (function()
     local function setupNoclipForCharacter(character)
         if not enabled then return end
         
-        task.wait(1) -- Ждем полной инициализации персонажа
+        task.wait(1)
         
-        -- Отключаем коллизию для всех частей
         for _, part in ipairs(character:GetDescendants()) do
             if part:IsA("BasePart") then
                 part.CanCollide = false
             end
         end
         
-        -- Отслеживаем новые части
         local function onDescendantAdded(descendant)
             if enabled and descendant:IsA("BasePart") then
                 descendant.CanCollide = false
@@ -327,12 +311,11 @@ local Noclip = (function()
         
         local descendantConn = character.DescendantAdded:Connect(onDescendantAdded)
         
-        -- Отслеживаем смерть
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if humanoid then
             humanoid.Died:Connect(function()
                 if enabled then
-                    task.wait(2) -- Ждем респавна
+                    task.wait(2)
                     if Nexus.getCharacter() then
                         setupNoclipForCharacter(Nexus.getCharacter())
                     end
@@ -347,15 +330,12 @@ local Noclip = (function()
         if enabled then return end
         enabled = true
         Nexus.States.NoclipEnabled = true
-        print("Noclip: ON")
         
-        -- Очищаем старые слушатели
         for _, listener in ipairs(characterListeners) do
             Nexus.safeDisconnect(listener)
         end
         characterListeners = {}
         
-        -- Добавляем слушатель появления персонажа
         table.insert(characterListeners, setupCharacterListener(function(character)
             local descendantConn = setupNoclipForCharacter(character)
             if descendantConn then
@@ -363,7 +343,6 @@ local Noclip = (function()
             end
         end))
         
-        -- Инициализируем для текущего персонажа
         local currentChar = Nexus.getCharacter()
         if currentChar then
             local descendantConn = setupNoclipForCharacter(currentChar)
@@ -372,7 +351,6 @@ local Noclip = (function()
             end
         end
         
-        -- Цикл обновления
         if noclipConnection then
             noclipConnection:Disconnect()
         end
@@ -384,9 +362,7 @@ local Noclip = (function()
         if not enabled then return end
         enabled = false
         Nexus.States.NoclipEnabled = false
-        print("Noclip: OFF")
         
-        -- Восстанавливаем коллизию
         local character = Nexus.getCharacter()
         if character then
             for _, part in ipairs(character:GetDescendants()) do
@@ -396,7 +372,6 @@ local Noclip = (function()
             end
         end
         
-        -- Очищаем слушатели
         for _, listener in ipairs(characterListeners) do
             Nexus.safeDisconnect(listener)
         end
@@ -420,15 +395,9 @@ end)()
 local FOVChanger = (function()
     local enabled = false
     local targetFOV = 70
-    local currentFOV = 70
-    local smoothness = 0.3  -- Плавность изменения (0-1, меньше = плавнее)
     local characterListeners = {}
-    local lastCamera = nil
-    local isTransitioning = false
-    
-    local function lerp(a, b, t)
-        return a + (b - a) * math.clamp(t, 0, 1)
-    end
+    local currentTween = nil
+    local defaultFOV = 70
     
     local function updateFOV()
         if not enabled then return end
@@ -436,56 +405,43 @@ local FOVChanger = (function()
         local camera = Nexus.Services.Workspace.CurrentCamera
         if not camera then return end
         
-        -- Проверяем, не изменилась ли камера (например, при переходе в другую игру)
-        if lastCamera and lastCamera ~= camera then
-            print("FOV Changer: Camera changed, resetting...")
-            currentFOV = camera.FieldOfView
-            lastCamera = camera
-            isTransitioning = false
-        elseif not lastCamera then
-            lastCamera = camera
-            currentFOV = camera.FieldOfView
+        if currentTween then
+            currentTween:Cancel()
+            currentTween = nil
         end
         
-        -- Плавное изменение FOV
-        if math.abs(currentFOV - targetFOV) > 0.5 then
-            isTransitioning = true
-            currentFOV = lerp(currentFOV, targetFOV, smoothness)
-            camera.FieldOfView = currentFOV
-        else
-            if isTransitioning then
-                currentFOV = targetFOV
-                camera.FieldOfView = targetFOV
-                isTransitioning = false
-                print("FOV Changer: Transition completed")
-            elseif camera.FieldOfView ~= targetFOV then
-                camera.FieldOfView = targetFOV
-                currentFOV = targetFOV
-            end
+        if camera.FieldOfView ~= targetFOV then
+            currentTween = Nexus.Services.TweenService:Create(
+                camera,
+                TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {FieldOfView = targetFOV}
+            )
+            currentTween:Play()
         end
     end
     
     local function resetFOV()
         local camera = Nexus.Services.Workspace.CurrentCamera
         if camera then
-            camera.FieldOfView = 70
-            currentFOV = 70
-            lastCamera = nil
-            isTransitioning = false
+            if currentTween then
+                currentTween:Cancel()
+                currentTween = nil
+            end
+            
+            camera.FieldOfView = defaultFOV
+            targetFOV = defaultFOV
         end
     end
     
     local function setupFOVForCharacter()
         if not enabled then return end
         
-        task.wait(0.5) -- Ждем стабилизации камеры
+        task.wait(0.5)
         
         local camera = Nexus.Services.Workspace.CurrentCamera
         if camera then
-            lastCamera = camera
-            currentFOV = camera.FieldOfView
-            isTransitioning = true
-            print("FOV Changer: Setting up for new character")
+            defaultFOV = camera.FieldOfView
+            targetFOV = defaultFOV
         end
     end
     
@@ -493,18 +449,14 @@ local FOVChanger = (function()
         if enabled then return end
         enabled = true
         Nexus.States.FOVChangerEnabled = true
-        print("FOV Changer: ON (" .. targetFOV .. ")")
         
-        -- Очищаем старые слушатели
         for _, listener in ipairs(characterListeners) do
             Nexus.safeDisconnect(listener)
         end
         characterListeners = {}
         
-        -- Добавляем слушатель появления персонажа
         table.insert(characterListeners, setupCharacterListener(setupFOVForCharacter))
         
-        -- Отслеживаем изменение камеры
         local cameraChangedConn = Nexus.Services.Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
             if enabled then
                 task.wait(0.1)
@@ -513,11 +465,9 @@ local FOVChanger = (function()
         end)
         table.insert(characterListeners, cameraChangedConn)
         
-        -- Инициализируем для текущей камеры
         setupFOVForCharacter()
         
-        -- Цикл обновления
-        local updateConn = Nexus.Services.RunService.RenderStepped:Connect(updateFOV)
+        local updateConn = Nexus.Services.RunService.Heartbeat:Connect(updateFOV)
         table.insert(characterListeners, updateConn)
     end
     
@@ -525,11 +475,9 @@ local FOVChanger = (function()
         if not enabled then return end
         enabled = false
         Nexus.States.FOVChangerEnabled = false
-        print("FOV Changer: OFF")
         
         resetFOV()
         
-        -- Очищаем слушатели
         for _, listener in ipairs(characterListeners) do
             Nexus.safeDisconnect(listener)
         end
@@ -537,24 +485,10 @@ local FOVChanger = (function()
     end
     
     local function SetFOV(fov)
-        local newFOV = math.clamp(fov, 1, 200)  -- Максимум 200
-        if targetFOV ~= newFOV then
-            targetFOV = newFOV
-            isTransitioning = true
-            print("FOV set to: " .. targetFOV)
-            
-            if enabled then
-                local camera = Nexus.Services.Workspace.CurrentCamera
-                if camera then
-                    currentFOV = camera.FieldOfView
-                end
-            end
+        targetFOV = math.clamp(fov, 1, 120)
+        if enabled then
+            updateFOV()
         end
-    end
-    
-    local function SetSmoothness(value)
-        smoothness = math.clamp(value, 0.05, 1)
-        print("FOV smoothness set to: " .. smoothness)
     end
     
     local function GetFOV()
@@ -563,7 +497,7 @@ local FOVChanger = (function()
     
     local function GetCurrentFOV()
         local camera = Nexus.Services.Workspace.CurrentCamera
-        return camera and camera.FieldOfView or 70
+        return camera and camera.FieldOfView or defaultFOV
     end
     
     return {
@@ -571,7 +505,6 @@ local FOVChanger = (function()
         Disable = Disable,
         IsEnabled = function() return enabled end,
         SetFOV = SetFOV,
-        SetSmoothness = SetSmoothness,
         GetFOV = GetFOV,
         GetCurrentFOV = GetCurrentFOV
     }
@@ -605,7 +538,6 @@ local Fly = (function()
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if not humanoid then return end
         
-        -- Получаем направление движения
         local direction = Vector3.new(0, 0, 0)
         
         if controls.W then direction = direction + Nexus.Services.Workspace.CurrentCamera.CFrame.LookVector end
@@ -616,21 +548,13 @@ local Fly = (function()
         if controls.Space then direction = direction + Vector3.new(0, 1, 0) end
         if controls.LeftShift then direction = direction + Vector3.new(0, -1, 0) end
         
-        -- Нормализуем направление и применяем скорость
         if direction.Magnitude > 0 then
             direction = direction.Unit * flySpeed
             
-            -- Отключаем гравитацию
             humanoid.PlatformStand = true
             
-            -- Применяем движение
             humanoidRootPart.Velocity = direction
-            
-            -- Сохраняем вертикальную скорость
-            local currentVelocity = humanoidRootPart.Velocity
-            humanoidRootPart.Velocity = Vector3.new(direction.X, direction.Y, direction.Z)
         else
-            -- Если нет ввода, останавливаемся
             humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
         end
     end
@@ -683,17 +607,16 @@ local Fly = (function()
     local function setupFlyForCharacter(character)
         if not enabled then return end
         
-        task.wait(1) -- Ждем полной инициализации персонажа
+        task.wait(1)
         
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if humanoid then
             humanoid:SetAttribute("FlyEnabled", true)
             
-            -- Отслеживаем смерть
             humanoid.Died:Connect(function()
                 if enabled then
                     resetFlyState()
-                    task.wait(2) -- Ждем респавна
+                    task.wait(2)
                     if Nexus.getCharacter() then
                         setupFlyForCharacter(Nexus.getCharacter())
                     end
@@ -706,9 +629,7 @@ local Fly = (function()
         if enabled then return end
         enabled = true
         Nexus.States.FlyEnabled = true
-        print("Fly: ON (" .. flySpeed .. ")")
         
-        -- Очищаем старые слушатели
         for _, listener in ipairs(characterListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -720,22 +641,18 @@ local Fly = (function()
         end
         characterListeners = {}
         
-        -- Добавляем слушатель появления персонажа
         table.insert(characterListeners, setupCharacterListener(setupFlyForCharacter))
         
-        -- Настраиваем управление
         local controlConns = setupControls()
         for _, conn in ipairs(controlConns) do
             table.insert(characterListeners, conn)
         end
         
-        -- Инициализируем для текущего персонажа
         local currentChar = Nexus.getCharacter()
         if currentChar then
             setupFlyForCharacter(currentChar)
         end
         
-        -- Цикл обновления
         if flyConnection then
             flyConnection:Disconnect()
         end
@@ -747,11 +664,9 @@ local Fly = (function()
         if not enabled then return end
         enabled = false
         Nexus.States.FlyEnabled = false
-        print("Fly: OFF")
         
         resetFlyState()
         
-        -- Очищаем слушатели
         for _, listener in ipairs(characterListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -771,7 +686,6 @@ local Fly = (function()
     
     local function SetSpeed(speed)
         flySpeed = math.clamp(speed, 10, 200)
-        print("Fly speed set to: " .. flySpeed)
     end
     
     local function GetSpeed()
@@ -808,8 +722,6 @@ local FreeCamera = (function()
         camera.CameraType = Enum.CameraType.Scriptable
         camera.CameraSubject = nil
         cameraLocked = true
-        
-        print("Free Camera: Camera locked")
     end
     
     local function unlockCamera()
@@ -824,14 +736,12 @@ local FreeCamera = (function()
         originalCameraType = nil
         originalCameraSubject = nil
         cameraLocked = false
-        
-        print("Free Camera: Camera unlocked")
     end
     
     local function setupFreeCameraForCharacter()
         if not enabled then return end
         
-        task.wait(0.5) -- Ждем стабилизации камеры
+        task.wait(0.5)
         
         lockCamera()
     end
@@ -840,18 +750,14 @@ local FreeCamera = (function()
         if enabled then return end
         enabled = true
         Nexus.States.FreeCameraEnabled = true
-        print("Free Camera: ON")
         
-        -- Очищаем старые слушатели
         for _, listener in ipairs(characterListeners) do
             Nexus.safeDisconnect(listener)
         end
         characterListeners = {}
         
-        -- Добавляем слушатель появления персонажа
         table.insert(characterListeners, setupCharacterListener(setupFreeCameraForCharacter))
         
-        -- Отслеживаем изменение камеры
         local cameraChangedConn = Nexus.Services.Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
             if enabled then
                 task.wait(0.1)
@@ -860,7 +766,6 @@ local FreeCamera = (function()
         end)
         table.insert(characterListeners, cameraChangedConn)
         
-        -- Инициализируем для текущей камеры
         setupFreeCameraForCharacter()
     end
     
@@ -868,11 +773,9 @@ local FreeCamera = (function()
         if not enabled then return end
         enabled = false
         Nexus.States.FreeCameraEnabled = false
-        print("Free Camera: OFF")
         
         unlockCamera()
         
-        -- Очищаем слушатели
         for _, listener in ipairs(characterListeners) do
             Nexus.safeDisconnect(listener)
         end
@@ -894,7 +797,6 @@ function Movement.Init(nxs)
     local Tabs = Nexus.Tabs
     local Options = Nexus.Options
     
-    -- ========== INFINITE LUNGE ==========
     local InfiniteLungeToggle = Tabs.Movement:AddToggle("InfiniteLunge", {
         Title = "Infinite Lunge", 
         Description = "Unlimited lunge distance and speed", 
@@ -911,7 +813,6 @@ function Movement.Init(nxs)
         end)
     end)
 
-    -- ========== WALK SPEED ==========
     local WalkSpeedToggle = Tabs.Movement:AddToggle("WalkSpeed", {
         Title = "Walk Speed", 
         Description = "Increase walking speed", 
@@ -942,7 +843,6 @@ function Movement.Init(nxs)
         end
     })
 
-    -- ========== NOCLIP ==========
     local NoclipToggle = Tabs.Movement:AddToggle("Noclip", {
         Title = "Noclip", 
         Description = "Walk through walls and objects", 
@@ -959,10 +859,9 @@ function Movement.Init(nxs)
         end)
     end)
 
-    -- ========== FOV CHANGER ==========
     local FOVToggle = Tabs.Movement:AddToggle("FOVChanger", {
         Title = "FOV Changer", 
-        Description = "Change field of view (1-200)", 
+        Description = "Change field of view (1-120)", 
         Default = false
     })
 
@@ -978,10 +877,10 @@ function Movement.Init(nxs)
 
     local FOVSlider = Tabs.Movement:AddSlider("FOVValue", {
         Title = "FOV Value",
-        Description = "Adjust field of view (1-200)",
+        Description = "Adjust field of view (1-120)",
         Default = 70,
         Min = 1,
-        Max = 200,  -- Увеличено до 200
+        Max = 120,
         Rounding = 1,
         Callback = function(value)
             Nexus.SafeCallback(function()
@@ -990,21 +889,6 @@ function Movement.Init(nxs)
         end
     })
 
-    local FOVSmoothnessSlider = Tabs.Movement:AddSlider("FOVSmoothness", {
-        Title = "FOV Smoothness",
-        Description = "Adjust smoothness of FOV changes (lower = smoother)",
-        Default = 0.3,
-        Min = 0.05,
-        Max = 1,
-        Rounding = 2,
-        Callback = function(value)
-            Nexus.SafeCallback(function()
-                FOVChanger.SetSmoothness(value)
-            end)
-        end
-    })
-
-    -- ========== FLY ==========
     local FlyToggle = Tabs.Movement:AddToggle("Fly", {
         Title = "Fly", 
         Description = "Fly around the map", 
@@ -1035,7 +919,6 @@ function Movement.Init(nxs)
         end
     })
 
-    -- ========== FREE CAMERA ==========
     local FreeCameraToggle = Tabs.Movement:AddToggle("FreeCamera", {
         Title = "Free Camera", 
         Description = "Detach camera from character", 
@@ -1051,20 +934,11 @@ function Movement.Init(nxs)
             end
         end)
     end)
-
-    -- ========== CONTROLS INFORMATION ==========
-    Tabs.Movement:AddParagraph({
-        Title = "Fly Controls",
-        Content = "WASD - Move\nSpace - Up\nLeft Shift - Down"
-    })
-
-    print("✓ Movement module initialized")
 end
 
 -- ========== CLEANUP ==========
 
 function Movement.Cleanup()
-    -- Отключаем все функции
     InfiniteLunge.Disable()
     WalkSpeed.Disable()
     Noclip.Disable()
@@ -1072,13 +946,10 @@ function Movement.Cleanup()
     Fly.Disable()
     FreeCamera.Disable()
     
-    -- Очищаем все соединения
     for key, connection in pairs(Movement.Connections) do
         Nexus.safeDisconnect(connection)
     end
     Movement.Connections = {}
-    
-    print("Movement module cleaned up")
 end
 
 return Movement
