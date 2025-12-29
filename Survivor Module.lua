@@ -1047,6 +1047,120 @@ local function ResetAllHealing()
     end
 end
 
+-- ========== NO FALL ==========
+
+local NoFall = (function()
+    local enabled = false
+    local hooked = false
+    local originalNamecall = nil
+    local mt = nil
+    
+    local function getFallRemote()
+        local success, remote = pcall(function()
+            return Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Mechanics"):WaitForChild("Fall")
+        end)
+        return success and remote or nil
+    end
+    
+    local function setupHook()
+        if hooked then return end
+        
+        local fallRemote = getFallRemote()
+        if not fallRemote then
+            return false
+        end
+        
+        mt = getrawmetatable(fallRemote)
+        if not mt then
+            return false
+        end
+        
+        originalNamecall = mt.__namecall
+        
+        -- Временно снимаем защиту
+        local wasReadonly = isreadonly and isreadonly(mt)
+        if setreadonly then
+            setreadonly(mt, false)
+        end
+        
+        mt.__namecall = newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            
+            if self == fallRemote and method == "FireServer" and enabled then
+                print("NoFall: Blocked fall damage")
+                return nil 
+            end
+            
+            return originalNamecall(self, ...)
+        end)
+        
+        if setreadonly and wasReadonly then
+            setreadonly(mt, true)
+        end
+        
+        hooked = true
+        print("NoFall: Hook установлен")
+        return true
+    end
+    
+    local function removeHook()
+        if not hooked or not mt or not originalNamecall then return end
+        
+        -- Временно снимаем защиту
+        local wasReadonly = isreadonly and isreadonly(mt)
+        if setreadonly then
+            setreadonly(mt, false)
+        end
+        
+        mt.__namecall = originalNamecall
+        
+        -- Возвращаем защиту если была
+        if setreadonly and wasReadonly then
+            setreadonly(mt, true)
+        end
+        
+        hooked = false
+        originalNamecall = nil
+        mt = nil
+        print("NoFall: Hook удален")
+    end
+    
+    local function Enable()
+        if enabled then return end
+        enabled = true
+        Nexus.States.NoFallEnabled = true
+        
+        if not setupHook() then
+            -- Пробуем найти Remote позже
+            task.spawn(function()
+                for i = 1, 5 do
+                    task.wait(1)
+                    if enabled and not hooked then
+                        if setupHook() then break end
+                    end
+                end
+            end)
+        end
+        
+        print("NoFall: ON")
+    end
+    
+    local function Disable()
+        if not enabled then return end
+        enabled = false
+        Nexus.States.NoFallEnabled = false
+        
+        removeHook()
+        print("NoFall: OFF")
+    end
+    
+    return {
+        Enable = Enable,
+        Disable = Disable,
+        IsEnabled = function() return enabled end
+    }
+end)()
+
 -- ========== GATE TOOL ==========
 
 local GateTool = (function()
@@ -1336,6 +1450,22 @@ function Survivor.Init(nxs)
         end)
     end)
 
+    local NoFallToggle = Tabs.Main:AddToggle("NoFall", {
+        Title = "No Fall", 
+        Description = "Disables the penalty when falling", 
+        Default = false
+    })
+
+    NoFallToggle:OnChanged(function(v)
+        Nexus.SafeCallback(function()
+            if v then 
+                NoFall.Enable() 
+            else 
+                NoFall.Disable() 
+            end
+        end)
+    end)
+
     -- ========== gamemode ==========
     local HealToggle = Tabs.Main:AddToggle("Heal", {
         Title = "Gamemode", 
@@ -1466,6 +1596,7 @@ function Survivor.Cleanup()
     NoSlowdown.Disable()
     AutoParry.Disable()
     FakeParry.Disable()
+    NoFall.Disable()  
     ResetAllHealing()
     GateTool.Disable()
     
