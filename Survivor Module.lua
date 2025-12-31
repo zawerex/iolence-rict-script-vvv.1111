@@ -5,7 +5,7 @@ local Survivor = {
     States = {}
 }
 
--- ========== UTILITY FUNCTIONS ==========
+-- utilityy -- 
 
 local function isSurvivorTeam()
     local player = Nexus.Player
@@ -18,25 +18,22 @@ local function isSurvivorTeam()
 end
 
 local function setupTeamListener(callback)
-    -- Отслеживаем смену команды
+    
     local teamChangedConn = Nexus.Player:GetPropertyChangedSignal("Team"):Connect(callback)
     
-    -- Отслеживаем вход в игру
     local function onCharacterAdded(character)
-        task.wait(0.5) -- Ждем загрузку персонажа
+        task.wait(0.5) 
         callback()
     end
     
     local charAddedConn = Nexus.Player.CharacterAdded:Connect(onCharacterAdded)
     
-    -- Первоначальный вызов
     task.spawn(callback)
     
-    -- Возвращаем соединения для очистки
     return {teamChangedConn, charAddedConn}
 end
 
--- ========== CROSSHAIR SYSTEM ==========
+-- CROSSHAIR --
 
 local Crosshair = (function()
     local enabled = false
@@ -47,7 +44,6 @@ local Crosshair = (function()
     local rainbowConnection = nil
     local teamListeners = {}
     
-    -- Настройки прицелов
     local crosshairTypes = {
         crosshair = {
             create = function(parent)
@@ -58,7 +54,6 @@ local Crosshair = (function()
                 container.Position = UDim2.new(0.5, -10, 0.5, -10)
                 container.ZIndex = 999
                 
-                -- Вертикальная линия
                 local line1 = Instance.new("Frame")
                 line1.Name = "Line1"
                 line1.BackgroundColor3 = Color3.new(1, 1, 1)
@@ -67,7 +62,6 @@ local Crosshair = (function()
                 line1.Position = UDim2.new(0.5, -1, 0.5, -6)
                 line1.Parent = container
                 
-                -- Горизонтальная линия
                 local line2 = Instance.new("Frame")
                 line2.Name = "Line2"
                 line2.BackgroundColor3 = Color3.new(1, 1, 1)
@@ -161,7 +155,6 @@ local Crosshair = (function()
         
         if not enabled then return end
         
-        -- Создаем ScreenGui если его нет
         if not screenGui or not screenGui.Parent then
             screenGui = Instance.new("ScreenGui")
             screenGui.Name = "NexusCrosshair"
@@ -171,7 +164,6 @@ local Crosshair = (function()
             screenGui.Parent = Nexus.Player:WaitForChild("PlayerGui")
         end
         
-        -- Создаем выбранный тип прицела
         local crosshairConfig = crosshairTypes[currentType]
         if crosshairConfig then
             frame = crosshairConfig.create(screenGui)
@@ -196,10 +188,9 @@ local Crosshair = (function()
             if not frame or not rainbowEnabled then return end
             
             local time = tick()
-            local hue = (time % 5) / 5  -- 5 секундный цикл
+            local hue = (time % 5) / 5  
             local color = Color3.fromHSV(hue, 1, 1)
             
-            -- Обновляем цвет в зависимости от типа прицела
             if currentType == "crosshair" then
                 local line1 = frame:FindFirstChild("Line1")
                 local line2 = frame:FindFirstChild("Line2")
@@ -216,7 +207,6 @@ local Crosshair = (function()
     end
     
     local function updateCrosshairState()
-        -- Crosshair работает независимо от команды, всегда
         if enabled then
             createCrosshair()
             updateRainbowEffect()
@@ -230,8 +220,6 @@ local Crosshair = (function()
         enabled = true
         Nexus.States.CrosshairEnabled = true
         print("Crosshair: ON")
-        
-        -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -244,10 +232,8 @@ local Crosshair = (function()
         
         teamListeners = {}
         
-        -- Создаем слушатель для обновления состояния
         table.insert(teamListeners, setupTeamListener(updateCrosshairState))
-        
-        -- Инициализируем состояние
+            
         updateCrosshairState()
     end
     
@@ -258,13 +244,11 @@ local Crosshair = (function()
         Nexus.States.RainbowCrosshairEnabled = false
         print("Crosshair: OFF")
         
-        -- Останавливаем радужный эффект
         if rainbowConnection then
             rainbowConnection:Disconnect()
             rainbowConnection = nil
         end
         
-        -- Восстанавливаем белый цвет прицела
         if frame then
             if currentType == "crosshair" then
                 local line1 = frame:FindFirstChild("Line1")
@@ -287,7 +271,6 @@ local Crosshair = (function()
             screenGui = nil
         end
         
-        -- Очищаем слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -319,7 +302,6 @@ local Crosshair = (function()
         print("Rainbow Crosshair: " .. (value and "ON" or "OFF"))
         
         if not value and frame then
-            -- При выключении радуги восстанавливаем белый цвет
             if currentType == "crosshair" then
                 local line1 = frame:FindFirstChild("Line1")
                 local line2 = frame:FindFirstChild("Line2")
@@ -350,7 +332,7 @@ local Crosshair = (function()
     }
 end)()
 
--- ========== AUTO VICTORY (SURVIVOR) ==========
+-- AUTO VICTORY --
 
 local AutoVictory = (function()
     local enabled = false
@@ -365,7 +347,6 @@ local AutoVictory = (function()
         
         local exitPos = nil
         
-        -- Проверка стандартных карт
         if map:FindFirstChild("RooftopHitbox") or map:FindFirstChild("Rooftop") then
             exitPos = Vector3.new(3098.16, 454.04, -4918.74)
             return exitPos
@@ -381,7 +362,7 @@ local AutoVictory = (function()
             return exitPos
         end
         
-        -- Поиск по названию
+        -- Поиск по названию -- 
         local finish = map:FindFirstChild("Finishline") or map:FindFirstChild("FinishLine") or map:FindFirstChild("Fininshline")
         if finish then
             if finish:IsA("BasePart") then
@@ -393,7 +374,6 @@ local AutoVictory = (function()
             return exitPos
         end
         
-        -- Поиск по имени с "finish"
         for _, obj in ipairs(map:GetDescendants()) do
             if obj.Name:lower():find("finish") then
                 if obj:IsA("BasePart") then
@@ -409,7 +389,7 @@ local AutoVictory = (function()
             end
         end
         
-        -- Fallback позиции
+        -- Fallback --
         if not exitPos then
             for _, obj in ipairs(map:GetDescendants()) do
                 if obj:IsA("MeshPart") and obj.Material == Enum.Material.Limestone then
@@ -434,9 +414,7 @@ local AutoVictory = (function()
     local function teleportToExit()
         if not enabled then return end
         
-        -- Проверяем, что игрок в команде выживших
         if not isSurvivorTeam() then 
-            -- Если не выживший, сбрасываем состояние
             beatSurvivorDone = false
             lastFinishPos = nil
             return 
@@ -448,14 +426,12 @@ local AutoVictory = (function()
         local root = character:FindFirstChild("HumanoidRootPart")
         if not root then return end
         
-        -- Поиск позиции выхода
         local exitPos = findExitPosition()
         if not exitPos then 
             print("Auto Victory: Exit not found")
             return 
         end
         
-        -- Проверка изменения позиции финиша
         if lastFinishPos then
             local dist = (exitPos - lastFinishPos).Magnitude
             if dist > 50 then
@@ -463,13 +439,10 @@ local AutoVictory = (function()
             end
         end
         
-        -- Если уже телепортировались, не делать снова
         if beatSurvivorDone then return end
-        
-        -- Телепортация к финишу
+
         root.CFrame = CFrame.new(exitPos + Vector3.new(0, 3, 0))
-        
-        -- Отметить выполнение
+
         beatSurvivorDone = true
         lastFinishPos = exitPos
         
@@ -500,7 +473,6 @@ local AutoVictory = (function()
         Nexus.States.AutoVictoryEnabled = true
         print("Auto Victory: ON")
         
-        -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -513,14 +485,11 @@ local AutoVictory = (function()
         
         teamListeners = {}
         
-        -- Сбрасываем состояние при включении
         beatSurvivorDone = false
         lastFinishPos = nil
-        
-        -- Добавляем слушатель смены команды
+ 
         table.insert(teamListeners, setupTeamListener(updateAutoVictory))
-        
-        -- Инициализируем состояние
+
         updateAutoVictory()
     end
     
@@ -537,8 +506,7 @@ local AutoVictory = (function()
         
         beatSurvivorDone = false
         lastFinishPos = nil
-        
-        -- Очищаем слушатели
+
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -562,7 +530,7 @@ local AutoVictory = (function()
     }
 end)()
 
--- ========== NO SLOWDOWN ==========
+-- NO SLOWDOWN --
 
 local NoSlowdown = (function()
     local enabled = false
@@ -572,14 +540,13 @@ local NoSlowdown = (function()
     local function setupNoSlowdownForCharacter(character)
         if not enabled or not isSurvivorTeam() then return end
         
-        task.wait(0.5) -- Ждем инициализацию персонажа
+        task.wait(0.5)а
         
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if humanoid then
             humanoid:SetAttribute("NoSlowdown", true)
             humanoid.WalkSpeed = 16
             
-            -- Создаем новое соединение для этого персонажа
             if connection then
                 connection:Disconnect()
             end
@@ -590,10 +557,9 @@ local NoSlowdown = (function()
                 end
             end)
             
-            -- Отслеживаем смерть персонажа
             humanoid.Died:Connect(function()
                 if enabled then
-                    task.wait(2) -- Ждем респавна
+                    task.wait(2) 
                     local newChar = Nexus.getCharacter()
                     if newChar then
                         setupNoSlowdownForCharacter(newChar)
@@ -609,9 +575,7 @@ local NoSlowdown = (function()
             if character then
                 setupNoSlowdownForCharacter(character)
             end
-            print("No Slowdown: Activated for Survivor team")
         elseif enabled then
-            print("No Slowdown: Waiting for Survivor team...")
             if connection then
                 connection:Disconnect()
                 connection = nil
@@ -636,9 +600,7 @@ local NoSlowdown = (function()
         if enabled then return end
         enabled = true
         Nexus.States.NoSlowdownEnabled = true
-        print("No Slowdown: ON")
-        
-        -- Очищаем старые слушатели
+         -- чиста старых глушителей - -
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -651,17 +613,14 @@ local NoSlowdown = (function()
         
         teamListeners = {}
         
-        -- Добавляем слушатель смены команды
         table.insert(teamListeners, setupTeamListener(updateNoSlowdownState))
         
-        -- Добавляем слушатель появления персонажа
         table.insert(teamListeners, setupCharacterListener(function(character)
             if enabled and isSurvivorTeam() then
                 setupNoSlowdownForCharacter(character)
             end
         end))
         
-        -- Инициализируем состояние
         updateNoSlowdownState()
     end
     
@@ -669,7 +628,6 @@ local NoSlowdown = (function()
         if not enabled then return end
         enabled = false
         Nexus.States.NoSlowdownEnabled = false
-        print("No Slowdown: OFF")
         
         if connection then
             connection:Disconnect()
@@ -684,7 +642,6 @@ local NoSlowdown = (function()
             end
         end
         
-        -- Очищаем слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -704,7 +661,7 @@ local NoSlowdown = (function()
     }
 end)()
 
--- ========== AUTO PARRY ==========
+-- [[ AUTO PARRY ]] --
 
 local AutoParry = (function()
     local spamActive = false
@@ -765,7 +722,7 @@ local AutoParry = (function()
     end
 
     local function PerformParry()
-        -- Используем стандартный метод через ЛКМ
+            
         spamActive = true
         Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, true, game, 0)
         task.spawn(function()
@@ -800,18 +757,14 @@ local AutoParry = (function()
                     Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0)
                 end
             end)
-            print("AutoParry: Activated for Survivor team")
         elseif Nexus.States.AutoParryEnabled then
-            print("AutoParry: Waiting for Survivor team...")
         end
     end
 
     local function Enable()
         if Nexus.States.AutoParryEnabled then return end
         Nexus.States.AutoParryEnabled = true
-        print("AutoParry Enabled")
         
-        -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -824,10 +777,8 @@ local AutoParry = (function()
         
         teamListeners = {}
         
-        -- Добавляем слушатель смены команды
         table.insert(teamListeners, setupTeamListener(setupAutoParry))
-        
-        -- Инициализируем состояние
+
         setupAutoParry()
     end
 
@@ -843,7 +794,6 @@ local AutoParry = (function()
             connection = nil
         end
         
-        -- Очищаем слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -855,7 +805,6 @@ local AutoParry = (function()
         end
         teamListeners = {}
         
-        print("AutoParry Disabled")
     end
 
     return {
@@ -864,13 +813,12 @@ local AutoParry = (function()
         IsEnabled = function() return Nexus.States.AutoParryEnabled end,
         SetRange = function(value) 
             RANGE = tonumber(value) or 10
-            print("AutoParry range set to: " .. RANGE)
         end,
         GetRange = function() return RANGE end
     }
 end)()
 
--- ========== FAKE PARRY ==========
+-- FAKE PARRY --
 
 local FakeParry = (function()
     local enabled = false
@@ -887,7 +835,7 @@ local FakeParry = (function()
     end
     
     local function startAnimation()
-        -- Проверяем, что игрок в команде выживших
+        -- чек survivor 
         if not isSurvivorTeam() then return false end
         
         local character = Nexus.getCharacter()
@@ -896,16 +844,13 @@ local FakeParry = (function()
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if not humanoid then return false end
         
-        -- Создаем анимацию
         local animation = Instance.new("Animation")
         animation.AnimationId = animationId
         
-        -- Загружаем и воспроизводим анимацию один раз
         animationTrack = humanoid:LoadAnimation(animation)
         if animationTrack then
             animationTrack:Play()
             
-            -- Останавливаем при завершении и очищаем
             animationTrack.Stopped:Connect(function()
                 animationTrack = nil
             end)
@@ -922,10 +867,8 @@ local FakeParry = (function()
             characterConnection = nil
         end
         
-        -- Проверяем команду перед настройкой
         if not isSurvivorTeam() then return end
         
-        -- Останавливаем анимацию при смерти
         local character = Nexus.getCharacter()
         if character then
             local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -934,17 +877,13 @@ local FakeParry = (function()
             end
         end
         
-        -- Автоматически запускаем анимацию при появлении нового персонажа
         characterConnection = Nexus.Player.CharacterAdded:Connect(function(newCharacter)
             if enabled and isSurvivorTeam() then
-                task.wait(1) -- Ждем загрузки персонажа
+                task.wait(1) -- wait loaded 
                 
                 local humanoid = newCharacter:WaitForChild("Humanoid", 5)
                 if humanoid then
-                    -- Останавливаем при смерти
                     humanoid.Died:Connect(stopAnimation)
-                    
-                    -- Запускаем анимацию один раз
                     task.wait(0.5)
                     startAnimation()
                 end
@@ -953,7 +892,7 @@ local FakeParry = (function()
     end
     
     local function updateFakeParry()
-        -- Останавливаем анимацию если не выживший
+ -- off on survivor --
         if not isSurvivorTeam() then
             stopAnimation()
             return
@@ -962,7 +901,6 @@ local FakeParry = (function()
         if enabled then
             setupCharacterListeners()
             if not startAnimation() then
-                print("Fake Parry: Waiting for character to start animation...")
             end
         else
             stopAnimation()
@@ -973,9 +911,7 @@ local FakeParry = (function()
         if enabled then return end
         enabled = true
         Nexus.States.FakeParryEnabled = true
-        print("Fake Parry: ON")
         
-        -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -988,10 +924,8 @@ local FakeParry = (function()
         
         teamListeners = {}
         
-        -- Добавляем слушатель смены команды
         table.insert(teamListeners, setupTeamListener(updateFakeParry))
-        
-        -- Инициализируем состояние
+
         updateFakeParry()
     end
     
@@ -999,18 +933,14 @@ local FakeParry = (function()
         if not enabled then return end
         enabled = false
         Nexus.States.FakeParryEnabled = false
-        print("Fake Parry: OFF")
-        
-        -- Останавливаем анимацию
+
         stopAnimation()
-        
-        -- Отключаем слушатели
+
         if characterConnection then
             characterConnection:Disconnect()
             characterConnection = nil
         end
         
-        -- Очищаем слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -1037,7 +967,7 @@ local FakeParry = (function()
     }
 end)()
 
--- ========== HEALING FUNCTIONS ==========
+-- HEALING -- (God mode)
 
 local healingStates = {
     silentHealRunning = false,
@@ -1046,7 +976,6 @@ local healingStates = {
     healCooldown = 0.2
 }
 
--- Эти функции работают независимо от команды
 local function StartInstantHeal()
     Nexus.States.InstantHealRunning = true
     healingStates.instantHealRunning = true
@@ -1230,7 +1159,7 @@ local function StopSilentHeal()
     end)
 end
 
--- ========== NO FALL ==========
+-- NO FALL --
 
 local NoFall = (function()
     local enabled = false
@@ -1271,10 +1200,8 @@ local NoFall = (function()
             local method = getnamecallmethod()
             
             if self == fallRemote and method == "FireServer" and enabled and isSurvivorTeam() then
-                print("NoFall: Blocked fall damage")
                 return nil 
             end
-            
             return originalNamecall(self, ...)
         end)
         
@@ -1283,14 +1210,12 @@ local NoFall = (function()
         end
         
         hooked = true
-        print("NoFall: Hook установлен")
         return true
     end
     
     local function removeHook()
         if not hooked or not mt or not originalNamecall then return end
         
-        -- Временно снимаем защиту
         local wasReadonly = isreadonly and isreadonly(mt)
         if setreadonly then
             setreadonly(mt, false)
@@ -1298,7 +1223,6 @@ local NoFall = (function()
         
         mt.__namecall = originalNamecall
         
-        -- Возвращаем защиту если была
         if setreadonly and wasReadonly then
             setreadonly(mt, true)
         end
@@ -1306,7 +1230,6 @@ local NoFall = (function()
         hooked = false
         originalNamecall = nil
         mt = nil
-        print("NoFall: Hook удален")
     end
     
     local function updateNoFall()
@@ -1321,9 +1244,8 @@ local NoFall = (function()
                     end
                 end)
             end
-            print("NoFall: Activated for Survivor team")
-        elseif enabled then
-            print("NoFall: Waiting for Survivor team...")
+                
+            elseif enabled then
             removeHook()
         else
             removeHook()
@@ -1334,9 +1256,7 @@ local NoFall = (function()
         if enabled then return end
         enabled = true
         Nexus.States.NoFallEnabled = true
-        print("NoFall: ON")
         
-        -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -1349,10 +1269,8 @@ local NoFall = (function()
         
         teamListeners = {}
         
-        -- Добавляем слушатель смены команды
         table.insert(teamListeners, setupTeamListener(updateNoFall))
         
-        -- Инициализируем состояние
         updateNoFall()
     end
     
@@ -1364,7 +1282,6 @@ local NoFall = (function()
         
         removeHook()
         
-        -- Очищаем слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -1384,7 +1301,7 @@ local NoFall = (function()
     }
 end)()
 
--- ========== GATE TOOL ==========
+-- GATE TOOL --
 
 local GateTool = (function()
     local toolInstance = nil
@@ -1418,7 +1335,6 @@ local GateTool = (function()
     end
 
     local function UseGate()
-        -- Проверяем команду перед использованием
         if not isSurvivorTeam() then return false end
         
         local success = pcall(function()
@@ -1431,7 +1347,6 @@ local GateTool = (function()
                         local gateEvent = gate:FindFirstChild("gate")
                         if gateEvent and gateEvent:IsA("RemoteEvent") then
                             gateEvent:FireServer()
-                            print("Gate event fired")
                             return true
                         end
                     end
@@ -1440,7 +1355,6 @@ local GateTool = (function()
                 for _, remote in ipairs(remotes:GetDescendants()) do
                     if remote:IsA("RemoteEvent") and (remote.Name:lower() == "gate" or remote.Name:find("gate")) then
                         remote:FireServer()
-                        print("Gate event fired (alternative)")
                         return true
                     end
                 end
@@ -1448,7 +1362,6 @@ local GateTool = (function()
         end)
         
         if not success then
-            print("Gate event not found or failed to fire")
         end
         
         return success
@@ -1462,10 +1375,7 @@ local GateTool = (function()
                     UseGate()
                 end)
             end
-            print("Gate Tool: Activated for Survivor team")
         elseif Nexus.States.GateToolEnabled then
-            print("Gate Tool: Waiting for Survivor team...")
-            
             if toolInstance then 
                 pcall(function() 
                     if toolConnection then
@@ -1494,7 +1404,6 @@ local GateTool = (function()
         if Nexus.States.GateToolEnabled then return end
         Nexus.States.GateToolEnabled = true
         
-        -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -1507,13 +1416,10 @@ local GateTool = (function()
         
         teamListeners = {}
         
-        -- Добавляем слушатель смены команды
         table.insert(teamListeners, setupTeamListener(updateGateTool))
         
-        -- Инициализируем состояние
         updateGateTool()
         
-        -- Слушатель для нового персонажа
         local charAddedConn = Nexus.Player.CharacterAdded:Connect(function() 
             if Nexus.States.GateToolEnabled then 
                 task.wait(2)
@@ -1546,7 +1452,6 @@ local GateTool = (function()
             end
         end
         
-        -- Очищаем слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -1562,7 +1467,304 @@ local GateTool = (function()
     return {Enable=Enable, Disable=Disable}
 end)()
 
--- ========== AUTO PERFECT SKILL ==========
+-- FAST VAULT --
+
+local FastVault = (function()
+    local enabled = false
+    local hooked = false
+    local originalNamecall = nil
+    local teamListeners = {}
+    
+    local VaultEvent = nil
+    local VaultCompleteEvent = nil
+    local PalletSlideEvent = nil
+    
+    local function getRemotes()
+        local success = pcall(function()
+            local Remotes = Nexus.Services.ReplicatedStorage:WaitForChild("Remotes", 5)
+            if Remotes then
+                local Window = Remotes:FindFirstChild("Window")
+                local Pallet = Remotes:FindFirstChild("Pallet")
+                if Window then
+                    VaultEvent = Window:FindFirstChild("VaultEvent")
+                    VaultCompleteEvent = Window:FindFirstChild("VaultCompleteEvent")
+                end
+                if Pallet then
+                    PalletSlideEvent = Pallet:FindFirstChild("PalletSlideEvent")
+                end
+            end
+        end)
+        return VaultEvent ~= nil
+    end
+    
+    local function alignToPoint(point)
+        local character = Nexus.getCharacter()
+        if not character then return end
+        local root = character:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        local dir = (point.CFrame.Position - root.Position) * Vector3.new(1, 0, 1)
+        if dir.Magnitude > 0 then
+            root.CFrame = CFrame.new(root.Position, root.Position + dir.Unit)
+        end
+    end
+    
+    local function setFlowstate()
+        local character = Nexus.getCharacter()
+        if character then
+            pcall(character.SetAttribute, character, "Flowstate", true)
+        end
+    end
+    
+    local function setupHook()
+        if hooked then return true end
+        if not getRemotes() then return false end
+        
+        originalNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+            if not enabled or hooked then return originalNamecall(self, ...) end
+            local method = getnamecallmethod()
+            if method ~= "FireServer" then return originalNamecall(self, ...) end
+            
+            local args = {...}
+            
+            if self == VaultEvent and args[1] then
+                alignToPoint(args[1])
+                setFlowstate()
+                hooked = true
+                VaultEvent:FireServer(args[1], true)
+                hooked = false
+                return
+            end
+            
+            if self == VaultCompleteEvent and args[1] then
+                hooked = true
+                VaultCompleteEvent:FireServer(args[1], true)
+                hooked = false
+                return
+            end
+            
+            if self == PalletSlideEvent and args[1] then
+                alignToPoint(args[1])
+                hooked = true
+                PalletSlideEvent:FireServer(args[1], true)
+                hooked = false
+                return
+            end
+            
+            return originalNamecall(self, ...)
+        end))
+        
+        hooked = true
+        return true
+    end
+    
+    local function removeHook()
+        if not hooked or not originalNamecall then return end
+        -- Note: hookmetamethod cannot be easily reverted, we just disable the logic
+        hooked = false
+    end
+    
+    local function updateFastVault()
+        if enabled and isSurvivorTeam() then
+            if not setupHook() then
+                task.spawn(function()
+                    for i = 1, 5 do
+                        task.wait(1)
+                        if enabled and isSurvivorTeam() and not hooked then
+                            if setupHook() then break end
+                        end
+                    end
+                end)
+            end
+        end
+    end
+    
+    local function Enable()
+        if enabled then return end
+        enabled = true
+        Nexus.States.FastVaultEnabled = true
+        print("Fast Vault: ON")
+        
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        
+        teamListeners = {}
+        
+        table.insert(teamListeners, setupTeamListener(updateFastVault))
+        
+        updateFastVault()
+    end
+    
+    local function Disable()
+        if not enabled then return end
+        enabled = false
+        Nexus.States.FastVaultEnabled = false
+        print("Fast Vault: OFF")
+        
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        teamListeners = {}
+    end
+    
+    return {
+        Enable = Enable,
+        Disable = Disable,
+        IsEnabled = function() return enabled end
+    }
+end)()
+
+-- TWIST SILENT AIM --
+
+local TwistSilentAim = (function()
+    local enabled = false
+    local hooked = false
+    local originalNamecall = nil
+    local teamListeners = {}
+    local isFiring = false
+    local remote = nil
+    
+    local function getRemote()
+        local success = pcall(function()
+            remote = Nexus.Services.ReplicatedStorage:WaitForChild("Remotes", 5)
+                :WaitForChild("Items", 5)
+                :WaitForChild("Twist of Fate", 5)
+                :WaitForChild("Fire", 5)
+        end)
+        return remote ~= nil
+    end
+    
+    local function GetClosestPlayer()
+        local closestPlayer = nil
+        local closestDistance = math.huge
+        local myPos = workspace.CurrentCamera.CFrame.Position
+        
+        for _, player in pairs(Nexus.Services.Players:GetPlayers()) do
+            if player ~= Nexus.Player and player.Character then
+                local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+                if humanoid and humanoid.Health > 0 and rootPart then
+                    local distance = (rootPart.Position - myPos).Magnitude
+                    if distance < closestDistance then
+                        closestDistance = distance
+                        closestPlayer = player
+                    end
+                end
+            end
+        end
+        return closestPlayer
+    end
+    
+    local function setupHook()
+        if hooked then return true end
+        if not getRemote() then return false end
+        
+        originalNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            
+            if method == "FireServer" and self == remote and enabled and not isFiring then
+                local gunPart, direction = ...
+                
+                if gunPart and typeof(gunPart) == "Instance" and direction and typeof(direction) == "Vector3" then
+                    local target = GetClosestPlayer()
+                    if target and target.Character then
+                        local targetPart = target.Character:FindFirstChild("HumanoidRootPart")
+                        if targetPart then
+                            local cameraPos = workspace.CurrentCamera.CFrame.Position
+                            local newDirection = (targetPart.Position - cameraPos).Unit
+                            print("[Twist Silent Aim] " .. target.Name)
+                            isFiring = true
+                            remote:FireServer(gunPart, newDirection)
+                            isFiring = false
+                            return nil
+                        end
+                    end
+                end
+            end
+            
+            return originalNamecall(self, ...)
+        end))
+        
+        hooked = true
+        return true
+    end
+    
+    local function updateTwistSilentAim()
+        if enabled and isSurvivorTeam() then
+            if not setupHook() then
+                task.spawn(function()
+                    for i = 1, 5 do
+                        task.wait(1)
+                        if enabled and isSurvivorTeam() and not hooked then
+                            if setupHook() then break end
+                        end
+                    end
+                end)
+            end
+        end
+    end
+    
+    local function Enable()
+        if enabled then return end
+        enabled = true
+        Nexus.States.TwistSilentAimEnabled = true
+        print("Twist Silent Aim: ON")
+        
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        
+        teamListeners = {}
+        
+        table.insert(teamListeners, setupTeamListener(updateTwistSilentAim))
+        
+        updateTwistSilentAim()
+    end
+    
+    local function Disable()
+        if not enabled then return end
+        enabled = false
+        Nexus.States.TwistSilentAimEnabled = false
+        print("Twist Silent Aim: OFF")
+        
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        teamListeners = {}
+    end
+    
+    return {
+        Enable = Enable,
+        Disable = Disable,
+        IsEnabled = function() return enabled end
+    }
+end)()
+
+-- AUTO PERFECT SKILL --
 
 local AutoPerfectSkill = (function()
     local connection = nil
@@ -1615,9 +1817,7 @@ local AutoPerfectSkill = (function()
         if Nexus.States.autoSkillEnabled and isSurvivorTeam() then
             connection = Nexus.Services.RunService.Heartbeat:Connect(PerformPerfectSkillCheck)
             DisableGeneratorFail()
-            print("Auto Perfect Skill: Activated for Survivor team")
         elseif Nexus.States.autoSkillEnabled then
-            print("Auto Perfect Skill: Waiting for Survivor team...")
         end
     end
 
@@ -1625,7 +1825,6 @@ local AutoPerfectSkill = (function()
         if Nexus.States.autoSkillEnabled then return end
         Nexus.States.autoSkillEnabled = true
         
-        -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -1638,10 +1837,8 @@ local AutoPerfectSkill = (function()
         
         teamListeners = {}
         
-        -- Добавляем слушатель смены команды
         table.insert(teamListeners, setupTeamListener(updateAutoSkill))
         
-        -- Инициализируем состояние
         updateAutoSkill()
     end
 
@@ -1653,7 +1850,6 @@ local AutoPerfectSkill = (function()
             connection = nil
         end
         
-        -- Очищаем слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -1669,7 +1865,7 @@ local AutoPerfectSkill = (function()
     return {Enable = Enable, Disable = Disable}
 end)()
 
--- ========== GAMEMODE (HEAL) ==========
+--  (HEAL) --
 
 local Gamemode = (function()
     local connection = nil
@@ -1689,9 +1885,7 @@ local Gamemode = (function()
                 local hum = Nexus.Player.Character:FindFirstChildOfClass("Humanoid")
                 if hum and hum.Health < hum.MaxHealth then hum.Health = hum.MaxHealth end
             end)
-            print("Gamemode: Activated for Survivor team")
         elseif Nexus.States.autoHealEnabled then
-            print("Gamemode: Waiting for Survivor team...")
         end
     end
 
@@ -1699,7 +1893,6 @@ local Gamemode = (function()
         if Nexus.States.autoHealEnabled then return end
         Nexus.States.autoHealEnabled = true
         
-        -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -1712,10 +1905,8 @@ local Gamemode = (function()
         
         teamListeners = {}
         
-        -- Добавляем слушатель смены команды
         table.insert(teamListeners, setupTeamListener(updateGamemode))
-        
-        -- Инициализируем состояние
+
         updateGamemode()
     end
 
@@ -1727,7 +1918,6 @@ local Gamemode = (function()
             connection = nil
         end
         
-        -- Очищаем слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -1743,15 +1933,13 @@ local Gamemode = (function()
     return {Enable = Enable, Disable = Disable}
 end)()
 
--- ========== NO HITBOX ==========
+--  NO HITBOX --
 
 local NoHitbox = (function()
     local teamListeners = {}
 
     local function updateNoHitbox(value)
-        -- Проверяем команду перед применением
         if not isSurvivorTeam() then 
-            print("No Hitbox: Requires Survivor team")
             return 
         end
         
@@ -1779,7 +1967,6 @@ local NoHitbox = (function()
     end
 
     local function Enable()
-        -- Очищаем старые слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -1792,18 +1979,15 @@ local NoHitbox = (function()
         
         teamListeners = {}
         
-        -- Добавляем слушатель смены команды
         table.insert(teamListeners, setupTeamListener(function()
             if Nexus.States.NoHitboxEnabled then
                 updateNoHitbox(true)
             end
         end))
         
-        -- Инициализируем состояние
         if isSurvivorTeam() and Nexus.States.NoHitboxEnabled then
             updateNoHitbox(true)
         elseif Nexus.States.NoHitboxEnabled then
-            print("No Hitbox: Waiting for Survivor team...")
         end
     end
 
@@ -1812,7 +1996,6 @@ local NoHitbox = (function()
             updateNoHitbox(false)
         end
         
-        -- Очищаем слушатели
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
                 for _, conn in ipairs(listener) do
@@ -1828,7 +2011,7 @@ local NoHitbox = (function()
     return {Enable = Enable, Disable = Disable}
 end)()
 
--- ========== RESET ALL HEALING ==========
+--  RESET ALL HEALING --
 
 local function ResetAllHealing()
     healingStates.silentHealRunning = false
@@ -1847,7 +2030,7 @@ local function ResetAllHealing()
     end
 end
 
--- ========== MODULE INITIALIZATION ==========
+-- .//..d.d/ - -
 
 function Survivor.Init(nxs)
     Nexus = nxs
@@ -1860,7 +2043,7 @@ function Survivor.Init(nxs)
         Content = "Have a great game — and a Happy New Year! ☃"
     })
 
-    -- ========== CROSSHAIR (работает всегда) ==========
+    -- CROSSHAIR --
     local CrosshairToggle = Tabs.Main:AddToggle("Crosshair", {
         Title = "Crosshair", 
         Description = "Display crosshair in the center of screen", 
@@ -1901,7 +2084,7 @@ function Survivor.Init(nxs)
         end)
     end)
 
-    -- ========== AUTO VICTORY (только для выживших) ==========
+    -- AUTO VICTORY on SURVIVOR --
     local AutoVictoryToggle = Tabs.Main:AddToggle("AutoVictory", {
         Title = "Auto Victory (Survivor)", 
         Description = "Automatically teleports to exit for victory", 
@@ -1918,7 +2101,7 @@ function Survivor.Init(nxs)
         end)
     end)
 
-    -- ========== NO SLOWDOWN (только для выживших) ==========
+    -- NO SLOWDONW --
     local NoSlowdownToggle = Tabs.Main:AddToggle("NoSlowdown", {
         Title = "No Slowdown&NoStun + FastDropPallet", 
         Description = "Prevents all slowdown effects", 
@@ -1934,8 +2117,7 @@ function Survivor.Init(nxs)
             end 
         end)
     end)
-
-    -- ========== AUTO PARRY (только для выживших) ==========
+-- AUTO PARRY - -
     local AutoParryToggle = Tabs.Main:AddToggle("AutoParry", {
         Title = "AutoParry", 
         Description = "automatic parry of attacks", 
@@ -1966,7 +2148,6 @@ function Survivor.Init(nxs)
         end
     })
 
-    -- ========== FAKE PARRY (только для выживших) ==========
     local FakeParryToggle = Tabs.Main:AddToggle("FakeParry", {
         Title = "Fake Parry", 
         Description = "Plays parry animation continuously", 
@@ -1983,7 +2164,6 @@ function Survivor.Init(nxs)
         end)
     end)
 
-    -- ========== NO FALL (только для выживших) ==========
     local NoFallToggle = Tabs.Main:AddToggle("NoFall", {
         Title = "No Fall", 
         Description = "Disables the penalty when falling", 
@@ -2000,7 +2180,6 @@ function Survivor.Init(nxs)
         end)
     end)
 
-    -- ========== GAMEMODE (только для выживших) ==========
     local HealToggle = Tabs.Main:AddToggle("Heal", {
         Title = "GodMode", 
         Description = "Automatic health regeneration", 
@@ -2017,7 +2196,6 @@ function Survivor.Init(nxs)
         end)
     end)
 
-    -- ========== INSTANT HEAL (работает всегда) ==========
     local InstantHealToggle = Tabs.Main:AddToggle("InstantHeal", {
         Title = "Instant Heal", 
         Description = "instant treatment", 
@@ -2034,7 +2212,6 @@ function Survivor.Init(nxs)
         end)
     end)
 
-    -- ========== SILENT HEAL (работает всегда) ==========
     local SilentHealToggle = Tabs.Main:AddToggle("SilentHeal", {
         Title = "Silent Heal", 
         Description = "Heals all players anywhere on the map", 
@@ -2051,7 +2228,6 @@ function Survivor.Init(nxs)
         end)
     end)
 
-    -- ========== GATE TOOL (только для выживших) ==========
     local GateToolToggle = Tabs.Main:AddToggle("GateTool", {
         Title = "Fast use [Gate Tool]", 
         Description = "Quick usage of the Gate Tool", 
@@ -2068,7 +2244,6 @@ function Survivor.Init(nxs)
         end)
     end)
 
-    -- ========== NO HITBOX (только для выживших) ==========
     local NoHitboxToggle = Tabs.Main:AddToggle("NoHitbox", {
         Title = "No Hitbox", 
         Description = "Disables collision with other players", 
@@ -2086,9 +2261,40 @@ function Survivor.Init(nxs)
         end)
     end)
 
+    local FastVaultToggle = Tabs.Main:AddToggle("FastVault", {
+        Title = "Fast Vault", 
+        Description = "Instant vault through windows and pallets", 
+        Default = false
+    })
+
+    FastVaultToggle:OnChanged(function(v) 
+        Nexus.SafeCallback(function()
+            if v then 
+                FastVault.Enable() 
+            else 
+                FastVault.Disable() 
+            end 
+        end)
+    end)
+
+    local TwistSilentAimToggle = Tabs.Main:AddToggle("TwistSilentAim", {
+        Title = "Twist of Fate Silent Aim", 
+        Description = "Auto silent aim for Twist of Fate item", 
+        Default = false
+    })
+
+    TwistSilentAimToggle:OnChanged(function(v) 
+        Nexus.SafeCallback(function()
+            if v then 
+                TwistSilentAim.Enable() 
+            else 
+                TwistSilentAim.Disable() 
+            end 
+        end)
+    end)
+
     Tabs.Main:AddSection("Generators")
     
-    -- ========== AUTO PERFECT SKILL (только для выживших) ==========
     local AutoSkillToggle = Tabs.Main:AddToggle("AutoPerfectSkill", {
         Title = "Auto Perfect Skill Check", 
         Description = "automatically clicks in the perfect location", 
@@ -2119,6 +2325,8 @@ function Survivor.Cleanup()
     ResetAllHealing()
     GateTool.Disable()
     NoHitbox.Disable()
+    FastVault.Disable()
+    TwistSilentAim.Disable()
     AutoPerfectSkill.Disable()
     
     for key, connection in pairs(Survivor.Connections) do
