@@ -350,6 +350,303 @@ local Crosshair = (function()
     }
 end)()
 
+-- TWIST SILENT AIM --
+
+local TwistSilentAim = (function()
+    local enabled = false
+    local hooked = false
+    local originalNamecall = nil
+    local teamListeners = {}
+    local isFiring = false
+    local remote = nil
+    
+    local function getRemote()
+        local success = pcall(function()
+            remote = Nexus.Services.ReplicatedStorage:WaitForChild("Remotes", 5)
+                :WaitForChild("Items", 5)
+                :WaitForChild("Twist of Fate", 5)
+                :WaitForChild("Fire", 5)
+        end)
+        return remote ~= nil
+    end
+    
+    local function GetClosestPlayer()
+        local closestPlayer = nil
+        local closestDistance = math.huge
+        local myPos = workspace.CurrentCamera.CFrame.Position
+        
+        for _, player in pairs(Nexus.Services.Players:GetPlayers()) do
+            if player ~= Nexus.Player and player.Character then
+                local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+                if humanoid and humanoid.Health > 0 and rootPart then
+                    local distance = (rootPart.Position - myPos).Magnitude
+                    if distance < closestDistance then
+                        closestDistance = distance
+                        closestPlayer = player
+                    end
+                end
+            end
+        end
+        return closestPlayer
+    end
+    
+    local function setupHook()
+        if hooked then return true end
+        if not getRemote() then return false end
+        
+        originalNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            
+            if method == "FireServer" and self == remote and enabled and not isFiring then
+                local gunPart, direction = ...
+                
+                if gunPart and typeof(gunPart) == "Instance" and direction and typeof(direction) == "Vector3" then
+                    local target = GetClosestPlayer()
+                    if target and target.Character then
+                        local targetPart = target.Character:FindFirstChild("HumanoidRootPart")
+                        if targetPart then
+                            local cameraPos = workspace.CurrentCamera.CFrame.Position
+                            local newDirection = (targetPart.Position - cameraPos).Unit
+                            print("[Twist Silent Aim] " .. target.Name)
+                            isFiring = true
+                            remote:FireServer(gunPart, newDirection)
+                            isFiring = false
+                            return nil
+                        end
+                    end
+                end
+            end
+            
+            return originalNamecall(self, ...)
+        end))
+        
+        hooked = true
+        return true
+    end
+    
+    local function updateTwistSilentAim()
+        if enabled and isSurvivorTeam() then
+            if not setupHook() then
+                task.spawn(function()
+                    for i = 1, 5 do
+                        task.wait(1)
+                        if enabled and isSurvivorTeam() and not hooked then
+                            if setupHook() then break end
+                        end
+                    end
+                end)
+            end
+        end
+    end
+    
+    local function Enable()
+        if enabled then return end
+        enabled = true
+        Nexus.States.TwistSilentAimEnabled = true
+        print("Twist Silent Aim: ON")
+        
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        
+        teamListeners = {}
+        
+        table.insert(teamListeners, setupTeamListener(updateTwistSilentAim))
+        
+        updateTwistSilentAim()
+    end
+    
+    local function Disable()
+        if not enabled then return end
+        enabled = false
+        Nexus.States.TwistSilentAimEnabled = false
+        print("Twist Silent Aim: OFF")
+        
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        teamListeners = {}
+    end
+    
+    return {
+        Enable = Enable,
+        Disable = Disable,
+        IsEnabled = function() return enabled end
+    }
+end)()
+
+-- FAST VAULT --
+
+local FastVault = (function()
+    local enabled = false
+    local hooked = false
+    local originalNamecall = nil
+    local teamListeners = {}
+    
+    local VaultEvent = nil
+    local VaultCompleteEvent = nil
+    local PalletSlideEvent = nil
+    
+    local function getRemotes()
+        local success = pcall(function()
+            local Remotes = Nexus.Services.ReplicatedStorage:WaitForChild("Remotes", 5)
+            if Remotes then
+                local Window = Remotes:FindFirstChild("Window")
+                local Pallet = Remotes:FindFirstChild("Pallet")
+                if Window then
+                    VaultEvent = Window:FindFirstChild("VaultEvent")
+                    VaultCompleteEvent = Window:FindFirstChild("VaultCompleteEvent")
+                end
+                if Pallet then
+                    PalletSlideEvent = Pallet:FindFirstChild("PalletSlideEvent")
+                end
+            end
+        end)
+        return VaultEvent ~= nil
+    end
+    
+    local function alignToPoint(point)
+        local character = Nexus.getCharacter()
+        if not character then return end
+        local root = character:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        local dir = (point.CFrame.Position - root.Position) * Vector3.new(1, 0, 1)
+        if dir.Magnitude > 0 then
+            root.CFrame = CFrame.new(root.Position, root.Position + dir.Unit)
+        end
+    end
+    
+    local function setFlowstate()
+        local character = Nexus.getCharacter()
+        if character then
+            pcall(character.SetAttribute, character, "Flowstate", true)
+        end
+    end
+    
+    local function setupHook()
+        if hooked then return true end
+        if not getRemotes() then return false end
+        
+        originalNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+            if not enabled or hooked then return originalNamecall(self, ...) end
+            local method = getnamecallmethod()
+            if method ~= "FireServer" then return originalNamecall(self, ...) end
+            
+            local args = {...}
+            
+            if self == VaultEvent and args[1] then
+                alignToPoint(args[1])
+                setFlowstate()
+                hooked = true
+                VaultEvent:FireServer(args[1], true)
+                hooked = false
+                return
+            end
+            
+            if self == VaultCompleteEvent and args[1] then
+                hooked = true
+                VaultCompleteEvent:FireServer(args[1], true)
+                hooked = false
+                return
+            end
+            
+            if self == PalletSlideEvent and args[1] then
+                alignToPoint(args[1])
+                hooked = true
+                PalletSlideEvent:FireServer(args[1], true)
+                hooked = false
+                return
+            end
+            
+            return originalNamecall(self, ...)
+        end))
+        
+        hooked = true
+        return true
+    end
+    
+    local function removeHook()
+        if not hooked or not originalNamecall then return end
+        -- Note: hookmetamethod cannot be easily reverted, we just disable the logic
+        hooked = false
+    end
+    
+    local function updateFastVault()
+        if enabled and isSurvivorTeam() then
+            if not setupHook() then
+                task.spawn(function()
+                    for i = 1, 5 do
+                        task.wait(1)
+                        if enabled and isSurvivorTeam() and not hooked then
+                            if setupHook() then break end
+                        end
+                    end
+                end)
+            end
+        end
+    end
+    
+    local function Enable()
+        if enabled then return end
+        enabled = true
+        Nexus.States.FastVaultEnabled = true
+        print("Fast Vault: ON")
+        
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        
+        teamListeners = {}
+        
+        table.insert(teamListeners, setupTeamListener(updateFastVault))
+        
+        updateFastVault()
+    end
+    
+    local function Disable()
+        if not enabled then return end
+        enabled = false
+        Nexus.States.FastVaultEnabled = false
+        print("Fast Vault: OFF")
+        
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        teamListeners = {}
+    end
+    
+    return {
+        Enable = Enable,
+        Disable = Disable,
+        IsEnabled = function() return enabled end
+    }
+end)()
+
 -- ========== AUTO VICTORY (SURVIVOR) ==========
 
 local AutoVictory = (function()
@@ -1966,7 +2263,41 @@ function Survivor.Init(nxs)
         end
     })
 
-    -- ========== FAKE PARRY (только для выживших) ==========
+-- new 
+       local FastVaultToggle = Tabs.Main:AddToggle("FastVault", {
+        Title = "Fast Vault", 
+        Description = "Instant vault through windows and pallets", 
+        Default = false
+    })
+
+    FastVaultToggle:OnChanged(function(v) 
+        Nexus.SafeCallback(function()
+            if v then 
+                FastVault.Enable() 
+            else 
+                FastVault.Disable() 
+            end 
+        end)
+    end)
+
+    local TwistSilentAimToggle = Tabs.Main:AddToggle("TwistSilentAim", {
+        Title = "Twist of Fate Silent Aim", 
+        Description = "Auto silent aim for Twist of Fate item", 
+        Default = false
+    })
+
+    TwistSilentAimToggle:OnChanged(function(v) 
+        Nexus.SafeCallback(function()
+            if v then 
+                TwistSilentAim.Enable() 
+            else 
+                TwistSilentAim.Disable() 
+            end 
+        end)
+    end)
+
+\  -- fake parry -- 
+
     local FakeParryToggle = Tabs.Main:AddToggle("FakeParry", {
         Title = "Fake Parry", 
         Description = "Plays parry animation continuously", 
@@ -2118,6 +2449,8 @@ function Survivor.Cleanup()
     Gamemode.Disable()
     ResetAllHealing()
     GateTool.Disable()
+    FastVault.Disable()
+    TwistSilentAim.Disable()
     NoHitbox.Disable()
     AutoPerfectSkill.Disable()
     
