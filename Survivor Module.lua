@@ -2002,7 +2002,7 @@ function Survivor.Init(nxs)
 
     -- ========== GAMEMODE (только для выживших) ==========
     local HealToggle = Tabs.Main:AddToggle("Heal", {
-        Title = "Gamemode", 
+        Title = "GodMode", 
         Description = "Automatic health regeneration", 
         Default = false
     })
