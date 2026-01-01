@@ -2082,7 +2082,6 @@ local function ResetAllHealing()
     end
 end
 
--- ========== MODULE INITIALIZATION ==========
 
 function Survivor.Init(nxs)
     Nexus = nxs
@@ -2097,8 +2096,8 @@ function Survivor.Init(nxs)
 
     -- ========== CROSSHAIR (работает всегда) ==========
     local CrosshairToggle = Tabs.Main:AddToggle("Crosshair", {
-        Title = "Crosshair", 
-        Description = "Display crosshair in the center of screen", 
+        Title = "Crosshair (Flashlight & Gun)", 
+        Description = "", 
         Default = false
     })
 
