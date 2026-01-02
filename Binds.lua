@@ -1,4 +1,3 @@
--- Binds Module - Keybind management for Nexus
 local Nexus = _G.Nexus
 
 local Binds = {
@@ -13,7 +12,6 @@ local Binds = {
     DisplayGui = nil
 }
 
--- ========== HELPER FUNCTIONS ==========
 
 function Binds.ExtractKeyName(keyCode)
     if not keyCode or keyCode == "" then
@@ -39,8 +37,6 @@ function Binds.ToggleOption(optionName)
         option:SetValue(not currentState)
     end
 end
-
--- ========== DISPLAY GUI FUNCTIONS ==========
 
 function Binds.CreateDisplayGUI()
     if Binds.DisplayGui then
@@ -89,7 +85,6 @@ function Binds.UpdateDisplay()
     
     local scrollFrame = Binds.DisplayGui.Container.ScrollFrame
     
-    -- Очищаем старые элементы
     for _, child in ipairs(scrollFrame:GetChildren()) do
         if child:IsA("TextLabel") then
             child:Destroy()
@@ -111,7 +106,6 @@ function Binds.UpdateDisplay()
         end
     end
     
-    -- Обновляем размер контейнера
     local itemCount = #sortedKeys
     local itemHeight = 20
     local padding = 4
@@ -142,7 +136,6 @@ function Binds.CreateKeybindDisplay(parent, displayName, key, funcName)
     textLabel.RichText = false
     textLabel.Parent = parent
     
-    -- Обновляем цвет в зависимости от состояния
     local option = Nexus.Options[funcName]
     if option then
         Binds.UpdateKeyColor(textLabel, option.Value)
@@ -207,8 +200,6 @@ function Binds.HandleKeybindChange(funcName, displayName, newKey)
     Binds.UpdateKeybindDisplay(funcName, displayName, newKey)
 end
 
--- ========== MODULE INITIALIZATION ==========
-
 function Binds.Init(nxs)
     Nexus = nxs
     
@@ -217,13 +208,10 @@ function Binds.Init(nxs)
     local Tabs = Nexus.Tabs
     if not Tabs.Binds then return end
     
-    -- Создаем GUI для отображения биндов
     Binds.CreateDisplayGUI()
     
-    -- ========== SURVIVOR BINDS ==========
-   Tabs.Binds:AddSection("Binds", "snowflake")
+   Tabs.Binds:AddSection("Binds", "Survivor")
     
-    -- AutoParry
     local AutoParryKeybind = Tabs.Binds:AddKeybind("AutoParryKeybind", {
         Title = "AutoParry",
         Mode = "Toggle",
@@ -239,7 +227,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- No Slowdown
     local NoSlowdownKeybind = Tabs.Binds:AddKeybind("NoSlowdownKeybind", {
         Title = "No Slowdown",
         Mode = "Toggle",
@@ -255,7 +242,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Instant Heal
     local InstantHealKeybind = Tabs.Binds:AddKeybind("InstantHealKeybind", {
         Title = "Instant Heal",
         Mode = "Toggle",
@@ -271,7 +257,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Silent Heal
     local SilentHealKeybind = Tabs.Binds:AddKeybind("SilentHealKeybind", {
         Title = "Silent Heal",
         Mode = "Toggle",
@@ -287,7 +272,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Gate Tool
     local GateToolKeybind = Tabs.Binds:AddKeybind("GateToolKeybind", {
         Title = "Gate Tool",
         Mode = "Toggle",
@@ -303,7 +287,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- No Hitbox
     local NoHitboxKeybind = Tabs.Binds:AddKeybind("NoHitboxKeybind", {
         Title = "No Hitbox",
         Mode = "Toggle",
@@ -319,7 +302,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Auto Perfect Skill
     local AutoSkillKeybind = Tabs.Binds:AddKeybind("AutoSkillKeybind", {
         Title = "Auto Perfect Skill",
         Mode = "Toggle",
@@ -335,7 +317,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- No Fall
     local NoFallKeybind = Tabs.Binds:AddKeybind("NoFallKeybind", {
         Title = "No Fall",
         Mode = "Toggle",
@@ -351,7 +332,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Fake Parry
     local FakeParryKeybind = Tabs.Binds:AddKeybind("FakeParryKeybind", {
         Title = "Fake Parry",
         Mode = "Toggle",
@@ -367,7 +347,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Gamemode (Heal)
     local HealKeybind = Tabs.Binds:AddKeybind("HealKeybind", {
         Title = "Gamemode",
         Mode = "Toggle",
@@ -383,7 +362,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Crosshair
     local CrosshairKeybind = Tabs.Binds:AddKeybind("CrosshairKeybind", {
         Title = "Crosshair",
         Mode = "Toggle",
@@ -399,7 +377,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Rainbow Crosshair
     local RainbowCrosshairKeybind = Tabs.Binds:AddKeybind("RainbowCrosshairKeybind", {
         Title = "Rainbow Crosshair",
         Mode = "Toggle",
@@ -415,7 +392,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Auto Victory
     local AutoVictoryKeybind = Tabs.Binds:AddKeybind("AutoVictoryKeybind", {
         Title = "Auto Victory",
         Mode = "Toggle",
@@ -431,10 +407,8 @@ function Binds.Init(nxs)
         end
     })
     
-    -- ========== KILLER BINDS ==========
     Tabs.Binds:AddSection("Killer Binds")
     
-    -- Destroy Pallets
     local DestroyPalletsKeybind = Tabs.Binds:AddKeybind("DestroyPalletsKeybind", {
         Title = "Destroy Pallets",
         Mode = "Toggle",
@@ -450,7 +424,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Killer No Slowdown
     local KillerNoSlowdownKeybind = Tabs.Binds:AddKeybind("KillerNoSlowdownKeybind", {
         Title = "Killer No Slowdown",
         Mode = "Toggle",
@@ -466,7 +439,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Hitbox Expand
     local HitboxKeybind = Tabs.Binds:AddKeybind("HitboxKeybind", {
         Title = "Hitbox Expand",
         Mode = "Toggle",
@@ -482,7 +454,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Break Generator
     local BreakGeneratorKeybind = Tabs.Binds:AddKeybind("BreakGeneratorKeybind", {
         Title = "Break Generator",
         Mode = "Toggle",
@@ -498,7 +469,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Third Person
     local ThirdPersonKeybind = Tabs.Binds:AddKeybind("ThirdPersonKeybind", {
         Title = "Third Person",
         Mode = "Toggle",
@@ -514,7 +484,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- No Pallet Stun
     local NoPalletStunKeybind = Tabs.Binds:AddKeybind("NoPalletStunKeybind", {
         Title = "No Pallet Stun",
         Mode = "Toggle",
@@ -530,7 +499,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Double Tap
     local DoubleTapKeybind = Tabs.Binds:AddKeybind("DoubleTapKeybind", {
         Title = "Double Tap",
         Mode = "Toggle",
@@ -546,7 +514,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Spam Hook
     local SpamHookKeybind = Tabs.Binds:AddKeybind("SpamHookKeybind", {
         Title = "Spam Hook",
         Mode = "Toggle",
@@ -562,7 +529,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Beat Game (Killer)
     local BeatGameKeybind = Tabs.Binds:AddKeybind("BeatGameKeybind", {
         Title = "Beat Game (Killer)",
         Mode = "Toggle",
@@ -578,7 +544,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Anti Blind
     local AntiBlindKeybind = Tabs.Binds:AddKeybind("AntiBlindKeybind", {
         Title = "Anti Blind",
         Mode = "Toggle",
@@ -594,7 +559,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Spear Crosshair
     local SpearCrosshairKeybind = Tabs.Binds:AddKeybind("SpearCrosshairKeybind", {
         Title = "Spear Crosshair",
         Mode = "Toggle",
@@ -610,10 +574,8 @@ function Binds.Init(nxs)
         end
     })
     
-    -- ========== MOVEMENT BINDS ==========
     Tabs.Binds:AddSection("Movement Binds")
     
-    -- Infinite Lunge
     local InfiniteLungeKeybind = Tabs.Binds:AddKeybind("InfiniteLungeKeybind", {
         Title = "Infinite Lunge",
         Mode = "Toggle",
@@ -629,7 +591,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Walk Speed
     local WalkSpeedKeybind = Tabs.Binds:AddKeybind("WalkSpeedKeybind", {
         Title = "Walk Speed",
         Mode = "Toggle",
@@ -645,7 +606,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Noclip
     local NoclipKeybind = Tabs.Binds:AddKeybind("NoclipKeybind", {
         Title = "Noclip",
         Mode = "Toggle",
@@ -661,7 +621,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- FOV Changer
     local FOVKeybind = Tabs.Binds:AddKeybind("FOVKeybind", {
         Title = "FOV Changer",
         Mode = "Toggle",
@@ -677,7 +636,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Fly
     local FlyKeybind = Tabs.Binds:AddKeybind("FlyKeybind", {
         Title = "Fly",
         Mode = "Toggle",
@@ -693,7 +651,6 @@ function Binds.Init(nxs)
         end
     })
     
-    -- Free Camera
     local FreeCameraKeybind = Tabs.Binds:AddKeybind("FreeCameraKeybind", {
         Title = "Free Camera",
         Mode = "Toggle",
@@ -711,8 +668,6 @@ function Binds.Init(nxs)
     
 end
 
--- ========== CLEANUP ==========
-
 function Binds.Cleanup()
     Binds.DisableCursorUnlock()
     Binds.ResetCursorState()
@@ -725,8 +680,7 @@ function Binds.Cleanup()
     Binds.ActiveKeybinds = {}
     Binds.KeyStates = {}
     Binds.Keybinds = {}
-    
-    print("Binds module cleaned up")
+
 end
 
 return Binds
