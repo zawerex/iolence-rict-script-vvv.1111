@@ -210,7 +210,7 @@ function Binds.Init(nxs)
     
     Binds.CreateDisplayGUI()
     
-   Tabs.Binds:AddSection("Binds", "Survivor")
+   Tabs.Binds:AddSection("Survivor")
     
     local AutoParryKeybind = Tabs.Binds:AddKeybind("AutoParryKeybind", {
         Title = "AutoParry",
