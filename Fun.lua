@@ -18,7 +18,6 @@ function Fun.Init(nxs)
     
     local Tabs = Nexus.Tabs
     
-    -- ========== EMOTES SYSTEM ==========
     local emotesInitialized = Fun.InitializeEmotesSystem()
     
     if emotesInitialized then
@@ -75,7 +74,6 @@ function Fun.Init(nxs)
         })
     end
     
-    -- ========== GAME UTILITIES ==========
     Tabs.Fun:AddSection("Game Utilities")
     
     Tabs.Fun:AddButton({
@@ -102,7 +100,6 @@ function Fun.Init(nxs)
         end
     })
     
-    -- ========== QUICK ACTIONS ==========
     Tabs.Fun:AddSection("Quick Actions")
     
     Tabs.Fun:AddButton({
@@ -113,7 +110,6 @@ function Fun.Init(nxs)
         end
     })
     
-    -- ========== MISC FUNCTIONS ==========
     Tabs.Fun:AddSection("Miscellaneous")
     
     local SpinToggle = Tabs.Fun:AddToggle("SpinCharacter", {
@@ -128,8 +124,6 @@ function Fun.Init(nxs)
         end)
     end)
 end
-
--- ========== EMOTES FUNCTIONS ==========
 
 function Fun.InitializeEmotesSystem()
     if not Nexus.Services.ReplicatedStorage:FindFirstChild("Emotes") then 
@@ -222,8 +216,6 @@ function Fun.StopEmote()
     Fun.CurrentAnimation = nil
 end
 
--- ========== JERK FUNCTION ==========
-
 function Fun.StartJerk()
     Nexus.SafeCallback(function()
         local humanoid = Nexus.getHumanoid()
@@ -314,8 +306,6 @@ function Fun.StopJerk()
     Fun.JerkTool.active = false
 end
 
--- ========== GAME UTILITY FUNCTIONS ==========
-
 function Fun.ResetCharacter()
     local character = Nexus.getCharacter()
     if character then
@@ -355,8 +345,6 @@ function Fun.Suicide()
     end
 end
 
--- ========== SPIN FUNCTION ==========
-
 function Fun.ToggleSpin(enabled)
     if enabled then
         Fun.StartSpin()
@@ -391,8 +379,6 @@ function Fun.StopSpin()
         Fun.SpinConnection = nil
     end
 end
-
--- ========== CLEANUP ==========
 
 function Fun.Cleanup()
     Fun.StopEmote()
