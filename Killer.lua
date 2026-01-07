@@ -333,7 +333,7 @@ local SpearCrosshair = (function()
     }
 end)()
 
--- ========== DOUBLE TAP ==========
+--  DOUBLE TAP --
 
 local DoubleTap = (function()
     local enabled = false
@@ -478,7 +478,7 @@ local DoubleTap = (function()
     }
 end)()
 
--- ========== DESTROY PALLETS ==========
+-- DESTROY PALLETS --
 
 local DestroyPallets = (function()
     local enabled = false
@@ -619,7 +619,7 @@ local DestroyPallets = (function()
     }
 end)()
 
--- ========== NO SLOWDOWN ==========
+--  NO SLOWDOWN --
 
 local NoSlowdown = (function()
     local enabled = false
@@ -755,7 +755,7 @@ local NoSlowdown = (function()
     }
 end)()
 
--- ========== HITBOX EXPAND ==========
+-- HITBOX --
 
 local Hitbox = (function()
     local enabled = false
@@ -903,7 +903,7 @@ local Hitbox = (function()
     }
 end)()
 
--- ========== BREAK GENERATOR ==========
+-- BREAK GENERATOR --
 
 local BreakGenerator = (function()
     local enabled = false
@@ -1101,7 +1101,7 @@ local BreakGenerator = (function()
     }
 end)()
 
--- ========== THIRD PERSON ==========
+-- THIRD PERSON --
 
 local ThirdPerson = (function()
     local enabled = false
@@ -1264,7 +1264,7 @@ local ThirdPerson = (function()
     }
 end)()
 
--- ========== BEAT GAME (KILLER) ==========
+-- =BEAT GAME (KILLER) --
 
 local BeatGameKiller = (function()
     local enabled = false
@@ -1628,7 +1628,7 @@ local AbysswalkerCorrupt = (function()
     }
 end)()
 
--- ========== ANTI BLIND ==========
+--  ANTI BLIND --
 
 local AntiBlind = (function()
     local enabled = false
@@ -2000,7 +2000,7 @@ local NoPalletStun = (function()
     }
 end)()
 
--- ========== MASK POWERS ==========
+-- MASK POWERS --
 
 local function activateMaskPower(maskName)
     local success, result = pcall(function()
