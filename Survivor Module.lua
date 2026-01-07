@@ -2226,7 +2226,7 @@ local FastVaultToggle = Tabs.Main:AddToggle("FastVault", {
     end)
     
 end
--- CLEANUP 
+
 function Survivor.Cleanup()
 
     Crosshair.Disable()
