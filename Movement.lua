@@ -496,21 +496,8 @@ end)()
 local function ApplyFOV()
     local camera = Nexus.Camera
     if camera and Movement.Settings.fovEnabled then
-        Movement.Settings.fovTargetValue = Movement.Settings.fovValue
-        
-        if Movement.Objects.currentTween then
-            Movement.Objects.currentTween:Cancel()
-        end
-        
-        Movement.Objects.currentTween = Nexus.Services.TweenService:Create(camera, 
-            TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), 
-            {FieldOfView = Movement.Settings.fovTargetValue})
-        Movement.Objects.currentTween:Play()
+        Movement.Settings.fovTargetValue = math.max(1, Movement.Settings.fovValue)
     elseif camera then
-        if Movement.Objects.currentTween then
-            Movement.Objects.currentTween:Cancel()
-            Movement.Objects.currentTween = nil
-        end
         camera.FieldOfView = 70
     end
 end
@@ -527,16 +514,16 @@ function Movement.Init(nxs)
         ApplyFOV()
     end)
 
-    if Nexus.Services.RunService.RenderStepped then
-        Movement.Connections.FOVUpdater = Nexus.Services.RunService.RenderStepped:Connect(function()
-            if Movement.Settings.fovEnabled and Nexus.Camera then
-                local targetFOV = math.max(1, Movement.Settings.fovTargetValue or 70)
-                if Nexus.Camera.FieldOfView ~= targetFOV then
-                    Nexus.Camera.FieldOfView = targetFOV
-                end
-            end
-        end)
-    end
+    pcall(function()
+        Nexus.Services.RunService:UnbindFromRenderStep("NexusFOVUpdater")
+    end)
+    
+    Nexus.Services.RunService:BindToRenderStep("NexusFOVUpdater", Enum.RenderPriority.Camera.Value + 1, function()
+        if Movement.Settings.fovEnabled and Nexus.Camera then
+            local targetFOV = math.max(1, Movement.Settings.fovTargetValue or 70)
+            Nexus.Camera.FieldOfView = targetFOV
+        end
+    end)
     
     if Nexus.IS_DESKTOP then
         local InfiniteLungeToggle = Tabs.Movement:AddToggle("InfiniteLunge", {
@@ -717,9 +704,13 @@ function Movement.Cleanup()
     stopFreeCamera()
     Movement.Settings.fovEnabled = false
     
+    pcall(function()
+        Nexus.Services.RunService:UnbindFromRenderStep("NexusFOVUpdater")
+    end)
+    
     local camera = Nexus.Camera
     if camera then
-        camera.FieldOfView = 50
+        camera.FieldOfView = 70
     end
     
     if Movement.Objects.bodyVelocity then 
