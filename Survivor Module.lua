@@ -889,72 +889,76 @@ local AutoParry = (function()
     local CHECK_INTERVAL = 0.1
     local connection = nil
     local teamListeners = {}
-    
-    -- Динамический словарь для анимаций
+    local animationMonitors = {}
     local AttackAnimationsLookup = {}
-    local currentLungeholdId = nil
-    
-    -- Функция для поиска анимации lungehold
-    local function findLungeholdAnimation(character)
-        if not character then return nil end
-        
+    local detectedLungeholdId = nil
+
+    local function scanCharacterAnimations(character)
+        if not character then return end
         local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if not humanoid then return nil end
-        
+        if not humanoid then return end
         local animator = humanoid:FindFirstChildOfClass("Animator")
-        if not animator then return nil end
+        if not animator then return end
         
-        -- Ищем анимацию с названием "lungehold"
         for _, track in pairs(animator:GetPlayingAnimationTracks()) do
-            if track and track.Name and string.lower(track.Name) == "lungehold" then
-                local animation = track.Animation
-                if animation and animation.AnimationId then
-                    print("[AutoParry] Найдена анимация lungehold: " .. animation.AnimationId)
-                    return animation.AnimationId
-                end
+            if track and track.Animation and track.Name and string.lower(track.Name) == "lungehold" then
+                detectedLungeholdId = track.Animation.AnimationId
+                AttackAnimationsLookup[detectedLungeholdId] = true
+                return detectedLungeholdId
             end
         end
-        
-        -- Альтернативный поиск по всем трекам
-        for _, track in pairs(animator:GetPlayingAnimationTracks()) do
-            local animation = track.Animation
-            if animation and animation.AnimationId then
-                -- Проверяем, содержит ли имя трека "lunge" или что-то похожее
-                local trackName = string.lower(track.Name)
-                if string.find(trackName, "lunge") or string.find(trackName, "attack") then
-                    print("[AutoParry] Возможная атака: " .. track.Name .. " - " .. animation.AnimationId)
-                    return animation.AnimationId
-                end
-            end
-        end
-        
         return nil
     end
-    
-    -- Мониторинг анимаций противников для обнаружения lungehold
-    local function monitorEnemyAnimations()
+
+    local function startAnimationMonitoring()
+        for player, conn in pairs(animationMonitors) do
+            if conn then
+                conn:Disconnect()
+            end
+        end
+        animationMonitors = {}
+
+        if Nexus.Player.Character then
+            scanCharacterAnimations(Nexus.Player.Character)
+        end
+
         for _, plr in ipairs(Nexus.Services.Players:GetPlayers()) do
             if plr == Nexus.Player then continue end
-            if not plr.Character then continue end
             
-            local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
-            if not humanoid then continue end
-            
-            local animator = humanoid:FindFirstChildOfClass("Animator")
-            if not animator then continue end
-            
-            -- Подписываемся на новые анимации
-            animator.AnimationPlayed:Connect(function(track)
-                if track and track.Name and string.lower(track.Name) == "lungehold" then
-                    local animation = track.Animation
-                    if animation and animation.AnimationId then
-                        currentLungeholdId = animation.AnimationId
-                        AttackAnimationsLookup[currentLungeholdId] = true
-                        print("[AutoParry] Обнаружена новая анимация lungehold: " .. currentLungeholdId)
-                    end
+            local function setupPlayerMonitoring(player)
+                if player.Character then
+                    scanCharacterAnimations(player.Character)
                 end
-            end)
+                
+                local charAddedConn = player.CharacterAdded:Connect(function(character)
+                    task.wait(1)
+                    scanCharacterAnimations(character)
+                end)
+                
+                table.insert(teamListeners, charAddedConn)
+            end
+            
+            setupPlayerMonitoring(plr)
         end
+
+        local playerAddedConn = Nexus.Services.Players.PlayerAdded:Connect(function(player)
+            local function setupNewPlayer()
+                if player.Character then
+                    scanCharacterAnimations(player.Character)
+                end
+                
+                local charAddedConn = player.CharacterAdded:Connect(function(character)
+                    task.wait(1)
+                    scanCharacterAnimations(character)
+                end)
+                
+                table.insert(teamListeners, charAddedConn)
+            end
+            
+            setupNewPlayer()
+        end)
+        
+        table.insert(teamListeners, playerAddedConn)
     end
 
     local function isBlockingInRange()
@@ -962,12 +966,14 @@ local AutoParry = (function()
         if currentTime - lastCheck < CHECK_INTERVAL then return false end
         lastCheck = currentTime
         
-        local myChar, myPos = Nexus.Player.Character, Nexus.Player.Character and Nexus.Player.Character.HumanoidRootPart and Nexus.Player.Character.HumanoidRootPart.Position
+        local myChar = Nexus.Player.Character
+        local myPos = myChar and myChar.HumanoidRootPart and myChar.HumanoidRootPart.Position
         if not myChar or not myPos then return false end
 
         for _, plr in ipairs(Nexus.Services.Players:GetPlayers()) do
             if plr == Nexus.Player then continue end
-            local char, targetRoot = plr.Character, plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+            local char = plr.Character
+            local targetRoot = char and char:FindFirstChild("HumanoidRootPart")
             if not char or not targetRoot then continue end
             
             local targetPos = targetRoot.Position
@@ -977,27 +983,16 @@ local AutoParry = (function()
 
             local hum = char:FindFirstChildOfClass("Humanoid")
             if hum then
-                -- Если еще не нашли lungehold, пытаемся найти
-                if not currentLungeholdId then
-                    local foundId = findLungeholdAnimation(char)
-                    if foundId then
-                        currentLungeholdId = foundId
-                        AttackAnimationsLookup[currentLungeholdId] = true
+                if not detectedLungeholdId then
+                    local found = scanCharacterAnimations(char)
+                    if found then
+                        detectedLungeholdId = found
                     end
                 end
                 
-                -- Проверяем текущие анимации
                 for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
                     if track.Animation and track.Animation.AnimationId then
-                        -- Проверка по ID анимации
                         if AttackAnimationsLookup[track.Animation.AnimationId] then
-                            return true
-                        end
-                        
-                        -- Дополнительная проверка по имени трека
-                        if track.Name and (string.find(string.lower(track.Name), "lunge") or 
-                           string.find(string.lower(track.Name), "attack") or
-                           string.find(string.lower(track.Name), "swing")) then
                             return true
                         end
                     end
@@ -1024,11 +1019,13 @@ local AutoParry = (function()
         end
         
         if Nexus.States.AutoParryEnabled and isSurvivorTeam() then
+            task.spawn(startAnimationMonitoring)
+            
             connection = Nexus.Services.RunService.Heartbeat:Connect(function()
                 if not Nexus.States.AutoParryEnabled or not isSurvivorTeam() then
                     if spamActive then 
-                        spamActive = false; 
-                        Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0) 
+                        spamActive = false
+                        Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0)
                     end
                     return
                 end
@@ -1042,11 +1039,6 @@ local AutoParry = (function()
                     Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0)
                 end
             end)
-            
-            -- Запускаем мониторинг анимаций противников
-            task.spawn(monitorEnemyAnimations)
-        elseif Nexus.States.AutoParryEnabled then
-            -- Можно добавить логику для других команд
         end
     end
 
@@ -1066,20 +1058,25 @@ local AutoParry = (function()
         
         teamListeners = {}
         
-        table.insert(teamListeners, setupTeamListener(setupAutoParry))
+        for player, conn in pairs(animationMonitors) do
+            if conn then
+                conn:Disconnect()
+            end
+        end
+        animationMonitors = {}
         
-        -- Очищаем предыдущие анимации
         AttackAnimationsLookup = {}
-        currentLungeholdId = nil
+        detectedLungeholdId = nil
         
+        table.insert(teamListeners, setupTeamListener(setupAutoParry))
         setupAutoParry()
     end
 
     local function Disable()
         Nexus.States.AutoParryEnabled = false
         if spamActive then 
-            spamActive = false; 
-            Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0) 
+            spamActive = false
+            Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0)
         end 
         
         if connection then
@@ -1097,6 +1094,13 @@ local AutoParry = (function()
             end
         end
         teamListeners = {}
+        
+        for player, conn in pairs(animationMonitors) do
+            if conn then
+                conn:Disconnect()
+            end
+        end
+        animationMonitors = {}
     end
 
     return {
@@ -1107,15 +1111,27 @@ local AutoParry = (function()
             RANGE = tonumber(value) or 10
         end,
         GetRange = function() return RANGE end,
-        -- Новая функция для ручного добавления анимации
         AddAnimation = function(animId)
             if animId and type(animId) == "string" then
                 AttackAnimationsLookup[animId] = true
-                print("[AutoParry] Анимация добавлена: " .. animId)
             end
         end,
-        -- Новая функция для получения текущей анимации lungehold
-        GetLungeholdId = function() return currentLungeholdId end
+        GetDetectedAnimations = function() 
+            return AttackAnimationsLookup 
+        end,
+        GetLungeholdId = function() 
+            return detectedLungeholdId 
+        end,
+        ForceScanAnimations = function()
+            AttackAnimationsLookup = {}
+            detectedLungeholdId = nil
+            
+            for _, plr in ipairs(Nexus.Services.Players:GetPlayers()) do
+                if plr.Character then
+                    scanCharacterAnimations(plr.Character)
+                end
+            end
+        end
     }
 end)()
 
