@@ -891,18 +891,22 @@ local AutoParry = (function()
     local teamListeners = {}
 
     local AttackAnimations = {
-        "rbxassetid://110355011987939",
-        "rbxassetid://139369275981139", 
-        "rbxassetid://117042998468241",
-        "rbxassetid://133963973694098",
-        "rbxassetid://113255068724446",
-        "rbxassetid://74968262036854",
-        "rbxassetid://118907603246885",
-        "rbxassetid://78432063483146",
-        "rbxassetid://129784271201071",
-        "rbxassetid://122812055447896",
-        "rbxassetid://138720291317243",
-        "rbxassetid://105834496520"
+         "rbxassetid://110355011987939",
+         "rbxassetid://139369275981139", 
+         "rbxassetid://117042998468241",
+         "rbxassetid://133963973694098",
+         "rbxassetid://113255068724446",
+         "rbxassetid://74968262036854",
+         "rbxassetid://118907603246885",
+         "rbxassetid://78432063483146",
+         "rbxassetid://129784271201071",
+         "rbxassetid://122812055447896",
+         "rbxassetid://138720291317243",
+         "rbxassetid://105834496520",
+         "rbxassetid://106871536134254", 
+         "rbxassetid://109402730355822", 
+         "rbxassetid://111920872708571",
+         "rbxassetid://105374834496520" 
     }
 
     local AttackAnimationsLookup = {}
