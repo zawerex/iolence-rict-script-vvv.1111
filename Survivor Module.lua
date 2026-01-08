@@ -889,76 +889,25 @@ local AutoParry = (function()
     local CHECK_INTERVAL = 0.1
     local connection = nil
     local teamListeners = {}
-    local animationMonitors = {}
+
+    local AttackAnimations = {
+        "rbxassetid://110355011987939",
+        "rbxassetid://139369275981139", 
+        "rbxassetid://117042998468241",
+        "rbxassetid://133963973694098",
+        "rbxassetid://113255068724446",
+        "rbxassetid://74968262036854",
+        "rbxassetid://118907603246885",
+        "rbxassetid://78432063483146",
+        "rbxassetid://129784271201071",
+        "rbxassetid://122812055447896",
+        "rbxassetid://138720291317243",
+        "rbxassetid://105834496520"
+    }
+
     local AttackAnimationsLookup = {}
-    local detectedLungeholdId = nil
-
-    local function scanCharacterAnimations(character)
-        if not character then return end
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if not humanoid then return end
-        local animator = humanoid:FindFirstChildOfClass("Animator")
-        if not animator then return end
-        
-        for _, track in pairs(animator:GetPlayingAnimationTracks()) do
-            if track and track.Animation and track.Name and string.lower(track.Name) == "lungehold" then
-                detectedLungeholdId = track.Animation.AnimationId
-                AttackAnimationsLookup[detectedLungeholdId] = true
-                return detectedLungeholdId
-            end
-        end
-        return nil
-    end
-
-    local function startAnimationMonitoring()
-        for player, conn in pairs(animationMonitors) do
-            if conn then
-                conn:Disconnect()
-            end
-        end
-        animationMonitors = {}
-
-        if Nexus.Player.Character then
-            scanCharacterAnimations(Nexus.Player.Character)
-        end
-
-        for _, plr in ipairs(Nexus.Services.Players:GetPlayers()) do
-            if plr == Nexus.Player then continue end
-            
-            local function setupPlayerMonitoring(player)
-                if player.Character then
-                    scanCharacterAnimations(player.Character)
-                end
-                
-                local charAddedConn = player.CharacterAdded:Connect(function(character)
-                    task.wait(1)
-                    scanCharacterAnimations(character)
-                end)
-                
-                table.insert(teamListeners, charAddedConn)
-            end
-            
-            setupPlayerMonitoring(plr)
-        end
-
-        local playerAddedConn = Nexus.Services.Players.PlayerAdded:Connect(function(player)
-            local function setupNewPlayer()
-                if player.Character then
-                    scanCharacterAnimations(player.Character)
-                end
-                
-                local charAddedConn = player.CharacterAdded:Connect(function(character)
-                    task.wait(1)
-                    scanCharacterAnimations(character)
-                end)
-                
-                table.insert(teamListeners, charAddedConn)
-            end
-            
-            setupNewPlayer()
-        end)
-        
-        table.insert(teamListeners, playerAddedConn)
+    for _, animId in ipairs(AttackAnimations) do
+        AttackAnimationsLookup[animId] = true
     end
 
     local function isBlockingInRange()
@@ -966,14 +915,12 @@ local AutoParry = (function()
         if currentTime - lastCheck < CHECK_INTERVAL then return false end
         lastCheck = currentTime
         
-        local myChar = Nexus.Player.Character
-        local myPos = myChar and myChar.HumanoidRootPart and myChar.HumanoidRootPart.Position
+        local myChar, myPos = Nexus.Player.Character, Nexus.Player.Character and Nexus.Player.Character.HumanoidRootPart and Nexus.Player.Character.HumanoidRootPart.Position
         if not myChar or not myPos then return false end
 
         for _, plr in ipairs(Nexus.Services.Players:GetPlayers()) do
             if plr == Nexus.Player then continue end
-            local char = plr.Character
-            local targetRoot = char and char:FindFirstChild("HumanoidRootPart")
+            local char, targetRoot = plr.Character, plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
             if not char or not targetRoot then continue end
             
             local targetPos = targetRoot.Position
@@ -983,18 +930,9 @@ local AutoParry = (function()
 
             local hum = char:FindFirstChildOfClass("Humanoid")
             if hum then
-                if not detectedLungeholdId then
-                    local found = scanCharacterAnimations(char)
-                    if found then
-                        detectedLungeholdId = found
-                    end
-                end
-                
                 for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
-                    if track.Animation and track.Animation.AnimationId then
-                        if AttackAnimationsLookup[track.Animation.AnimationId] then
-                            return true
-                        end
+                    if track.Animation and AttackAnimationsLookup[track.Animation.AnimationId] then 
+                        return true 
                     end
                 end
             end
@@ -1019,13 +957,11 @@ local AutoParry = (function()
         end
         
         if Nexus.States.AutoParryEnabled and isSurvivorTeam() then
-            task.spawn(startAnimationMonitoring)
-            
             connection = Nexus.Services.RunService.Heartbeat:Connect(function()
                 if not Nexus.States.AutoParryEnabled or not isSurvivorTeam() then
                     if spamActive then 
-                        spamActive = false
-                        Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0)
+                        spamActive = false; 
+                        Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0) 
                     end
                     return
                 end
@@ -1039,6 +975,7 @@ local AutoParry = (function()
                     Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0)
                 end
             end)
+        elseif Nexus.States.AutoParryEnabled then
         end
     end
 
@@ -1058,25 +995,16 @@ local AutoParry = (function()
         
         teamListeners = {}
         
-        for player, conn in pairs(animationMonitors) do
-            if conn then
-                conn:Disconnect()
-            end
-        end
-        animationMonitors = {}
-        
-        AttackAnimationsLookup = {}
-        detectedLungeholdId = nil
-        
         table.insert(teamListeners, setupTeamListener(setupAutoParry))
+        
         setupAutoParry()
     end
 
     local function Disable()
         Nexus.States.AutoParryEnabled = false
         if spamActive then 
-            spamActive = false
-            Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0)
+            spamActive = false; 
+            Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0) 
         end 
         
         if connection then
@@ -1094,13 +1022,7 @@ local AutoParry = (function()
             end
         end
         teamListeners = {}
-        
-        for player, conn in pairs(animationMonitors) do
-            if conn then
-                conn:Disconnect()
-            end
-        end
-        animationMonitors = {}
+            
     end
 
     return {
@@ -1110,28 +1032,7 @@ local AutoParry = (function()
         SetRange = function(value) 
             RANGE = tonumber(value) or 10
         end,
-        GetRange = function() return RANGE end,
-        AddAnimation = function(animId)
-            if animId and type(animId) == "string" then
-                AttackAnimationsLookup[animId] = true
-            end
-        end,
-        GetDetectedAnimations = function() 
-            return AttackAnimationsLookup 
-        end,
-        GetLungeholdId = function() 
-            return detectedLungeholdId 
-        end,
-        ForceScanAnimations = function()
-            AttackAnimationsLookup = {}
-            detectedLungeholdId = nil
-            
-            for _, plr in ipairs(Nexus.Services.Players:GetPlayers()) do
-                if plr.Character then
-                    scanCharacterAnimations(plr.Character)
-                end
-            end
-        end
+        GetRange = function() return RANGE end
     }
 end)()
 
