@@ -141,7 +141,7 @@ _G.Nexus.Clamp = function(value, min, max)
 end
 
 local function createUI()
-    local windowSize = _G.Nexus.IS_MOBILE and UDim2.fromOffset(350, 200) or UDim2.fromOffset(585, 450)
+    local windowSize = _G.Nexus.IS_MOBILE and UDim2.fromOffset(350, 200) or UDim2.fromOffset(595, 435)
     
     _G.Nexus.Window = Fluent:CreateWindow({
         Title = "NEXUS",
