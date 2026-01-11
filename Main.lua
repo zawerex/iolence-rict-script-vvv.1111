@@ -1,3 +1,8 @@
+if not _G.NEXUS_LOADER_AUTH then
+    error("Access denied: Script must be loaded through Nexus loader")
+end
+_G.NEXUS_LOADER_AUTH = nil
+
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/zawerex/govno435345/refs/heads/main/gffff"))() 
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/zawerex/InterfaceManager/refs/heads/main/InterfaceManager.lua"))()
