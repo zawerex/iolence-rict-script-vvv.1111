@@ -2109,7 +2109,7 @@ function Survivor.Init(nxs)
 
     local AutoVictoryV2Toggle = Tabs.Main:AddToggle("AutoVictoryV2", {
         Title = "Auto Victory V2", 
-        Description = "", 
+        Description = "You can win even if you are hung on a Hook", 
         Default = false
     })
 
