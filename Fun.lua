@@ -10,7 +10,8 @@ local Fun = {
         active = false,
         tool = nil,
         track = nil
-    }
+    },
+    SpinConnection = nil
 }
 
 function Fun.Init(nxs)
@@ -324,22 +325,16 @@ function Fun.StartJerk()
         end)
     end)
 end
+
+function Fun.StopJerk()
+    if Fun.JerkTool.track then
+        Fun.JerkTool.track:Stop()
+        Fun.JerkTool.track = nil
+    end
+    
+    Fun.JerkTool.active = false
     
     if Fun.JerkTool.tool then
-        local deathConnection = Fun.JerkTool.tool:GetAttribute("DeathConnection")
-        local removalConnection = Fun.JerkTool.tool:GetAttribute("RemovalConnection")
-        local characterConnection = Fun.JerkTool.tool:GetAttribute("CharacterConnection")
-        
-        if deathConnection and deathConnection.Connected then
-            deathConnection:Disconnect()
-        end
-        if removalConnection and removalConnection.Connected then
-            removalConnection:Disconnect()
-        end
-        if characterConnection and characterConnection.Connected then
-            characterConnection:Disconnect()
-        end
-        
         Fun.JerkTool.tool:Destroy()
         Fun.JerkTool.tool = nil
     end
@@ -434,4 +429,4 @@ function Fun.Cleanup()
     end
 end
 
-return Fun 
+return Fun
