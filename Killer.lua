@@ -143,6 +143,7 @@ end)()
 
 -- SPEAR CROSSHAIR - -
 
+--[[ 
 local SpearCrosshair = (function()
     local enabled = false
     local crosshairFrame, crosshairX, crosshairY
@@ -329,6 +330,109 @@ local SpearCrosshair = (function()
         teamListeners = {}
     end
     
+    return {
+        Enable = Enable,
+        Disable = Disable,
+        IsEnabled = function() return enabled end
+    }
+end)() 
+]]
+
+-- SIMPLE CROSSHAIR --
+
+local SimpleCrosshair = (function()
+    local enabled = false
+    local crosshairFrame
+    local teamListeners = {}
+    
+    local function createCrosshair()
+        if crosshairFrame then return end
+        
+        local screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "SimpleCrosshair"
+        screenGui.ResetOnSpawn = false
+        screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        screenGui.Parent = Nexus.Player:WaitForChild("PlayerGui")
+
+        crosshairFrame = Instance.new("Frame")
+        crosshairFrame.Name = "CrosshairFrame"
+        crosshairFrame.BackgroundTransparency = 1
+        crosshairFrame.Size = UDim2.new(0, 40, 0, 40)
+        crosshairFrame.Position = UDim2.new(0.5, -20, 0.5, -20)
+        crosshairFrame.Visible = false
+        crosshairFrame.Parent = screenGui
+        
+        local crossX = Instance.new("Frame")
+        crossX.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        crossX.BorderSizePixel = 0
+        crossX.Size = UDim2.new(0, 10, 0, 2)
+        crossX.Position = UDim2.new(0.5, -5, 0.5, -1)
+        crossX.Parent = crosshairFrame
+        
+        local crossY = Instance.new("Frame")
+        crossY.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        crossY.BorderSizePixel = 0
+        crossY.Size = UDim2.new(0, 2, 0, 10)
+        crossY.Position = UDim2.new(0.5, -1, 0.5, -5)
+        crossY.Parent = crosshairFrame
+    end
+
+    local function destroyCrosshair()
+        if crosshairFrame and crosshairFrame.Parent then
+            crosshairFrame.Parent:Destroy()
+        end
+        crosshairFrame = nil
+    end
+
+    local function updateCrosshairState()
+         if enabled and isKillerTeam() then
+             createCrosshair()
+             crosshairFrame.Visible = true
+         else
+             if crosshairFrame then
+                 crosshairFrame.Visible = false
+             end
+         end
+    end
+
+    local function Enable()
+        if enabled then return end
+        enabled = true
+        
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+               for _, conn in ipairs(listener) do
+                   Nexus.safeDisconnect(conn)
+               end
+            else
+               Nexus.safeDisconnect(listener)
+            end
+        end
+        teamListeners = {}
+        
+        table.insert(teamListeners, setupTeamListener(updateCrosshairState))
+        
+        updateCrosshairState()
+    end
+
+    local function Disable()
+        if not enabled then return end
+        enabled = false
+        
+        destroyCrosshair()
+        
+        for _, listener in ipairs(teamListeners) do
+            if type(listener) == "table" then
+                for _, conn in ipairs(listener) do
+                    Nexus.safeDisconnect(conn)
+                end
+            else
+                Nexus.safeDisconnect(listener)
+            end
+        end
+        teamListeners = {}
+    end
+
     return {
         Enable = Enable,
         Disable = Disable,
@@ -910,11 +1014,8 @@ end)()
 
 local BreakGenerator = (function()
     local enabled = false
+    local loop = nil
     local teamListeners = {}
-    local hooked = false
-    local originalNamecall = nil
-    local mt = nil
-    local activeBreaks = {} -- table to track active breaking tasks
     
     local function getGeneratorProgress(gen)
         local progress = 0
@@ -944,103 +1045,53 @@ local BreakGenerator = (function()
         return success and result or nil
     end
 
-    local function setupHook()
-        if hooked then return end
+    local function scanAndBreak()
+        if not enabled or not isKillerTeam() then return end
         
         local BreakGenRemote = getBreakGenEvent()
         if not BreakGenRemote then return end
 
-        mt = getrawmetatable(game)
-        if not mt then return end
-        
-        originalNamecall = mt.__namecall
-        
-        local wasReadonly = isreadonly and isreadonly(mt)
-        if setreadonly then
-            setreadonly(mt, false)
-        end
-        
-        mt.__namecall = newcclosure(function(self, ...)
-            local method = getnamecallmethod()
-            local args = {...}
-            
-            if self == BreakGenRemote and method == "FireServer" and enabled and isKillerTeam() then
-                -- Original call proceeds
-                local result = originalNamecall(self, ...)
-                
-                -- Capture the generator arguments
-                local hitBox = args[1]
-                if hitBox and hitBox:IsDescendantOf(workspace) then
-                    local generator = hitBox.Parent
-                    
-                    -- Avoid duplicate tasks for same generator
-                    if generator and not activeBreaks[generator] then
-                        activeBreaks[generator] = true
-                        
-                        task.spawn(function()
-                            while enabled and isKillerTeam() and activeBreaks[generator] do
-                                if not generator or not generator.Parent then break end
-                                
-                                local progress = getGeneratorProgress(generator)
-                                if progress <= 0 then break end
-                                
-                                OriginalFire = originalNamecall -- Use updated reference if needed, but clousre captures it
-                                
-                                -- Re-fire the event
-                                -- We need to use the method call syntax or originalNamecall properly
-                                -- Since originalNamecall expects self as first arg usually in updated Lua environments or hooks
-                                -- safe way: self:FireServer(unpack(args)) but we are hooked.
-                                -- So use originalNamecall(self, ...args)
-                                
-                                pcall(function()
-                                    originalNamecall(self, unpack(args))
-                                end)
-                                
-                                task.wait(0.05) -- Fast spam
-                            end
-                            activeBreaks[generator] = nil
-                        end)
+        local function check(obj)
+            if obj.Name == "Generator" then
+                local hitbox = obj:FindFirstChild("HitBox")
+                if hitbox then
+                    local progress = getGeneratorProgress(obj)
+                    if progress > 0 then
+                        BreakGenRemote:FireServer(hitbox)
                     end
                 end
-                
-                return result
             end
-            
-            return originalNamecall(self, ...)
-        end)
-        
-        if setreadonly and wasReadonly then
-            setreadonly(mt, true)
         end
-        
-        hooked = true
+
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            check(obj)
+        end
     end
 
-    local function removeHook()
-        if not hooked or not mt or not originalNamecall then return end
-        
-        local wasReadonly = isreadonly and isreadonly(mt)
-        if setreadonly then
-            setreadonly(mt, false)
+    local function startLoop()
+        if loop then return end
+        loop = task.spawn(function()
+            while enabled do
+                if isKillerTeam() then
+                    scanAndBreak()
+                end
+                task.wait(0.25) -- Reduced spam frequency
+            end
+        end)
+    end
+    
+    local function stopLoop()
+        if loop then
+            task.cancel(loop)
+            loop = nil
         end
-        
-        mt.__namecall = originalNamecall
-        
-        if setreadonly and wasReadonly then
-            setreadonly(mt, true)
-        end
-        
-        hooked = false
-        originalNamecall = nil
-        mt = nil
-        activeBreaks = {}
     end
     
     local function updateBreakGenerator()
         if enabled and isKillerTeam() then
-            setupHook()
+            startLoop()
         else
-            removeHook()
+            stopLoop()
         end
     end
     
@@ -1071,7 +1122,7 @@ local BreakGenerator = (function()
         enabled = false
         Nexus.States.BreakGeneratorEnabled = false
         
-        removeHook()
+        stopLoop()
         
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
@@ -2159,18 +2210,18 @@ function Killer.Init(nxs)
     local Tabs = Nexus.Tabs
     local Options = Nexus.Options
     
-    local SpearCrosshairToggle = Tabs.Killer:AddToggle("SpearCrosshair", {
-        Title = "Spear Crosshair (Veil)", 
-        Description = "Shows the scope in Veil spear mode", 
+    local SimpleCrosshairToggle = Tabs.Killer:AddToggle("SimpleCrosshair", {
+        Title = "Simple Crosshair", 
+        Description = "Shows a small white crosshair (Killer only)", 
         Default = false
     })
 
-    SpearCrosshairToggle:OnChanged(function(v)
+    SimpleCrosshairToggle:OnChanged(function(v)
         Nexus.SafeCallback(function()
             if v then 
-                SpearCrosshair.Enable() 
+                SimpleCrosshair.Enable() 
             else 
-                SpearCrosshair.Disable() 
+                SimpleCrosshair.Disable() 
             end
         end)
     end)
@@ -2413,7 +2464,7 @@ end
 
 function Killer.Cleanup()
     
-    SpearCrosshair.Disable()
+    SimpleCrosshair.Disable()
     DestroyPallets.Disable()
     NoSlowdown.Disable()
     Hitbox.Disable()
