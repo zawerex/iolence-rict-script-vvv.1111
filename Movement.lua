@@ -631,6 +631,58 @@ function Movement.Init(nxs)
         end
     })
 
+    local function GetPlayerNames()
+        local names = {"--"}
+        for _, player in ipairs(Nexus.Services.Players:GetPlayers()) do
+            if player ~= Nexus.Player then
+                table.insert(names, player.Name)
+            end
+        end
+        return names
+    end
+
+    local PlayerDropdown = Tabs.Movement:AddDropdown("TeleportToPlayer", {
+        Title = "Teleport to Player",
+        Values = GetPlayerNames(),
+        Multi = false,
+        Default = "--",
+    })
+
+    local function UpdatePlayerDropdown()
+        if PlayerDropdown and PlayerDropdown.SetValues then
+             pcall(function() PlayerDropdown:SetValues(GetPlayerNames()) end)
+        end
+    end
+
+    table.insert(Movement.Connections, Nexus.Services.Players.PlayerAdded:Connect(UpdatePlayerDropdown))
+    table.insert(Movement.Connections, Nexus.Services.Players.PlayerRemoving:Connect(UpdatePlayerDropdown))
+
+    PlayerDropdown:OnChanged(function(value)
+        if value ~= "--" then
+            Nexus.SafeCallback(function()
+                local targetPlayer = Nexus.Services.Players:FindFirstChild(value)
+                if targetPlayer then
+                    local targetChar = targetPlayer.Character
+                    if targetChar then
+                        local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+                        local localRoot = Movement.GetRootPart()
+                        
+                        if localRoot and targetRoot then
+                            localRoot.CFrame = targetRoot.CFrame + Vector3.new(0, 3, 0)
+                            Nexus.Notify("Teleport", "Teleported to " .. value, 3)
+                        end
+                    end
+                end
+                
+                task.delay(0.1, function()
+                     if PlayerDropdown and PlayerDropdown.SetValue then
+                        pcall(function() PlayerDropdown:SetValue("--") end)
+                     end
+                end)
+            end)
+        end
+    end)
+
     if Nexus.IS_DESKTOP then
         local FlyToggle = Tabs.Movement:AddToggle("Fly", {
             Title = "Fly", 
