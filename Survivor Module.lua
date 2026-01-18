@@ -974,13 +974,12 @@ local AutoParry = (function()
     local spamActive = false
     local RANGE = 10
     local lastCheck = 0
-    local CHECK_INTERVAL = 0.1
+    local CHECK_INTERVAL = 0
     local connection = nil
     local teamListeners = {}
 
     local AttackAnimations = {
          "rbxassetid://110355011987939",
-         "rbxassetid://139369275981139", 
          "rbxassetid://117042998468241",
          "rbxassetid://133963973694098",
          "rbxassetid://113255068724446",
@@ -990,7 +989,6 @@ local AutoParry = (function()
          "rbxassetid://129784271201071",
          "rbxassetid://122812055447896",
          "rbxassetid://138720291317243",
-         "rbxassetid://105834496520",
          "rbxassetid://106871536134254", 
          "rbxassetid://109402730355822", 
          "rbxassetid://111920872708571",
@@ -1036,7 +1034,7 @@ local AutoParry = (function()
         spamActive = true
         Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, true, game, 0)
         task.spawn(function()
-            task.wait(0.01)
+            task.wait()
             Nexus.Services.VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 0)
             spamActive = false
         end)
