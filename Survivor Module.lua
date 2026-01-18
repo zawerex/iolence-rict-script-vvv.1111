@@ -995,19 +995,13 @@ local AutoParry = (function()
             local distance = (myPos - targetPos).Magnitude
             
             if distance <= RANGE then
-                -- 1. Проверка направления (Враг должен смотреть на нас)
-                local vecToMe = (myPos - targetPos).Unit
-                local lookVec = targetRoot.CFrame.LookVector
-                if lookVec:Dot(vecToMe) < 0.3 then continue end -- Угол ~70 градусов
-
-                -- 2. Проверка ЗВУКА удара (Swing/Slash/Attack) - работает без анимаций
                 local partsToCheck = {targetRoot, char:FindFirstChild("Torso"), char:FindFirstChild("UpperTorso"), char:FindFirstChild("Head")}
                 local tool = char:FindFirstChildOfClass("Tool")
                 if tool and tool:FindFirstChild("Handle") then table.insert(partsToCheck, tool.Handle) end
 
                 for _, part in ipairs(partsToCheck) do
                     for _, sound in ipairs(part:GetChildren()) do
-                        if sound:IsA("Sound") and sound.Playing and sound.TimePosition < 0.3 then
+                        if sound:IsA("Sound") and sound.Playing and sound.TimePosition < 0.1 then
                             local name = sound.Name:lower()
                             if (name:find("swing") or name:find("slash") or name:find("atk") or name:find("hit")) and 
                                not (name:find("walk") or name:find("run") or name:find("step")) then
@@ -1016,9 +1010,6 @@ local AutoParry = (function()
                         end
                     end
                 end
-
-                -- 3. Детект АНИМАЦИИ ПО ПРИОРИТЕТУ (Вместо ID)
-                -- Атаки всегда имеют приоритет Action (2) и выше
                 local hum = char:FindFirstChildOfClass("Humanoid")
                 if hum then
                     for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
@@ -1028,10 +1019,8 @@ local AutoParry = (function()
                             priority == Enum.AnimationPriority.Action3 or 
                             priority == Enum.AnimationPriority.Action4) then
                             
-                            -- Длинные анимации обычно эмоции, короткие - удары
                             if track.Length > 0.1 and track.Length < 1.2 then 
-                                -- Реагируем только на начало удара
-                                if track.TimePosition < 0.4 then
+                                if track.TimePosition < 0.030 then
                                     return true 
                                 end
                             end
