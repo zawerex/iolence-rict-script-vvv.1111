@@ -978,6 +978,28 @@ local AutoParry = (function()
     local connection = nil
     local teamListeners = {}
 
+    local AttackAnimations = {
+         "rbxassetid://110355011987939",
+         "rbxassetid://117042998468241",
+         "rbxassetid://133963973694098",
+         "rbxassetid://113255068724446",
+         "rbxassetid://74968262036854",
+         "rbxassetid://118907603246885",
+         "rbxassetid://78432063483146",
+         "rbxassetid://129784271201071",
+         "rbxassetid://122812055447896",
+         "rbxassetid://138720291317243",
+         "rbxassetid://106871536134254", 
+         "rbxassetid://109402730355822", 
+         "rbxassetid://111920872708571",
+         "rbxassetid://105374834496520" 
+    }
+
+    local AttackAnimationsLookup = {}
+    for _, animId in ipairs(AttackAnimations) do
+        AttackAnimationsLookup[animId] = true
+    end
+
     local function isBlockingInRange()
         local currentTime = tick()
         if currentTime - lastCheck < CHECK_INTERVAL then return false end
@@ -994,37 +1016,13 @@ local AutoParry = (function()
             local targetPos = targetRoot.Position
             local distance = (myPos - targetPos).Magnitude
             
-            if distance <= RANGE then
-                local partsToCheck = {targetRoot, char:FindFirstChild("Torso"), char:FindFirstChild("UpperTorso"), char:FindFirstChild("Head")}
-                local tool = char:FindFirstChildOfClass("Tool")
-                if tool and tool:FindFirstChild("Handle") then table.insert(partsToCheck, tool.Handle) end
+            if distance > RANGE then continue end
 
-                for _, part in ipairs(partsToCheck) do
-                    for _, sound in ipairs(part:GetChildren()) do
-                        if sound:IsA("Sound") and sound.Playing and sound.TimePosition < 0.1 then
-                            local name = sound.Name:lower()
-                            if (name:find("swing") or name:find("slash") or name:find("atk") or name:find("hit")) and 
-                               not (name:find("walk") or name:find("run") or name:find("step")) then
-                                return true
-                            end
-                        end
-                    end
-                end
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum then
-                    for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
-                        local priority = track.Priority
-                        if (priority == Enum.AnimationPriority.Action or 
-                            priority == Enum.AnimationPriority.Action2 or 
-                            priority == Enum.AnimationPriority.Action3 or 
-                            priority == Enum.AnimationPriority.Action4) then
-                            
-                            if track.Length > 0.1 and track.Length < 1.2 then 
-                                if track.TimePosition < 0.030 then
-                                    return true 
-                                end
-                            end
-                        end
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
+                    if track.Animation and AttackAnimationsLookup[track.Animation.AnimationId] then 
+                        return true 
                     end
                 end
             end
