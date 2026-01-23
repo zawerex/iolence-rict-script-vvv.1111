@@ -974,12 +974,13 @@ local AutoParry = (function()
     local spamActive = false
     local RANGE = 10
     local lastCheck = 0
-    local CHECK_INTERVAL = 0
+    local CHECK_INTERVAL = 0.01
     local connection = nil
     local teamListeners = {}
 
     local AttackAnimations = {
          "rbxassetid://110355011987939",
+         "rbxassetid://139369275981139",
          "rbxassetid://117042998468241",
          "rbxassetid://133963973694098",
          "rbxassetid://113255068724446",
