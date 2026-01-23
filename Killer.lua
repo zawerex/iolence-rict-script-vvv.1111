@@ -2185,7 +2185,7 @@ function Killer.Init(nxs)
     end)
 
     local DestroyPalletsToggle = Tabs.Killer:AddToggle("DestroyPallets", {
-        Title = "Destroy Pallets [He also works for the survivor]", 
+        Title = "Destroy All Pallets [He also works for the survivor]", 
         Description = "Smash all the pallets on the map", 
         Default = false
     })
@@ -2264,7 +2264,7 @@ function Killer.Init(nxs)
 
     local ThirdPersonToggle = Tabs.Killer:AddToggle("ThirdPerson", {
         Title = "Third Person", 
-        Description = "Toggle third person view (Killer only)", 
+        Description = "Toggle third person view", 
         Default = false
     })
 
@@ -2327,7 +2327,7 @@ function Killer.Init(nxs)
     end)
 
     local UseFakeSawToggle = Tabs.Killer:AddToggle("UseFakeSaw", {
-        Title = "Use Fake Saw", 
+        Title = "Use Fake Saw [ONLY MASKED]", 
         Description = "Continuously activates Alex's chainsaw attack (kills from 1 time)", 
         Default = false
     })
