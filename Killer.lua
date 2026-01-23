@@ -143,7 +143,6 @@ end)()
 
 -- SPEAR CROSSHAIR - -
 
---[[ 
 local SpearCrosshair = (function()
     local enabled = false
     local crosshairFrame, crosshairX, crosshairY
@@ -201,11 +200,8 @@ local SpearCrosshair = (function()
         local shouldShow = false
         
         if enabled and isKillerTeam() and character then
-            local spearMode = character:GetAttribute("spearmode") or character:GetAttribute("SpearMode")
-            if spearMode then
-                local modeStr = tostring(spearMode):lower()
-                shouldShow = (modeStr == "spearing" or modeStr == "aiming") -- Added aiming just in case
-            end
+            local spearMode = character:GetAttribute("spearmode")
+            shouldShow = spearMode == "spearing"
         end
         
         crosshairFrame.Visible = shouldShow
@@ -330,109 +326,6 @@ local SpearCrosshair = (function()
         teamListeners = {}
     end
     
-    return {
-        Enable = Enable,
-        Disable = Disable,
-        IsEnabled = function() return enabled end
-    }
-end)() 
-]]
-
--- SIMPLE CROSSHAIR --
-
-local SimpleCrosshair = (function()
-    local enabled = false
-    local crosshairFrame
-    local teamListeners = {}
-    
-    local function createCrosshair()
-        if crosshairFrame then return end
-        
-        local screenGui = Instance.new("ScreenGui")
-        screenGui.Name = "SimpleCrosshair"
-        screenGui.ResetOnSpawn = false
-        screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        screenGui.Parent = Nexus.Player:WaitForChild("PlayerGui")
-
-        crosshairFrame = Instance.new("Frame")
-        crosshairFrame.Name = "CrosshairFrame"
-        crosshairFrame.BackgroundTransparency = 1
-        crosshairFrame.Size = UDim2.new(0, 40, 0, 40)
-        crosshairFrame.Position = UDim2.new(0.5, -20, 0.5, -20)
-        crosshairFrame.Visible = false
-        crosshairFrame.Parent = screenGui
-        
-        local crossX = Instance.new("Frame")
-        crossX.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        crossX.BorderSizePixel = 0
-        crossX.Size = UDim2.new(0, 10, 0, 2)
-        crossX.Position = UDim2.new(0.5, -5, 0.5, -1)
-        crossX.Parent = crosshairFrame
-        
-        local crossY = Instance.new("Frame")
-        crossY.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        crossY.BorderSizePixel = 0
-        crossY.Size = UDim2.new(0, 2, 0, 10)
-        crossY.Position = UDim2.new(0.5, -1, 0.5, -5)
-        crossY.Parent = crosshairFrame
-    end
-
-    local function destroyCrosshair()
-        if crosshairFrame and crosshairFrame.Parent then
-            crosshairFrame.Parent:Destroy()
-        end
-        crosshairFrame = nil
-    end
-
-    local function updateCrosshairState()
-         if enabled and isKillerTeam() then
-             createCrosshair()
-             crosshairFrame.Visible = true
-         else
-             if crosshairFrame then
-                 crosshairFrame.Visible = false
-             end
-         end
-    end
-
-    local function Enable()
-        if enabled then return end
-        enabled = true
-        
-        for _, listener in ipairs(teamListeners) do
-            if type(listener) == "table" then
-               for _, conn in ipairs(listener) do
-                   Nexus.safeDisconnect(conn)
-               end
-            else
-               Nexus.safeDisconnect(listener)
-            end
-        end
-        teamListeners = {}
-        
-        table.insert(teamListeners, setupTeamListener(updateCrosshairState))
-        
-        updateCrosshairState()
-    end
-
-    local function Disable()
-        if not enabled then return end
-        enabled = false
-        
-        destroyCrosshair()
-        
-        for _, listener in ipairs(teamListeners) do
-            if type(listener) == "table" then
-                for _, conn in ipairs(listener) do
-                    Nexus.safeDisconnect(conn)
-                end
-            else
-                Nexus.safeDisconnect(listener)
-            end
-        end
-        teamListeners = {}
-    end
-
     return {
         Enable = Enable,
         Disable = Disable,
@@ -1014,7 +907,8 @@ end)()
 
 local BreakGenerator = (function()
     local enabled = false
-    local loop = nil
+    local spamInProgress = false
+    local maxSpamCount = 1000
     local teamListeners = {}
     
     local function getGeneratorProgress(gen)
@@ -1038,61 +932,123 @@ local BreakGenerator = (function()
         return math.clamp(progress, 0, 1)
     end
 
-    local function getBreakGenEvent()
-        local success, result = pcall(function()
-            return Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Generator"):WaitForChild("BreakGenEvent")
-        end)
-        return success and result or nil
-    end
-
-    local function scanAndBreak()
-        if not enabled or not isKillerTeam() then return end
+    local function FindNearestGenerator(maxDistance)
+        local character = Nexus.getCharacter()
+        if not character then return nil end
         
-        local BreakGenRemote = getBreakGenEvent()
-        if not BreakGenRemote then return end
-
-        local function check(obj)
+        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+        if not humanoidRootPart then return nil end
+        
+        local playerPosition = humanoidRootPart.Position
+        local nearestGenerator = nil
+        local nearestDistance = math.huge
+        
+        for _, obj in ipairs(Nexus.Services.Workspace:GetDescendants()) do
             if obj.Name == "Generator" then
-                local hitbox = obj:FindFirstChild("HitBox")
-                if hitbox then
-                    local progress = getGeneratorProgress(obj)
-                    if progress > 0 then
-                        BreakGenRemote:FireServer(hitbox)
+                local hitBox = obj:FindFirstChild("HitBox")
+                if hitBox then
+                    local distance = (hitBox.Position - playerPosition).Magnitude
+                    if distance < nearestDistance and distance <= maxDistance then
+                        nearestDistance = distance
+                        nearestGenerator = obj
                     end
                 end
             end
         end
-
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            check(obj)
-        end
+        
+        return nearestGenerator, nearestDistance
     end
 
-    local function startLoop()
-        if loop then return end
-        loop = task.spawn(function()
-            while enabled do
-                if isKillerTeam() then
-                    scanAndBreak()
+    local function FullGeneratorBreak()
+        if not isKillerTeam() then return false end
+        
+        local nearestGenerator, distance = FindNearestGenerator(10)
+        if not nearestGenerator then return false end
+        
+        local progress = getGeneratorProgress(nearestGenerator)
+        if progress <= 0 then return false end
+        
+        local BreakGenEvent = Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Generator"):WaitForChild("BreakGenEvent")
+        local hitBox = nearestGenerator:FindFirstChild("HitBox")
+        
+        if hitBox then
+            BreakGenEvent:FireServer(hitBox, 0, true)
+            return true
+        end
+        
+        return false
+    end
+
+    local function SpamGeneratorBreak()
+        if spamInProgress then return end
+        
+        if not isKillerTeam() then return end
+        if not Nexus.Player.Character then return end
+        
+        local nearestGenerator = FindNearestGenerator(10)
+        if not nearestGenerator then return end
+        
+        spamInProgress = true
+        local spamCount = 0
+        
+        local connection
+        connection = Nexus.Services.RunService.Heartbeat:Connect(function()
+            if not spamInProgress then
+                if connection then connection:Disconnect() end
+                return
+            end
+            
+            if not isKillerTeam() or not Nexus.Player.Character then
+                spamInProgress = false
+                if connection then connection:Disconnect() end
+                return
+            end
+            
+            local currentGenerator = FindNearestGenerator(10)
+            if not currentGenerator then
+                spamInProgress = false
+                if connection then connection:Disconnect() end
+                return
+            end
+            
+            local progress = getGeneratorProgress(currentGenerator)
+            if progress <= 0 then
+                spamInProgress = false
+                if connection then connection:Disconnect() end
+                return
+            end
+            
+            local hitBox = currentGenerator:FindFirstChild("HitBox")
+            if hitBox then
+                local BreakGenEvent = Nexus.Services.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Generator"):WaitForChild("BreakGenEvent")
+                BreakGenEvent:FireServer(hitBox, 0, true)
+                spamCount = spamCount + 1
+                
+                if spamCount >= maxSpamCount then
+                    spamInProgress = false
+                    if connection then connection:Disconnect() end
+                    return
                 end
-                task.wait(0.25) -- Reduced spam frequency
+            else
+                spamInProgress = false
+                if connection then connection:Disconnect() end
+                return
+            end
+        end)
+        
+        local stopConnection
+        stopConnection = Nexus.Services.UserInputService.InputBegan:Connect(function(input, gameProcessed)
+            if not gameProcessed and input.KeyCode == Enum.KeyCode.Space then
+                if spamInProgress then
+                    spamInProgress = false
+                    if connection then connection:Disconnect() end
+                    if stopConnection then stopConnection:Disconnect() end
+                end
             end
         end)
     end
     
-    local function stopLoop()
-        if loop then
-            task.cancel(loop)
-            loop = nil
-        end
-    end
-    
     local function updateBreakGenerator()
-        if enabled and isKillerTeam() then
-            startLoop()
-        else
-            stopLoop()
-        end
     end
     
     local function Enable()
@@ -1122,7 +1078,7 @@ local BreakGenerator = (function()
         enabled = false
         Nexus.States.BreakGeneratorEnabled = false
         
-        stopLoop()
+        spamInProgress = false
         
         for _, listener in ipairs(teamListeners) do
             if type(listener) == "table" then
@@ -1139,7 +1095,9 @@ local BreakGenerator = (function()
     return {
         Enable = Enable,
         Disable = Disable,
-        IsEnabled = function() return enabled end
+        IsEnabled = function() return enabled end,
+        FullGeneratorBreak = FullGeneratorBreak,
+        SpamGeneratorBreak = SpamGeneratorBreak
     }
 end)()
 
@@ -2210,18 +2168,18 @@ function Killer.Init(nxs)
     local Tabs = Nexus.Tabs
     local Options = Nexus.Options
     
-    local SimpleCrosshairToggle = Tabs.Killer:AddToggle("SimpleCrosshair", {
-        Title = "Simple Crosshair", 
-        Description = "Shows a small white crosshair (Killer only)", 
+    local SpearCrosshairToggle = Tabs.Killer:AddToggle("SpearCrosshair", {
+        Title = "Spear Crosshair (Veil)", 
+        Description = "Shows the scope in Veil spear mode", 
         Default = false
     })
 
-    SimpleCrosshairToggle:OnChanged(function(v)
+    SpearCrosshairToggle:OnChanged(function(v)
         Nexus.SafeCallback(function()
             if v then 
-                SimpleCrosshair.Enable() 
+                SpearCrosshair.Enable() 
             else 
-                SimpleCrosshair.Disable() 
+                SpearCrosshair.Disable() 
             end
         end)
     end)
@@ -2464,7 +2422,7 @@ end
 
 function Killer.Cleanup()
     
-    SimpleCrosshair.Disable()
+    SpearCrosshair.Disable()
     DestroyPallets.Disable()
     NoSlowdown.Disable()
     Hitbox.Disable()
